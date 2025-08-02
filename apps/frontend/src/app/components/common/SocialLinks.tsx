@@ -1,10 +1,11 @@
 import Link from 'next/link'
+import type { ReactNode, FC } from 'react'
 import { FaFacebookF, FaInstagram, FaTiktok, FaPhoneAlt } from 'react-icons/fa'
 import { SiZalo } from 'react-icons/si'
 
 interface SocialItem {
   href: string
-  icon: React.ReactNode
+  icon: ReactNode
   label: string
   bgColor?: string
 }
@@ -12,11 +13,11 @@ interface SocialItem {
 interface SocialLinksProps {
   items?: SocialItem[]
   className?: string
-  iconSize?: 'sm' | 'md' | 'lg'
+  iconSize?: 'sm' | 'md' | 'lg' | 'responsive'
   variant?: 'circle' | 'square' | 'rounded'
 }
 
-const SocialLinks: React.FC<SocialLinksProps> = ({
+const SocialLinks: FC<SocialLinksProps> = ({
   items = [
     {
       href: 'tel:+84123456789',
@@ -40,13 +41,13 @@ const SocialLinks: React.FC<SocialLinksProps> = ({
       href: 'https://www.tiktok.com/@nguyendinhthinhstudio',
       icon: <FaTiktok />,
       label: 'TikTok',
-      bgColor: 'bg-black opacity-82'
+      bgColor: 'bg-black opacity-[0.82]'
     },
     {
       href: 'https://zalo.me/0899990497',
       icon: <SiZalo />,
       label: 'Zalo',
-      bgColor: 'bg-[#0157da] opacity-85'
+      bgColor: 'bg-[#0157da] opacity-[0.85]'
     }
   ],
   className = '',
@@ -56,7 +57,8 @@ const SocialLinks: React.FC<SocialLinksProps> = ({
   const sizeClasses = {
     sm: 'w-8 h-8 text-xs',
     md: 'w-10 h-10 text-sm',
-    lg: 'w-12 h-12 text-2xl'
+    lg: 'w-12 h-12 text-2xl',
+    responsive: 'w-6 h-6 md:w-8 md:h-8 lg:w-10 lg:h-10 text-xs md:text-sm lg:text-base'
   }
 
   const variantClasses = {
@@ -66,14 +68,14 @@ const SocialLinks: React.FC<SocialLinksProps> = ({
   }
 
   return (
-    <div className={`flex items-center gap-2 ${className}`}>
-      {items.map((item, index) => (
+    <div className={`flex items-center gap-1 md:gap-2 lg:gap-3 ${className}`}>
+      {items.map((item) => (
         <Link
-          key={index}
+          key={item.href}
           href={item.href}
           target={item.href.startsWith('http') ? '_blank' : undefined}
           rel={item.href.startsWith('http') ? 'noopener noreferrer' : undefined}
-          className={` ${sizeClasses[iconSize]} ${variantClasses[variant]} ${item.bgColor || 'bg-gray-500'} group flex cursor-pointer items-center justify-center text-white transition-all duration-300 hover:scale-110 hover:shadow-lg`}
+          className={` ${sizeClasses[iconSize]} ${variantClasses[variant]} ${item.bgColor ?? 'bg-gray-500'} group flex cursor-pointer items-center justify-center text-white transition-all duration-300 hover:scale-110 hover:shadow-lg`}
           title={item.label}
         >
           <span className="transition-transform duration-200 group-hover:scale-110">{item.icon}</span>

@@ -5,12 +5,12 @@ export function Card({
   title,
   children,
   href,
-}: {
+}: Readonly<{
   className?: string;
   title: string;
   children: React.ReactNode;
   href: string;
-}): JSX.Element {
+}>): Readonly<JSX.Element> {
   return (
     <a
       className={className}

@@ -3,9 +3,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Image from 'next/image'
 
-import heroBg1 from '../../images/hero-bg.png'
-import heroBg2 from '../../images/hero-bg-2.png'
-import heroBg3 from '../../images/hero-bg-3.png'
+import heroBg1 from '../../images/hero-bg.jpg'
+import heroBg2 from '../../images/hero-bg-2.jpg'
+import heroBg3 from '../../images/hero-bg-3.jpg'
 import useHoverEffect from '@/app/hooks/useHoverEffect'
 
 interface HeroImage {
@@ -44,10 +44,13 @@ const AppHero: React.FC<HeroProps> = ({ autoPlayInterval = 4000, images: customI
   }, [nextImage, images.length, autoPlayInterval])
 
   useEffect(() => {
-    const nextIndex = currentImageIndex === images.length - 1 ? 0 : currentImageIndex + 1
-    const nextImage = new window.Image()
-    nextImage.src = images[nextIndex]?.src
-  }, [currentImageIndex, images])
+    images.forEach((image, index) => {
+      if (index !== 0) {
+        const img = new window.Image()
+        img.src = image.src
+      }
+    })
+  }, [images])
 
   const hoverEffect = useHoverEffect({
     enableScale: true,
@@ -55,34 +58,47 @@ const AppHero: React.FC<HeroProps> = ({ autoPlayInterval = 4000, images: customI
     enableSlideUp: true
   })
 
+  const getObjectPosition = (index: number): string => {
+    if (index === 1) return 'center center'
+    if (index === 2) return 'center 35%'
+    return 'center 20%'
+  }
+
   return (
     <section
       className="relative h-[30vh] w-full overflow-hidden sm:h-[70vh] md:h-[80vh] lg:h-[88vh] xl:h-[92vh]"
       aria-label="Hero section"
     >
       <div className="absolute inset-0">
-        {images.map((image, index) => (
-          <div
-            key={image.src}
-            className={`absolute inset-0 transition-opacity duration-500 ease-in-out ${
-              index === currentImageIndex ? 'opacity-100' : 'opacity-0'
-            }`}
-          >
-            <Image
-              src={image.src}
-              alt={image.alt}
-              fill
-              sizes="100vw"
-              className="object-cover object-center"
-              priority={image.priority || index === 0}
-              quality={85}
-              onError={() => console.error(`Failed to load image: ${image.src}`)}
-              style={{
-                objectPosition: 'center center'
-              }}
-            />
-          </div>
-        ))}
+        {images.map((image, index) => {
+          const nextIndex = currentImageIndex === images.length - 1 ? 0 : currentImageIndex + 1
+          const shouldRender = index === currentImageIndex || index === nextIndex
+          
+          if (!shouldRender) return null
+          
+          return (
+            <div
+              key={image.src}
+              className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
+                index === currentImageIndex ? 'opacity-100' : 'opacity-0'
+              }`}
+            >
+              <Image
+                src={image.src}
+                alt={image.alt}
+                fill
+                sizes="100vw"
+                className="object-cover object-center"
+                priority={image.priority || index === 0}
+                quality={85}
+                onError={() => console.error(`Failed to load image: ${image.src}`)}
+                style={{
+                  objectPosition: getObjectPosition(index)
+                }}
+              />
+            </div>
+          )
+        })}
       </div>
 
       <div className="absolute inset-0 bg-black/30" />

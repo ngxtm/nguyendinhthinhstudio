@@ -58,6 +58,11 @@ const AnimatedContent: React.FC<AnimatedContentProps> = ({
       duration,
       ease,
       delay,
+      onStart: () => {
+        if (animateOpacity && initialOpacity === 0) {
+          el.style.visibility = 'visible'
+        }
+      },
       onComplete,
       scrollTrigger: {
         trigger: el,
@@ -85,7 +90,17 @@ const AnimatedContent: React.FC<AnimatedContentProps> = ({
     onComplete
   ])
 
-  return <div ref={ref}>{children}</div>
+  return (
+    <div 
+      ref={ref} 
+      style={{ 
+        opacity: animateOpacity ? initialOpacity : 1,
+        visibility: animateOpacity && initialOpacity === 0 ? 'hidden' : 'visible'
+      }}
+    >
+      {children}
+    </div>
+  )
 }
 
 export default AnimatedContent

@@ -5,7 +5,7 @@ export default function Footer() {
     <footer className="w-full bg-[#54595f] pt-16 pb-8">
       {/* Logo */}
       <div className="text-center mb-16">
-        <h1 className="font-kapakana text-6xl md:text-7xl text-white">NguyenDinhThinh</h1>
+        <h1 className="font-kapakana text-4xl md:text-5xl lg:text-7xl text-white">NguyenDinhThinh</h1>
       </div>
 
       {/* Main Content */}
@@ -14,38 +14,38 @@ export default function Footer() {
           
           {/* Left Column - Contact Info */}
           <div>
-            <h2 className="text-white text-lg font-semibold mb-8 tracking-wider">LIÊN HỆ CHÚNG TÔI</h2>
+            <h2 className="text-white text-sm md:text-md lg:text-lg font-semibold mb-8 tracking-wider">LIÊN HỆ CHÚNG TÔI</h2>
             <div className="space-y-6">
-              <div className="flex items-center space-x-4">
-                <div className="w-5 h-5 flex-shrink-0">
+              <div className="flex items-start space-x-4">
+                <div className="w-5 h-5 flex-shrink-0 mt-0.5">
                   <svg className="w-full h-full fill-white" viewBox="0 0 24 24">
                     <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
                   </svg>
                 </div>
-                <Link href="mailto:contact@nguyendinhthinhstudio.com" className="text-gray-300 hover:text-white transition-colors">
-                  Contact Gmail
+                <Link href="mailto:contact@nguyendinhthinhstudio.com" className="text-gray-300 hover:text-white transition-colors leading-relaxed text-sm md:text-md lg:text-lg">
+                  Liên hệ email
                 </Link>
               </div>
               
-              <div className="flex items-center space-x-4">
-                <div className="w-5 h-5 flex-shrink-0">
+              <div className="flex items-start space-x-4">
+                <div className="w-5 h-5 flex-shrink-0 mt-0.5">
                   <svg className="w-full h-full fill-white" viewBox="0 0 24 24">
                     <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
                   </svg>
                 </div>
-                <Link href="https://facebook.com/nguyendinhthinhstudio" className="text-gray-300 hover:text-white transition-colors">
+                <Link href="https://facebook.com/nguyendinhthinhstudio" className="text-gray-300 hover:text-white transition-colors leading-relaxed text-sm md:text-md lg:text-lg">
                   Facebook Fanpage
                 </Link>
               </div>
               
-              <div className="flex items-center space-x-4">
-                <div className="w-5 h-5 flex-shrink-0">
+              <div className="flex items-start space-x-4">
+                <div className="w-5 h-5 flex-shrink-0 mt-0.5">
                   <svg className="w-full h-full fill-white" viewBox="0 0 24 24">
                     <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
                   </svg>
                 </div>
-                <Link href="/showroom" className="text-gray-300 hover:text-white transition-colors">
-                  Showroom in Viet Nam
+                <Link href="/showroom" className="text-gray-300 hover:text-white transition-colors leading-relaxed text-sm md:text-md lg:text-lg">
+                  Showroom ở Việt Nam
                 </Link>
               </div>
             </div>
@@ -53,7 +53,7 @@ export default function Footer() {
 
           {/* Right Column - Terms & Privacy */}
           <div>
-            <h2 className="text-white text-lg font-semibold mb-8 tracking-wider">ĐIỀU KHOẢN & BẢO MẬT</h2>
+            <h2 className="text-white text-sm md:text-md lg:text-lg font-semibold mb-8 tracking-wider">ĐIỀU KHOẢN & CHÍNH SÁCH</h2>
             <div className="space-y-4">
               {/* <Link href="/copyright-brand" className="block text-gray-300 hover:text-white transition-colors">
                 Bản quyền thương hiệu
@@ -64,10 +64,10 @@ export default function Footer() {
               <Link href="/terms-purchase" className="block text-gray-300 hover:text-white transition-colors">
                 Điều khoản mua hàng
               </Link> */}
-              <Link href="/dieu-khoan-dich-vu" className="block text-gray-300 hover:text-white transition-colors">
+              <Link href="/dieu-khoan-dich-vu" className="block text-gray-300 hover:text-white transition-colors text-sm md:text-md lg:text-lg">
                 Điều khoản dịch vụ
               </Link>
-              <Link href="/chinh-sach-bao-hanh" className="block text-gray-300 hover:text-white transition-colors">
+              <Link href="/chinh-sach-bao-hanh" className="block text-gray-300 hover:text-white transition-colors text-sm md:text-md lg:text-lg">
                 Chính sách bảo hành
               </Link>
             </div>

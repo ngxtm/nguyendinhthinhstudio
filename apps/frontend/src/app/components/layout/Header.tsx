@@ -50,22 +50,22 @@ const Header: React.FC<HeaderProps> = ({
   ]
 }) => {
   return (
-    <header className={`flex items-center justify-between px-12 py-4 ${className}`}>
+    <header className={`flex items-center justify-between px-4 sm:px-6 md:px-8 lg:px-12 py-3 sm:py-4 ${className}`}>
       {/* Logo */}
       <div className="flex-shrink-0">
         <Link href="/">
           {logoSrc ? (
             <Image src={logoSrc} alt={logoAlt} width={150} height={50} className="h-auto max-h-12 w-auto" priority />
           ) : (
-            <span className="font-kapakana text-2xl">{logoText}</span>
+            <span className="font-kapakana text-lg sm:text-xl md:text-2xl">{logoText}</span>
           )}
         </Link>
       </div>
 
       {/* Navigation Menu */}
-      <nav className="hidden items-center gap-8 md:flex">
+      <nav className="hidden items-center gap-4 md:gap-6 lg:gap-8 md:flex">
         {navigationItems.map(item => (
-          <Link key={item.href} href={item.href} className="font-medium hover:underline">
+          <Link key={item.href} href={item.href} className="font-medium text-xs md:text-sm lg:text-base hover:underline transition-colors">
             {item.label}
           </Link>
         ))}
@@ -74,7 +74,7 @@ const Header: React.FC<HeaderProps> = ({
       {/* Social Links */}
       {showSocialLinks && (
         <div className="hidden md:flex">
-          <SocialLinks iconSize="sm" variant="circle" />
+          <SocialLinks iconSize="responsive" variant="circle" />
         </div>
       )}
 

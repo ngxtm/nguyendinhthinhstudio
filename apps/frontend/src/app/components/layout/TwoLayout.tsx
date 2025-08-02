@@ -2,22 +2,22 @@
 
 import Image, { StaticImageData } from 'next/image'
 import AnimatedContent from '../common/AnimatedContent'
-import { useState } from 'react'
 
 interface TwoLayoutSectionProps {
-  readonly pic1src?: string | StaticImageData
-  readonly pic1alt?: string
-  readonly pic1title?: string
-  readonly pic1titleButton?: string
-  readonly pic2src?: string | StaticImageData
-  readonly pic2alt?: string
-  readonly pic2title?: string
-  readonly pic2titleButton?: string
-  readonly pic1width?: number
-  readonly pic1height?: number
-  readonly pic2width?: number
-  readonly pic2height?: number
-  readonly containerGap?: number
+  pic1src?: string | StaticImageData
+  pic1alt?: string
+  pic1title?: string
+  pic1titleButton?: string
+  pic2src?: string | StaticImageData
+  pic2alt?: string
+  pic2title?: string
+  pic2titleButton?: string
+  pic1width?: number
+  pic1height?: number
+  pic2width?: number
+  pic2height?: number
+  containerGap?: number
+  mobileStackVertical?: boolean
 }
 
 export default function TwoLayoutSection({
@@ -33,55 +33,61 @@ export default function TwoLayoutSection({
   pic1height = 100,
   pic2width = 100,
   pic2height = 100,
-  containerGap = 24
-}: TwoLayoutSectionProps) {
-  const [pic1Loaded, setPic1Loaded] = useState(false)
-  const [pic2Loaded, setPic2Loaded] = useState(false)
+  containerGap = 24,
+  mobileStackVertical = true
+}: Readonly<TwoLayoutSectionProps>) {
   return (
-    <div className="w-full overflow-x-hidden">
-      <div className="flex items-center justify-center" style={{ gap: `${containerGap}px` }}>
+    <div className="w-full overflow-x-hidden px-4 sm:px-6 lg:px-8">
+      <div
+        className={` ${
+          mobileStackVertical
+            ? 'flex flex-col items-center justify-center md:flex-row'
+            : 'flex flex-row items-center justify-center overflow-x-auto'
+        } `}
+        style={{
+          gap: `${containerGap}px`,
+          ...(mobileStackVertical ? {} : { minWidth: 'fit-content' })
+        }}
+      >
         {/* Card 1 */}
         <AnimatedContent
-          distance={160}
+          distance={800}
           direction="horizontal"
           reverse={true}
-          duration={1.5}
-          delay={0.5}
           threshold={0.1}
+          duration={1.5}
+          initialOpacity={0}
+          animateOpacity={true}
         >
           <div
-            className="relative overflow-hidden bg-gray-200"
+            className="relative overflow-hidden shadow-lg"
             style={{
-              width: `${pic1width}px`,
-              height: `${pic1height}px`
+              width: `min(${pic1width}px, calc(100vw - 2rem))`,
+              height: `min(${pic1height}px, 85vh)`,
+              aspectRatio: `${pic1width} / ${pic1height}`,
+              minWidth: mobileStackVertical ? '280px' : `${Math.min(pic1width, 280)}px`,
+              minHeight: mobileStackVertical ? '350px' : `${Math.min(pic1height, 350)}px`
             }}
           >
-            {/* Loading placeholder */}
-            {!pic1Loaded && (
-              <div className="absolute inset-0 flex items-center justify-center bg-gray-200">
-                <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-gray-600"></div>
-              </div>
-            )}
-            
             {pic1src && (
-              <Image 
-                src={pic1src} 
-                alt={pic1alt} 
-                fill 
-                className={`object-cover transition-opacity duration-300 ${pic1Loaded ? 'opacity-100' : 'opacity-0'}`}
+              <Image
+                src={pic1src}
+                alt={pic1alt}
+                fill
+                className="object-cover transition-opacity duration-300"
                 priority={true}
-                placeholder="blur"
-                blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyJckliyjqTzSlT54b6bk+h0R//2Q=="
-                onLoad={() => setPic1Loaded(true)}
-                sizes="(max-width: 768px) 100vw, 50vw"
+                placeholder="empty"
+                sizes="(max-width: 640px) 90vw, (max-width: 768px) 45vw, (max-width: 1024px) 40vw, 35vw"
               />
             )}
-            
+
             <div className="absolute inset-0 bg-black/20" />
-            <div className={`absolute inset-0 flex items-center justify-center transition-opacity duration-300 ${pic1Loaded ? 'opacity-100' : 'opacity-0'}`}>
-              <div className="text-center">
-                <h2 className="mb-4 text-2xl font-bold text-white">{pic1title}</h2>
-                <button className="rounded-md border-2 border-white bg-transparent px-4 py-2 font-semibold text-white transition-all duration-300 hover:bg-white hover:text-black">
+            <div className="absolute inset-0 flex items-center justify-center transition-opacity duration-300">
+              <div className="px-4 text-center">
+                <h2 className="mb-2 text-lg leading-tight font-bold text-white sm:mb-4 sm:text-xl md:text-2xl">
+                  {pic1title}
+                </h2>
+                <button className="rounded-md border-2 border-white bg-transparent px-3 py-1.5 text-sm font-semibold text-white transition-all duration-300 hover:bg-white hover:text-black active:scale-95 sm:px-4 sm:py-2 sm:text-base">
                   {pic1titleButton}
                 </button>
               </div>
@@ -90,40 +96,43 @@ export default function TwoLayoutSection({
         </AnimatedContent>
 
         {/* Card 2 */}
-        <AnimatedContent distance={160} direction="horizontal" duration={1.5} delay={0.5} threshold={0.1}>
+        <AnimatedContent
+          distance={800}
+          direction="horizontal"
+          duration={1.5}
+          threshold={0.1}
+          initialOpacity={0}
+          animateOpacity={true}
+        >
           <div
-            className="relative overflow-hidden bg-gray-200"
+            className="relative overflow-hidden shadow-lg"
             style={{
-              width: `${pic2width}px`,
-              height: `${pic2height}px`
+              width: `min(${pic2width}px, calc(100vw - 2rem))`,
+              height: `min(${pic2height}px, 85vh)`,
+              aspectRatio: `${pic2width} / ${pic2height}`,
+              minWidth: mobileStackVertical ? '280px' : `${Math.min(pic2width, 280)}px`,
+              minHeight: mobileStackVertical ? '350px' : `${Math.min(pic2height, 350)}px`
             }}
           >
-            {/* Loading placeholder */}
-            {!pic2Loaded && (
-              <div className="absolute inset-0 flex items-center justify-center bg-gray-200">
-                <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-gray-600"></div>
-              </div>
-            )}
-            
             {pic2src && (
-              <Image 
-                src={pic2src} 
-                alt={pic2alt} 
-                fill 
-                className={`object-cover transition-opacity duration-300 ${pic2Loaded ? 'opacity-100' : 'opacity-0'}`}
+              <Image
+                src={pic2src}
+                alt={pic2alt}
+                fill
+                className="object-cover transition-opacity duration-300"
                 priority={true}
-                placeholder="blur"
-                blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyJckliyjqTzSlT54b6bk+h0R//2Q=="
-                onLoad={() => setPic2Loaded(true)}
-                sizes="(max-width: 768px) 100vw, 50vw"
+                placeholder="empty"
+                sizes="(max-width: 640px) 90vw, (max-width: 768px) 45vw, (max-width: 1024px) 40vw, 35vw"
               />
             )}
-            
+
             <div className="absolute inset-0 bg-black/20" />
-            <div className={`absolute inset-0 flex items-center justify-center transition-opacity duration-300 ${pic2Loaded ? 'opacity-100' : 'opacity-0'}`}>
-              <div className="text-center">
-                <h2 className="mb-4 text-2xl font-bold text-white">{pic2title}</h2>
-                <button className="rounded-md border-2 border-white bg-transparent px-4 py-2 font-semibold text-white transition-all duration-300 hover:bg-white hover:text-black">
+            <div className="absolute inset-0 flex items-center justify-center transition-opacity duration-300">
+              <div className="px-4 text-center">
+                <h2 className="mb-2 text-lg leading-tight font-bold text-white sm:mb-4 sm:text-xl md:text-2xl">
+                  {pic2title}
+                </h2>
+                <button className="rounded-md border-2 border-white bg-transparent px-3 py-1.5 text-sm font-semibold text-white transition-all duration-300 hover:bg-white hover:text-black active:scale-95 sm:px-4 sm:py-2 sm:text-base">
                   {pic2titleButton}
                 </button>
               </div>
