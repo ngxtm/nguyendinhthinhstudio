@@ -314,88 +314,102 @@ const Header: React.FC<HeaderProps> = ({
         <div className="md:hidden">
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="rounded p-2 text-white transition-colors hover:bg-gray-600 flex items-center justify-center"
+            className="rounded p-2 text-white transition-all duration-300 ease-in-out hover:bg-gray-600 flex items-center justify-center"
           >
-            {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+            <div className="transition-transform duration-300 ease-in-out">
+              {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+            </div>
           </button>
         </div>
       )}
 
       {/* Mobile Menu */}
-      {mobileMenuOpen && (
-        <div className="absolute top-full right-0 left-0 max-h-[calc(100vh-4rem)] overflow-y-auto border-t border-gray-600/20 bg-[#313132] md:hidden">
-          <div className="space-y-2 px-4 py-4">
-            {navigationItems.map(item => (
-              <div key={item.href}>
-                {item.children ? (
-                  <div>
-                    <button
-                      onClick={() => handleDropdownToggle(item.label)}
-                      className="flex w-full items-center justify-between py-2 text-left text-sm font-medium"
-                    >
-                      {item.label}
-                      <ChevronDown
-                        className={`h-4 w-4 transition-transform duration-200 ${activeDropdown === item.label ? 'rotate-180' : ''}`}
-                      />
-                    </button>
-                    {activeDropdown === item.label && (
-                      <div className="mt-2 ml-4 space-y-1">
-                        {item.children.map(child => (
-                          <div key={child.href}>
-                            {child.children ? (
-                              <div>
-                                <button
-                                  onClick={() => handleSubDropdownToggle(child.label)}
-                                  className="flex w-full items-center justify-between py-2 text-left text-sm text-gray-300 transition-colors hover:text-white"
-                                >
-                                  {child.label}
-                                  <ChevronDown
-                                    className={`h-4 w-4 transition-transform duration-200 ${activeSubDropdown === child.label ? 'rotate-180' : ''}`}
-                                  />
-                                </button>
-                                {activeSubDropdown === child.label && (
-                                  <div className="mt-2 ml-4 space-y-1">
-                                    {child.children.map(subChild => (
-                                      <Link
-                                        key={subChild.href}
-                                        href={subChild.href}
-                                        className="block py-2 text-sm text-gray-400 transition-colors hover:text-white"
-                                        onClick={closeMobileMenu}
-                                      >
-                                        {subChild.label}
-                                      </Link>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                            ) : (
-                              <Link
-                                href={child.href}
-                                className="block py-2 text-sm text-gray-300 transition-colors hover:text-white"
-                                onClick={closeMobileMenu}
-                              >
-                                {child.label}
-                              </Link>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <Link
-                    href={item.href}
-                    className="block py-2 text-sm font-medium transition-colors hover:text-gray-300"
-                    onClick={closeMobileMenu}
+      <div
+        className={`absolute top-full right-0 left-0 max-h-[calc(100vh-4rem)] overflow-y-auto border-t border-gray-600/20 bg-[#313132]/95 backdrop-blur-md md:hidden transition-all duration-300 ease-in-out transform ${
+          mobileMenuOpen
+            ? 'max-h-[calc(100vh-4rem)] opacity-100 translate-y-0 shadow-2xl'
+            : 'max-h-0 opacity-0 -translate-y-4 pointer-events-none'
+        }`}
+      >
+        <div className="space-y-1 px-4 py-4">
+          {navigationItems.map(item => (
+            <div key={item.href}>
+              {item.children ? (
+                <div>
+                  <button
+                    onClick={() => handleDropdownToggle(item.label)}
+                    className="flex w-full items-center justify-between py-2 text-left text-sm font-medium"
                   >
                     {item.label}
-                  </Link>
-                )}
-              </div>
-            ))}
-          </div>
+                    <ChevronDown
+                      className={`h-4 w-4 transition-transform duration-300 ease-in-out ${activeDropdown === item.label ? 'rotate-180' : ''}`}
+                    />
+                  </button>
+                  <div
+                    className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                      activeDropdown === item.label
+                        ? 'max-h-[1000px] opacity-100 mt-2 ml-4 space-y-1'
+                        : 'max-h-0 opacity-0 ml-4'
+                    }`}
+                  >
+                    {item.children.map(child => (
+                      <div key={child.href}>
+                        {child.children ? (
+                          <div>
+                            <button
+                              onClick={() => handleSubDropdownToggle(child.label)}
+                              className="flex w-full items-center justify-between py-2 text-left text-sm text-gray-300 transition-colors hover:text-white"
+                            >
+                              {child.label}
+                              <ChevronDown
+                                className={`h-4 w-4 transition-transform duration-300 ease-in-out ${activeSubDropdown === child.label ? 'rotate-180' : ''}`}
+                              />
+                            </button>
+                            <div
+                              className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                                activeSubDropdown === child.label
+                                  ? 'max-h-[500px] opacity-100 mt-2 ml-4 space-y-1'
+                                  : 'max-h-0 opacity-0 ml-4'
+                              }`}
+                            >
+                              {child.children.map(subChild => (
+                                <Link
+                                  key={subChild.href}
+                                  href={subChild.href}
+                                  className="block py-2 text-sm text-gray-400 transition-colors hover:text-white"
+                                  onClick={closeMobileMenu}
+                                >
+                                  {subChild.label}
+                                </Link>
+                              ))}
+                            </div>
+                          </div>
+                        ) : (
+                          <Link
+                            href={child.href}
+                            className="block py-2 text-sm text-gray-300 transition-colors hover:text-white"
+                            onClick={closeMobileMenu}
+                          >
+                            {child.label}
+                          </Link>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <Link
+                  href={item.href}
+                  className="block py-2 text-sm font-medium transition-colors hover:text-gray-300"
+                  onClick={closeMobileMenu}
+                >
+                  {item.label}
+                </Link>
+              )}
+            </div>
+          ))}
         </div>
-      )}
+      </div>
     </header>
   )
 }

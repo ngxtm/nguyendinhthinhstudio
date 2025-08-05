@@ -11,7 +11,11 @@ export default function Contact() {
       <div className="px-6 md:px-16">
         <Header logoText="NguyenDinhThinh" showMobileMenu={true} />
         <div className="space-y-6 pt-16 sm:pt-16 md:space-y-4">
-          <h1 className="mt-8 text-center text-xl font-bold md:text-4xl">LIÊN HỆ VỚI NGUYỄN ĐÌNH THỊNH STUDIO</h1>
+          <h1 className="mt-8 text-center text-xl font-bold md:text-4xl">
+            LIÊN HỆ VỚI{' '}
+            <br className="md:hidden" />
+            NGUYỄN ĐÌNH THỊNH STUDIO
+          </h1>
           <DividerWithText text="THÔNG TIN LIÊN HỆ" textClassName="text-[#888888] text-sm" />
           <div className="flex w-full flex-col gap-10 md:flex-row">
             {/* Bản đồ Google Maps */}
