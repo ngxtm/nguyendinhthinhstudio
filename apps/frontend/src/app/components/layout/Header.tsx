@@ -41,11 +41,25 @@ const Header: React.FC<HeaderProps> = ({
   navigationItems = [
     {
       href: '/',
-      label: 'Trang chủ'
+      label: 'Trang Chủ'
     },
     {
       href: '/gioi-thieu',
-      label: 'Giới thiệu'
+      label: 'Giới Thiệu',
+      children: [
+        {
+          href: '/gioi-thieu/chinh-sach',
+          label: 'Chính Sách'
+        },
+        {
+          href: '/gioi-thieu/dich-vu',
+          label: 'Dịch Vụ'
+        },
+        {
+          href: '/gioi-thieu/quy-trinh',
+          label: 'Quy Trình'
+        }
+      ]
     },
     {
       href: '/thu-vien',
@@ -133,7 +147,7 @@ const Header: React.FC<HeaderProps> = ({
     },
     {
       href: '/bang-gia',
-      label: 'Bảng giá',
+      label: 'Bảng Giá',
       children: [
         {
           href: '/bang-gia/ca-nhan',
@@ -171,7 +185,7 @@ const Header: React.FC<HeaderProps> = ({
     },
     {
       href: '/lien-he',
-      label: 'Liên hệ'
+      label: 'Liên Hệ'
     }
   ]
 }) => {
@@ -191,6 +205,10 @@ const Header: React.FC<HeaderProps> = ({
   const closeDropdowns = () => {
     setActiveDropdown(null)
     setActiveSubDropdown(null)
+  }
+
+  const closeMobileMenu = () => {
+    setMobileMenuOpen(false)
   }
 
   return (
@@ -226,7 +244,7 @@ const Header: React.FC<HeaderProps> = ({
 
                 {/* Main Dropdown Menu */}
                 <div
-                  className={`invisible absolute top-full left-0 mt-2 w-auto min-w-max bg-[#585858] opacity-0 transition-all duration-200 group-hover:visible group-hover:opacity-100 ${activeDropdown === item.label ? 'visible opacity-100' : ''}`}
+                  className={`invisible absolute top-full -left-2.5 mt-2 w-auto min-w-max bg-[#585858] opacity-0 transition-all duration-200 group-hover:visible group-hover:opacity-100 ${activeDropdown === item.label ? 'visible opacity-100' : ''}`}
                 >
                   {item.children.map(child => (
                     <div key={child.href} className="group/sub relative">
@@ -342,7 +360,7 @@ const Header: React.FC<HeaderProps> = ({
                                         key={subChild.href}
                                         href={subChild.href}
                                         className="block py-2 text-sm text-gray-400 transition-colors hover:text-white"
-                                        onClick={() => setMobileMenuOpen(false)}
+                                        onClick={closeMobileMenu}
                                       >
                                         {subChild.label}
                                       </Link>
@@ -354,7 +372,7 @@ const Header: React.FC<HeaderProps> = ({
                               <Link
                                 href={child.href}
                                 className="block py-2 text-sm text-gray-300 transition-colors hover:text-white"
-                                onClick={() => setMobileMenuOpen(false)}
+                                onClick={closeMobileMenu}
                               >
                                 {child.label}
                               </Link>
@@ -368,7 +386,7 @@ const Header: React.FC<HeaderProps> = ({
                   <Link
                     href={item.href}
                     className="block py-2 text-sm font-medium transition-colors hover:text-gray-300"
-                    onClick={() => setMobileMenuOpen(false)}
+                    onClick={closeMobileMenu}
                   >
                     {item.label}
                   </Link>
