@@ -73,7 +73,11 @@ const AnimatedContent: React.FC<AnimatedContentProps> = ({
     })
 
     return () => {
-      ScrollTrigger.getAll().forEach(t => t.kill())
+      ScrollTrigger.getAll().forEach(t => {
+        if (t.trigger === el) {
+          t.kill()
+        }
+      })
       gsap.killTweensOf(el)
     }
   }, [

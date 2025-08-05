@@ -25,7 +25,7 @@ export default function Home() {
           <div className="mt-6 sm:mt-8 md:mt-10">
             <OneLayoutSection imgSrc={oneLayoutImgSrc} title="NEW COLLECTION" titleButton="KHÁM PHÁ NGAY" />
           </div>
-          <AnimatedContent direction="horizontal" reverse={true} distance={500}>
+          <AnimatedContent direction="horizontal" reverse={true} distance={800} duration={1.5} threshold={0.1}>
             <DividerWithText
               text="HOT & TRENDING"
               textClassName="text-[#cccccc] text-sm"
