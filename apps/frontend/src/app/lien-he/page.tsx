@@ -1,10 +1,6 @@
-import { House, Clock, Phone } from 'lucide-react'
 import DividerWithText from '../components/common/DividerWithText'
 import Footer from '../components/common/Footer'
 import Header from '../components/layout/Header'
-import Image from 'next/image'
-import googleMapsIcon from '../images/icons/google-maps-icon.png'
-import googleIcon from '../images/icons/google-icon.png'
 import Support from './components/Support'
 import SeeMore from './components/SeeMore'
 import AnimatedContent from '../components/common/AnimatedContent'
@@ -16,7 +12,7 @@ export default function Contact() {
         <Header logoText="NguyenDinhThinh" showMobileMenu={true} />
         <div className="space-y-6 pt-16 sm:pt-16 md:space-y-4">
           <h1 className="mt-8 text-center text-xl font-bold md:text-4xl">LIÊN HỆ VỚI NGUYỄN ĐÌNH THỊNH STUDIO</h1>
-          <DividerWithText text="NGUYỄN ĐÌNH THỊNH STUDIO" textClassName="text-[#888888] text-sm" />
+          <DividerWithText text="THÔNG TIN LIÊN HỆ" textClassName="text-[#888888] text-sm" />
           <div className="flex w-full flex-col gap-10 md:flex-row">
             {/* Bản đồ Google Maps */}
             <div className="w-full lg:w-2/3">
@@ -35,63 +31,51 @@ export default function Contact() {
             </div>
 
             {/* Thông tin liên hệ */}
-            <div className="mt-6 w-full space-y-6 lg:mt-0 lg:w-3/8">
-              <div className="bg-white p-6 shadow-lg">
-                <h2 className="font-kapakana mb-4 text-center text-3xl text-[#727070] md:text-4xl">
+            <div className="w-full space-y-8 lg:w-3/8">
+              <div className="space-y-6">
+                <h2 className="font-kapakana text-center text-2xl text-gray-800 md:text-3xl">
                   Nguyen Dinh Thinh Studio
                 </h2>
 
-                <div className="space-y-3 text-gray-600">
-                  <div className="flex items-start gap-2 text-sm md:text-base">
-                    <House size={20} />
-                    <div>
-                      <p className="font-bold">Địa chỉ:</p>
-                      <p>111/1 Thống Nhất, Phường Nha Trang, Tỉnh Khánh Hoà</p>
-                    </div>
+                <div className="space-y-4 text-sm text-gray-600">
+                  <div className="border-b border-gray-100 pb-4">
+                    <p className="text-xs uppercase tracking-wider text-gray-400 mb-2">Địa chỉ</p>
+                    <p className="leading-relaxed">111/1 Thống Nhất, Phường Nha Trang, Tỉnh Khánh Hoà</p>
                   </div>
 
-                  <div className="flex items-start gap-2 text-sm md:text-base">
-                    <Clock size={20} />
-                    <div>
-                      <p className="font-bold">Giờ hoạt động:</p>
-                      <p>07:00 - 17:00 (Thứ 2 - Chủ nhật)</p>
-                    </div>
+                  <div className="border-b border-gray-100 pb-4">
+                    <p className="text-xs uppercase tracking-wider text-gray-400 mb-2">Giờ hoạt động</p>
+                    <p className="leading-relaxed">07:00 - 17:00 (Thứ 2 - Chủ nhật)</p>
                   </div>
 
-                  <div className="flex items-start gap-2 text-sm md:text-base">
-                    <Phone size={20} />
-                    <div>
-                      <p className="font-bold">Hotline:</p>
-                      <a href="tel:+84899990497" className="text-gray-600 hover:underline">
-                        0899 990 497
-                      </a>
-                    </div>
+                  <div className="border-b border-gray-100 pb-4">
+                    <p className="text-xs uppercase tracking-wider text-gray-400 mb-2">Hotline</p>
+                    <a href="tel:+84899990497" className="text-gray-600 hover:text-gray-800 transition-colors">
+                      0899 990 497
+                    </a>
                   </div>
                 </div>
 
-                <div className="mt-6 border-t border-gray-200 pt-4">
-                  <p className="mb-3 gap-2 text-sm text-gray-500">
-                    <strong>Lưu ý:</strong> Trong các ứng dụng (Google Maps, Apple Maps), có thể gõ &quot;Nguyễn Đình
-                    Thịnh Studio&quot; để tìm đúng địa điểm.
+                <div className="pt-4">
+                  <p className="text-xs text-gray-400 mb-4">
+                    Lưu ý: Trong các ứng dụng (Google Maps, Apple Maps), có thể gõ &quot;Nguyễn Đình Thịnh Studio&quot; để tìm đúng địa điểm.
                   </p>
 
-                  <div className="flex flex-col justify-between gap-4 md:flex-row md:text-sm">
+                  <div className="flex flex-col gap-3 md:flex-row">
                     <a
                       href="https://maps.app.goo.gl/aQKTojhw51Bo8LMW6"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex w-fit items-center gap-2 rounded-lg bg-[#888888] px-4 py-2 text-sm text-white shadow-md duration-200 hover:bg-gradient-to-r hover:from-yellow-300 hover:to-yellow-500 hover:text-black"
+                      className="inline-flex w-full items-center justify-center rounded border border-gray-200 px-4 py-2 text-sm text-gray-600 transition-all hover:border-gray-300 hover:bg-gray-50 md:w-fit"
                     >
-                      <Image src={googleMapsIcon} alt="Google Maps" width={20} height={20} className="h-5 w-5" />
                       Mở trong Google Maps
                     </a>
                     <a
                       href="https://g.page/nguyendinhthinhstudio?share"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex w-fit items-center gap-2 rounded-lg bg-[#888888] px-4 py-2 text-sm text-white transition-colors duration-200 hover:bg-gradient-to-r hover:from-yellow-300 hover:to-yellow-500 hover:text-black"
+                      className="inline-flex w-full items-center justify-center rounded border border-gray-200 px-4 py-2 text-sm text-gray-600 transition-all hover:border-gray-300 hover:bg-gray-50 md:w-fit"
                     >
-                      <Image src={googleIcon} alt="Google" width={20} height={20} className="h-5 w-5" />
                       Tìm kiếm trên Google
                     </a>
                   </div>
