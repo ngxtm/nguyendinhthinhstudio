@@ -66,7 +66,7 @@ const AppHero: React.FC<HeroProps> = ({ autoPlayInterval = 4000, images: customI
 
   return (
     <section
-      className="relative h-[30vh] w-full overflow-hidden sm:h-[70vh] md:h-[80vh] lg:h-[88vh] xl:h-[92vh]"
+      className="relative h-[40vh] w-full overflow-hidden sm:h-[70vh] md:h-[80vh] lg:h-[88vh] xl:h-[92vh]"
       aria-label="Hero section"
     >
       <div className="absolute inset-0">

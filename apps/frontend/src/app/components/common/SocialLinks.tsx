@@ -55,10 +55,17 @@ const SocialLinks: FC<SocialLinksProps> = ({
   variant = 'circle'
 }) => {
   const sizeClasses = {
-    sm: 'w-8 h-8 text-xs',
-    md: 'w-10 h-10 text-sm',
-    lg: 'w-12 h-12 text-2xl',
-    responsive: 'w-6 h-6 md:w-8 md:h-8 lg:w-10 lg:h-10 text-xs md:text-sm lg:text-base'
+    sm: 'w-8 h-8',
+    md: 'w-10 h-10',
+    lg: 'w-12 h-12',
+    responsive: 'w-4 h-4 md:w-6 md:h-6 lg:w-8 lg:h-8'
+  }
+
+  const iconSizeClasses = {
+    sm: 'text-xs',
+    md: 'text-xs',
+    lg: 'text-lg',
+    responsive: 'text-[8px] sm:text-[8px] md:text-[10px] lg:text-xs'
   }
 
   const variantClasses = {
@@ -78,7 +85,7 @@ const SocialLinks: FC<SocialLinksProps> = ({
           className={` ${sizeClasses[iconSize]} ${variantClasses[variant]} ${item.bgColor ?? 'bg-gray-500'} group flex cursor-pointer items-center justify-center text-white transition-all duration-300 hover:scale-110 hover:shadow-lg`}
           title={item.label}
         >
-          <span className="transition-transform duration-200 group-hover:scale-110">{item.icon}</span>
+          <span className={`transition-transform duration-200 group-hover:scale-110 ${iconSizeClasses[iconSize]}`}>{item.icon}</span>
         </Link>
       ))}
     </div>

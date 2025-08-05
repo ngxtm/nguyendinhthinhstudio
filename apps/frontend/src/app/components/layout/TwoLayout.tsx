@@ -60,10 +60,9 @@ export default function TwoLayoutSection({
           animateOpacity={true}
         >
           <div
-            className="relative overflow-hidden shadow-lg"
+            className="relative overflow-hidden shadow-lg h-[60vh] lg:h-[85vh]"
             style={{
               width: `min(${pic1width}px, calc(100vw - 2rem))`,
-              height: `min(${pic1height}px, 85vh)`,
               aspectRatio: `${pic1width} / ${pic1height}`,
               minWidth: mobileStackVertical ? '280px' : `${Math.min(pic1width, 280)}px`,
               minHeight: mobileStackVertical ? '350px' : `${Math.min(pic1height, 350)}px`
@@ -105,10 +104,9 @@ export default function TwoLayoutSection({
           animateOpacity={true}
         >
           <div
-            className="relative overflow-hidden shadow-lg"
+            className="relative overflow-hidden shadow-lg h-[60vh] lg:h-[85vh]"
             style={{
               width: `min(${pic2width}px, calc(100vw - 2rem))`,
-              height: `min(${pic2height}px, 85vh)`,
               aspectRatio: `${pic2width} / ${pic2height}`,
               minWidth: mobileStackVertical ? '280px' : `${Math.min(pic2width, 280)}px`,
               minHeight: mobileStackVertical ? '350px' : `${Math.min(pic2height, 350)}px`

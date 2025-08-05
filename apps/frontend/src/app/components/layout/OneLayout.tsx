@@ -1,7 +1,6 @@
 'use client'
 
 import Image, { StaticImageData } from 'next/image'
-import AnimatedContent from '../common/AnimatedContent'
 import useHoverEffect from '@/app/hooks/useHoverEffect'
 
 interface OneLayoutSectionProps {
