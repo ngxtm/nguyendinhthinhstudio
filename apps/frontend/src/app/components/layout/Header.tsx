@@ -4,6 +4,7 @@ import Link from 'next/link'
 import SocialLinks from '../common/SocialLinks'
 import { useState } from 'react'
 import { ChevronDown, Menu, X } from 'lucide-react'
+import { MdArrowDropDown } from 'react-icons/md'
 
 interface SubMenuItem {
   href: string
@@ -48,7 +49,7 @@ const Header: React.FC<HeaderProps> = ({
     },
     {
       href: '/thu-vien',
-      label: 'Thư viện ảnh',
+      label: 'Thư Viện Ảnh',
       children: [
         {
           href: '/thu-vien/collection',
@@ -180,7 +181,7 @@ const Header: React.FC<HeaderProps> = ({
 
   const handleDropdownToggle = (label: string) => {
     setActiveDropdown(activeDropdown === label ? null : label)
-    setActiveSubDropdown(null) // Close sub-dropdown when main dropdown changes
+    setActiveSubDropdown(null)
   }
 
   const handleSubDropdownToggle = (label: string) => {
@@ -194,7 +195,7 @@ const Header: React.FC<HeaderProps> = ({
 
   return (
     <header
-      className={`fixed top-0 right-0 left-0 z-50 flex items-center justify-between border-b border-gray-600/20 px-4 py-3 backdrop-blur-sm sm:px-6 sm:py-4 md:px-8 lg:px-12 ${className}`}
+      className={`fixed top-0 right-0 left-0 z-50 flex items-center justify-between border-b border-gray-600/20 px-4 backdrop-blur-sm sm:px-6 sm:py-3 md:px-8 lg:px-12 ${className}`}
     >
       {/* Logo */}
       <div className="flex-shrink-0">
@@ -215,10 +216,12 @@ const Header: React.FC<HeaderProps> = ({
               <div className="relative">
                 <button
                   onClick={() => handleDropdownToggle(item.label)}
-                  className="flex items-center gap-1 text-xs font-medium transition-colors hover:underline md:text-sm lg:text-base"
+                  className="flex items-center gap-1 text-xs font-medium transition-colors hover:text-[#c8c8c8] md:text-sm"
                 >
                   {item.label}
-                  <ChevronDown className="h-4 w-4 transition-transform duration-200 group-hover:rotate-180" />
+                  <div className="text-2xl">
+                    <MdArrowDropDown />
+                  </div>
                 </button>
 
                 {/* Main Dropdown Menu */}
@@ -234,25 +237,25 @@ const Header: React.FC<HeaderProps> = ({
                             className="flex w-full items-center justify-between px-4 py-3 text-left text-white transition-colors hover:bg-[#ededed] hover:text-[#585858]"
                           >
                             <div className="text-sm font-medium">{child.label}</div>
-                            <ChevronDown className="h-4 w-4 transition-transform duration-200 group-hover/sub:rotate-180" />
+                            <div className="-rotate-90 text-2xl">
+                              <MdArrowDropDown />
+                            </div>
                           </button>
 
                           {/* Sub-dropdown Menu */}
                           <div
                             className={`invisible absolute top-0 left-full w-auto min-w-max bg-[#585858] opacity-0 transition-all duration-200 group-hover/sub:visible group-hover/sub:opacity-100 ${activeSubDropdown === child.label ? 'visible opacity-100' : ''}`}
                           >
-                            <div className="py-2">
-                              {child.children.map(subChild => (
-                                <Link
-                                  key={subChild.href}
-                                  href={subChild.href}
-                                  className="block px-4 py-3 text-white transition-colors hover:bg-[#ededed] hover:text-[#585858]"
-                                  onClick={closeDropdowns}
-                                >
-                                  <div className="text-sm font-medium">{subChild.label}</div>
-                                </Link>
-                              ))}
-                            </div>
+                            {child.children.map(subChild => (
+                              <Link
+                                key={subChild.href}
+                                href={subChild.href}
+                                className="block px-4 py-3 text-white transition-colors hover:bg-[#ededed] hover:text-[#585858]"
+                                onClick={closeDropdowns}
+                              >
+                                <div className="text-sm font-medium">{subChild.label}</div>
+                              </Link>
+                            ))}
                           </div>
                         </div>
                       ) : (
@@ -271,7 +274,7 @@ const Header: React.FC<HeaderProps> = ({
             ) : (
               <Link
                 href={item.href}
-                className="text-xs font-medium transition-colors hover:underline md:text-sm lg:text-base"
+                className="text-xs font-medium transition-colors hover:text-[#c8c8c8] md:text-sm"
                 onClick={closeDropdowns}
               >
                 {item.label}
@@ -293,7 +296,7 @@ const Header: React.FC<HeaderProps> = ({
         <div className="md:hidden">
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="rounded p-2 text-white transition-colors hover:bg-gray-600"
+            className="rounded p-2 text-white transition-colors hover:bg-gray-600 flex items-center justify-center"
           >
             {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
           </button>
@@ -302,7 +305,7 @@ const Header: React.FC<HeaderProps> = ({
 
       {/* Mobile Menu */}
       {mobileMenuOpen && (
-        <div className="absolute top-full right-0 left-0 border-t border-gray-600/20 bg-[#313132] md:hidden">
+        <div className="absolute top-full right-0 left-0 max-h-[calc(100vh-4rem)] overflow-y-auto border-t border-gray-600/20 bg-[#313132] md:hidden">
           <div className="space-y-2 px-4 py-4">
             {navigationItems.map(item => (
               <div key={item.href}>

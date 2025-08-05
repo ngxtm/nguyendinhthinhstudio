@@ -58,7 +58,7 @@ const SocialLinks: FC<SocialLinksProps> = ({
     sm: 'w-8 h-8',
     md: 'w-10 h-10',
     lg: 'w-12 h-12',
-    responsive: 'w-4 h-4 md:w-6 md:h-6 lg:w-8 lg:h-8'
+    responsive: 'w-4 h-4 md:w-5 md:h-5 lg:w-7 lg:h-7'
   }
 
   const iconSizeClasses = {
