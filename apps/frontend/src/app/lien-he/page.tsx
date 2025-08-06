@@ -12,8 +12,7 @@ export default function Contact() {
         <Header logoText="NguyenDinhThinh" showMobileMenu={true} />
         <div className="space-y-6 pt-16 sm:pt-16 md:space-y-4">
           <h1 className="mt-8 text-center text-xl font-bold md:text-4xl">
-            LIÊN HỆ VỚI{' '}
-            <br className="md:hidden" />
+            LIÊN HỆ VỚI <br className="md:hidden" />
             NGUYỄN ĐÌNH THỊNH STUDIO
           </h1>
           <DividerWithText text="THÔNG TIN LIÊN HỆ" textClassName="text-[#888888] text-sm" />
@@ -43,27 +42,30 @@ export default function Contact() {
 
                 <div className="space-y-4 text-sm text-gray-600">
                   <div className="border-b border-gray-100 pb-4">
-                    <p className="text-xs uppercase tracking-wider text-gray-400 mb-2">Địa chỉ</p>
+                    <p className="mb-2 text-xs tracking-wider text-gray-400 uppercase">Địa chỉ</p>
                     <p className="leading-relaxed">111/1 Thống Nhất, Phường Nha Trang, Tỉnh Khánh Hoà</p>
                   </div>
 
                   <div className="border-b border-gray-100 pb-4">
-                    <p className="text-xs uppercase tracking-wider text-gray-400 mb-2">Giờ hoạt động</p>
+                    <p className="mb-2 text-xs tracking-wider text-gray-400 uppercase">Giờ hoạt động</p>
                     <p className="leading-relaxed">07:00 - 17:00 (Thứ 2 - Chủ nhật)</p>
                   </div>
 
                   <div className="border-b border-gray-100 pb-4">
-                    <p className="text-xs uppercase tracking-wider text-gray-400 mb-2">Hotline</p>
-                    <a href="tel:+84899990497" className="text-gray-600 hover:text-gray-800 transition-colors">
+                    <p className="mb-2 text-xs tracking-wider text-gray-400 uppercase">Hotline</p>
+                    <a href="tel:+84899990497" className="text-gray-600 transition-colors hover:text-gray-800">
                       0899 990 497
                     </a>
                   </div>
                 </div>
 
                 <div className="pt-4">
-                  <p className="text-xs text-gray-400 mb-4">
-                    Lưu ý: Trong các ứng dụng (Google Maps, Apple Maps), có thể gõ &quot;Nguyễn Đình Thịnh Studio&quot; để tìm đúng địa điểm.
-                  </p>
+                  <div id="ho-tro-nhanh">
+                    <p className="mb-4 text-xs text-gray-400">
+                      Lưu ý: Trong các ứng dụng (Google Maps, Apple Maps), có thể gõ &quot;Nguyễn Đình Thịnh
+                      Studio&quot; để tìm đúng địa điểm.
+                    </p>
+                  </div>
 
                   <div className="flex flex-col gap-3 md:flex-row">
                     <a
@@ -74,6 +76,7 @@ export default function Contact() {
                     >
                       Mở trong Google Maps
                     </a>
+
                     <a
                       href="https://g.page/nguyendinhthinhstudio?share"
                       target="_blank"
