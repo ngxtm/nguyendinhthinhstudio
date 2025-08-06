@@ -232,7 +232,8 @@ const Header: React.FC<HeaderProps> = ({
           <div key={item.href} className="group relative">
             {item.children ? (
               <div className="relative">
-                <button
+                <Link
+                  href={item.href}
                   onClick={() => handleDropdownToggle(item.label)}
                   className="flex items-center gap-1 text-xs font-medium transition-colors hover:text-[#c8c8c8] md:text-sm"
                 >
@@ -240,7 +241,7 @@ const Header: React.FC<HeaderProps> = ({
                   <div className="text-2xl">
                     <MdArrowDropDown />
                   </div>
-                </button>
+                </Link>
 
                 {/* Main Dropdown Menu */}
                 <div
@@ -336,15 +337,24 @@ const Header: React.FC<HeaderProps> = ({
             <div key={item.href}>
               {item.children ? (
                 <div>
-                  <button
-                    onClick={() => handleDropdownToggle(item.label)}
-                    className="flex w-full items-center justify-between py-2 text-left text-sm font-medium"
-                  >
-                    {item.label}
-                    <ChevronDown
-                      className={`h-4 w-4 transition-transform duration-300 ease-in-out ${activeDropdown === item.label ? 'rotate-180' : ''}`}
-                    />
-                  </button>
+                  <div className="flex items-center justify-between">
+                    <Link
+                      href={item.href}
+                      className="py-2 text-sm font-medium transition-colors hover:text-gray-300"
+                      onClick={closeMobileMenu}
+                    >
+                      {item.label}
+                    </Link>
+                    <button
+                      onClick={() => handleDropdownToggle(item.label)}
+                      className="p-1 text-white transition-colors hover:text-gray-300"
+                      aria-label={`Toggle ${item.label} submenu`}
+                    >
+                      <ChevronDown
+                        className={`h-4 w-4 transition-transform duration-300 ease-in-out ${activeDropdown === item.label ? 'rotate-180' : ''}`}
+                      />
+                    </button>
+                  </div>
                   <div
                     className={`overflow-hidden transition-all duration-300 ease-in-out ${
                       activeDropdown === item.label
@@ -356,15 +366,24 @@ const Header: React.FC<HeaderProps> = ({
                       <div key={child.href}>
                         {child.children ? (
                           <div>
-                            <button
-                              onClick={() => handleSubDropdownToggle(child.label)}
-                              className="flex w-full items-center justify-between py-2 text-left text-sm text-gray-300 transition-colors hover:text-white"
-                            >
-                              {child.label}
-                              <ChevronDown
-                                className={`h-4 w-4 transition-transform duration-300 ease-in-out ${activeSubDropdown === child.label ? 'rotate-180' : ''}`}
-                              />
-                            </button>
+                            <div className="flex items-center justify-between">
+                              <Link
+                                href={child.href}
+                                className="py-2 text-sm text-gray-300 transition-colors hover:text-white"
+                                onClick={closeMobileMenu}
+                              >
+                                {child.label}
+                              </Link>
+                              <button
+                                onClick={() => handleSubDropdownToggle(child.label)}
+                                className="p-1 text-gray-300 transition-colors hover:text-white"
+                                aria-label={`Toggle ${child.label} submenu`}
+                              >
+                                <ChevronDown
+                                  className={`h-4 w-4 transition-transform duration-300 ease-in-out ${activeSubDropdown === child.label ? 'rotate-180' : ''}`}
+                                />
+                              </button>
+                            </div>
                             <div
                               className={`overflow-hidden transition-all duration-300 ease-in-out ${
                                 activeSubDropdown === child.label

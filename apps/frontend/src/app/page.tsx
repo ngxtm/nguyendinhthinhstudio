@@ -19,7 +19,7 @@ export default function Home() {
   return (
     <div>
       <Header logoText="NguyenDinhThinh" showMobileMenu={true} />
-      <div className="pt-16 sm:pt-16">
+      <div className="pt-10 sm:pt-14">
         <AppHero />
         <div className="space-y-6 sm:space-y-8 md:space-y-10 lg:space-y-12">
           <div className="mt-6 sm:mt-8 md:mt-10">
