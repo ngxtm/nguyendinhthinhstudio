@@ -134,10 +134,6 @@ const Header: React.FC<HeaderProps> = ({
         {
           href: '/thu-vien/me-bau',
           label: 'Mẹ Bầu'
-        },
-        {
-          href: '/thu-vien/quang-cao',
-          label: 'Quảng Cáo'
         }
       ]
     },
@@ -168,10 +164,6 @@ const Header: React.FC<HeaderProps> = ({
         {
           href: '/bang-gia/gia-dinh',
           label: 'Bảng Giá Gia Đình'
-        },
-        {
-          href: '/bang-gia/quang-cao',
-          label: 'Bảng Giá Quảng Cáo'
         },
         {
           href: '/bang-gia/video',

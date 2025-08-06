@@ -5,7 +5,7 @@ import Header from '../components/layout/Header'
 import ServiceCategories from './components/ServiceCategories'
 import { useState } from 'react'
 import TablePricePerCategory from './components/TablePricePerCategory'
-import { serviceCategories, premiumCategories, standardCategories} from './data/bang-gia'
+import { serviceCategories, premiumCategories, standardCategories } from './data/bang-gia'
 
 export default function Pricing() {
   const [openAccordions, setOpenAccordions] = useState<Set<string>>(new Set())
@@ -51,7 +51,7 @@ export default function Pricing() {
 
           {/* Premium And Standard */}
           <div className="mx-auto mt-16 max-w-5xl md:mt-40">
-            <div className="grid grid-cols-1 gap-32 md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-12 md:gap-32 md:grid-cols-2">
               <div className="space-y-6">
                 <h2 className="text-3xl font-bold text-[#585858]">Premium</h2>
                 <div className="h-px w-14 border border-b-2 border-[#bdbdbd]" />
@@ -89,9 +89,10 @@ export default function Pricing() {
           </div>
 
           {/* Detail Price */}
-          <div className="mx-auto mt-16 max-w-6xl md:mt-40">
+          <div className="mx-auto my-16 max-w-6xl md:mt-40">
             <TablePricePerCategory />
           </div>
+          <DividerWithText textClassName="text-[#888888] text-sm" className="mb-16" />
         </div>
       </div>
       <Footer />

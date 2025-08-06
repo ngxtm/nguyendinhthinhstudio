@@ -2,7 +2,6 @@ import caNhan from '../images/ca-nhan.jpg'
 import couple from '../images/couple.jpg'
 import giaDinh from '../images/gia-dinh.jpg'
 import wedding from '../images/wedding.jpg'
-import quangCao from '../images/quang-cao.jpg'
 
 export const serviceCategories = [
   {
@@ -23,21 +22,21 @@ export const serviceCategories = [
     id: 'team-ekip',
     title: 'Team & Ekip',
     description:
-      'Mô hình học viên – pro – master đã không còn phù hợp với TVB. Thay vào đó, chúng tôi sẽ chỉ chọn những người có thời gian làm việc trên 5000 giờ trong từng lĩnh vực để tham gia thực hiện bộ ảnh. Bởi vì chúng tôi là một thương hiệu Việt, không phải là một Photo hay Studio đơn lẻ nên tất cả sản phẩm của chúng tôi đều phải được đảm bảo.',
+      'Mô hình học viên – pro – master đã không còn phù hợp với NDT Studio. Thay vào đó, chúng tôi sẽ chỉ chọn những người có thời gian làm việc trên 5000 giờ trong từng lĩnh vực để tham gia thực hiện bộ ảnh. Bởi vì chúng tôi là một thương hiệu Việt, không phải là một Photo hay Studio đơn lẻ nên tất cả sản phẩm của chúng tôi đều phải được đảm bảo.',
     isActive: true
   },
   {
     id: 'vibe',
     title: 'Vibe',
     description:
-      'Cả ba line: Standard, Premium, VIP. Chất lượng hình ảnh của TVB đều sẽ được đảm bảo tuyệt đối. Sự phân định giá nằm ở VIBE của từng phân khúc và các thiết bị, công nghệ đắt tiền liên quan. Premium đó là Vibe đại minh tinh. Standard đó là Vibe của giới trẻ thần tượng. VIP đó là điều đặc biệt.',
+      'Cả ba line: Standard, Premium, VIP. Chất lượng hình ảnh của NDT Studio đều sẽ được đảm bảo tuyệt đối. Sự phân định giá nằm ở VIBE của từng phân khúc và các thiết bị, công nghệ đắt tiền liên quan. Premium đó là Vibe đại minh tinh. Standard đó là Vibe của giới trẻ thần tượng. VIP đó là điều đặc biệt.',
     isActive: true
   },
   {
     id: 'premium-standard',
     title: 'Premium/Standard',
     description:
-      'Premium và Standard là 2 line chính thức của TVB. Layout của 2 line này có thể đổi cho nhau nhưng sẽ giữ nguyên được những vibe của nhau. Tuy nhiên sẽ có nhiều Layout khó của Premium không thể thực hiện được ở Standard do giới hạn về công nghệ và thiết bị.',
+      'Premium và Standard là 2 line chính thức của NDT Studio. Layout của 2 line này có thể đổi cho nhau nhưng sẽ giữ nguyên được những vibe của nhau. Tuy nhiên sẽ có nhiều Layout khó của Premium không thể thực hiện được ở Standard do giới hạn về công nghệ và thiết bị.',
     isActive: true
   }
 ]
@@ -190,20 +189,10 @@ export const cardList = [
     id: 'wedding',
     title: 'Bảng Giá Dịch Vụ Ảnh Cưới',
     description:
-      'Đây là bảng giá dành cho các concept Wedding theo phong cách của NDT. Lưu ý, đối với các gói cưới tại NDT, chúng tôi không cung cấp trải nghiệm thử đầm cưới. Chúng tôi chỉ thương mại các Layout Wedding có sẵn.',
+      'Đây là bảng giá dành cho các concept Wedding theo phong cách của NDT Studio. Lưu ý, đối với các gói cưới tại NDT Studio, chúng tôi không cung cấp trải nghiệm thử đầm cưới. Chúng tôi chỉ thương mại các Layout Wedding có sẵn.',
     seeMoreList: weddingList,
     imageSrc: wedding,
     imageAlt: 'Ảnh Demo Cưới',
     imageWidth: 'md:w-[35vw] lg:w-[73vw] lg:h-[75vh]'
-  },
-  {
-    id: 'promotion',
-    title: 'Bảng Giá Dịch Vụ Ảnh Quảng Cáo',
-    description:
-      'Đây là bảng giá dành cho các job quảng cáo, được thiết kế chuyên biệt để phục vụ tốt nhất dành cho dịch vụ quảng cáo.',
-    seeMoreList: promotionList,
-    imageSrc: quangCao,
-    imageAlt: 'Ảnh Demo Quảng Cáo',
-    imageWidth: 'md:w-[35vw] lg:w-[40vw] lg:h-[75vh]'
   }
 ]
