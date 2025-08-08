@@ -7,6 +7,7 @@ import heroBg1 from '../../images/hero-bg.jpg'
 import heroBg2 from '../../images/hero-bg-2.jpg'
 import heroBg3 from '../../images/hero-bg-3.jpg'
 import useHoverEffect from '@/app/hooks/useHoverEffect'
+import Link from 'next/link'
 
 interface HeroImage {
   src: string
@@ -105,10 +106,11 @@ const AppHero: React.FC<HeroProps> = ({ autoPlayInterval = 4000, images: customI
 
       <div className="relative z-10 flex h-full items-center justify-start px-4 sm:px-6 md:px-8 lg:px-12">
         <div className="flex flex-col gap-3 sm:flex-row sm:gap-4 md:ml-2 lg:ml-6 xl:ml-10">
-          <button className="rounded-lg bg-white px-4 py-2 text-sm font-medium text-black transition-colors hover:bg-gray-100 sm:px-5 sm:py-2.5 sm:text-base md:px-6 md:py-3">
+          <Link href="/lien-he#ho-tro-nhanh" className="rounded-lg bg-white px-4 py-2 text-sm font-medium text-black transition-colors hover:bg-gray-100 sm:px-5 sm:py-2.5 sm:text-base md:px-6 md:py-3">
             Đặt lịch
-          </button>
-          <button
+          </Link>
+          <Link
+            href='/bang-gia'
             className={hoverEffect.getButtonClasses(
               'rounded-lg border-2 border-white bg-transparent px-4 py-2 text-sm font-medium text-white transition-all hover:bg-white hover:text-black sm:px-5 sm:py-2.5 sm:text-base md:px-6 md:py-3'
             )}
@@ -117,7 +119,7 @@ const AppHero: React.FC<HeroProps> = ({ autoPlayInterval = 4000, images: customI
           >
             <span className={hoverEffect.getSpanClasses()}></span>
             <span className={hoverEffect.getTextClasses()}>Bảng giá</span>
-          </button>
+          </Link>
         </div>
       </div>
     </section>

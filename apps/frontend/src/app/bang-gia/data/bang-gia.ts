@@ -46,7 +46,7 @@ export const premiumCategories = [
     id: 'mo-rong-1',
     title: 'Mở rộng #1: Sáng tạo',
     description:
-      'Các Layout được mở bán thương mại của gói Premium (các Collection) là các layout được thiết kế bởi Creative Director và Head of Fashion Stylist. Khi được order Layout khác, Premium có thể làm lại theo phong cách TVB Original: Like a Stars.',
+      'Các Layout được mở bán thương mại của gói Premium (các Collection) là các layout được thiết kế bởi Creative Director và Head of Fashion Stylist. Khi được order Layout khác, Premium có thể làm lại theo phong cách NDT Studio Original: Like a Stars.',
     isActive: true
   },
   {
@@ -63,7 +63,7 @@ export const standardCategories = [
     id: 'mo-rong-3',
     title: 'Mở rộng #1: Sáng tạo',
     description:
-      'Các Layout được mở bán thương mại của gói Standard (các Season) là các layout được thiết kế bởi team Creative TVB, mang phong cách trẻ trung, thần tượng.',
+      'Các Layout được mở bán thương mại của gói Standard (các Season) là các layout được thiết kế bởi team Creative NDT Studio, mang phong cách trẻ trung, thần tượng.',
     isActive: true
   },
   {

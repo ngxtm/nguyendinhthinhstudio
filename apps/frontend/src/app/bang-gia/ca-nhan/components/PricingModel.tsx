@@ -1,57 +1,97 @@
 import DividerWithText from '@/app/components/common/DividerWithText'
-import { pricingPackages } from '../data/ca-nhan'
 import { FaRegCheckCircle } from 'react-icons/fa'
 import { IoMdCloseCircleOutline } from 'react-icons/io'
 import Link from 'next/link'
 
-export default function PricingModel() {
+interface ServiceItem {
+  id: string
+  content: string
+  isActive?: boolean
+  angleLable?: string
+}
+
+interface SubCard {
+  title: string
+  price: number
+  services: ServiceItem[]
+  subContent: string
+  angleLable?: string
+}
+
+interface PricingPackage {
+  id: string
+  title: string
+  type: string
+  services: ServiceItem[]
+  angleLable: string
+  subContent: string
+  subCard: SubCard[]
+}
+
+interface PricingModelProps {
+  pricingPackages: PricingPackage[]
+}
+
+export default function PricingModel({ pricingPackages }: Readonly<PricingModelProps>) {
   return (
     <>
-      {pricingPackages.map(item => (
+      {pricingPackages?.map(item => (
         <div key={item.id} className="space-y-6">
           <DividerWithText
             text="NGUYỄN ĐÌNH THỊNH STUDIO"
             textClassName="text-[#888888] text-sm md:text-base"
             className="px-1.5"
           />
-          <div className='relative'>
-          {/* Overlay màu xám full width */}
-          <div className="bg-opacity-30 pointer-events-none absolute inset-x-0 -inset-y-2 right-1/2 left-1/2 z-10 -mx-[50vw] w-screen bg-[#d8d8d8]" />
+          <div className="relative">
+            {/* Overlay màu xám full width */}
+            <div className="bg-opacity-30 pointer-events-none absolute -inset-y-2 left-1/2 z-10 min-w-[100vw] -translate-x-1/2 bg-[#d8d8d8]" />
 
-          <div className="relative z-20 flex flex-col gap-4 rounded-3xl border-2 border-black">
-            <div className="relative z-20 overflow-hidden text-center">
-              <p className="text-sm font-bold md:text-2xl">{item.title}</p>
-              <h3 className="text-xl font-bold md:text-7xl">{item.type}</h3>
-              {/* Label BEST chéo góc */}
-              <div className="absolute top-7 -right-11 z-20 rotate-45 bg-white px-16 text-[14px] py-1 text-xs font-bold text-[#d8d8d8]">
+            {/* Div giới thiệu chính */}
+            <div className="relative z-20 flex flex-col gap-2 space-y-3 overflow-hidden rounded-3xl border-2 border-black md:gap-4">
+              {/* Label chéo góc */}
+              <div
+                className={`absolute top-3 z-20 rotate-45 bg-white px-14 py-1 text-xs text-[11px] font-bold text-[#d8d8d8] md:top-5 md:px-16 md:text-[14px] ${item.angleLable === 'PRIVATE' ? '-right-15' : '-right-13'} `}
+              >
                 {item.angleLable}
               </div>
+
+              <div className="text-center">
+                <p className="mt-7 mb-0 text-xl font-bold md:text-2xl">{item.title}</p>
+                <h3 className="mb-0 text-5xl font-bold md:text-7xl">{item.type}</h3>
+              </div>
+
+              <div className="z-20 mb-0 flex flex-col items-center">
+                {item.services.map(service => (
+                  <div key={service.id}>
+                    <p className="flex items-center gap-1.5 text-xs leading-6 font-bold text-[#585858] md:text-base">
+                      {service.isActive ? (
+                        <FaRegCheckCircle className="h-3.5 w-3.5 text-black md:h-[18px] md:w-[18px]" />
+                      ) : (
+                        <IoMdCloseCircleOutline className="h-4 w-4 text-black md:h-[21px] md:w-[21px]" />
+                      )}
+                      {service.content}
+                    </p>
+                  </div>
+                ))}
+              </div>
+
+              <p className="z-20 mt-2 px-2 py-2 text-center text-xs font-semibold text-[#888888] md:px-10 md:py-4 md:text-base">
+                {item.subContent}
+              </p>
             </div>
-            <div className="z-20 flex flex-col items-center">
-              {item.services.map(service => (
-                <div key={service.id}>
-                  <p className="flex items-center gap-1.5 text-sm font-bold text-[#585858] md:text-base">
-                    {service.isActive ? (
-                      <FaRegCheckCircle size={18} className="text-black" />
-                    ) : (
-                      <IoMdCloseCircleOutline size={21} className="text-black" />
-                    )}
-                    {service.content}
-                  </p>
-                </div>
-              ))}
-            </div>
-            <p className="z-20 px-10 py-4 text-center text-sm font-semibold text-[#888888] md:text-base">
-              {item.subContent}
-            </p>
-          </div>
           </div>
           <div className="flex flex-col gap-4 text-center md:flex-row">
             {item.subCard.map(card => (
               <div
                 key={card.title}
-                className={`flex w-1/2 flex-col overflow-hidden rounded-xl border-2 border-[#888888]`}
+                className={`relative z-20 flex w-full flex-col overflow-hidden rounded-xl border-2 border-[#888888]`}
               >
+                {/* Label chéo góc */}
+                {card.angleLable && (
+                  <div className="absolute top-5 -right-17 z-20 rotate-45 bg-[#d8d8d8] px-16 py-1 text-xs text-[10px] font-bold text-[#585858]">
+                    {card.angleLable}
+                  </div>
+                )}
                 <div className="flex-1 space-y-8 px-10 py-4">
                   <div>
                     <h4 className="pt-4 text-2xl font-bold">{card.title}</h4>
@@ -69,7 +109,7 @@ export default function PricingModel() {
                   <p className="text-sm font-bold text-[#cccccc] md:text-[15px]">{card.subContent}</p>
                 </div>
                 <Link
-                  href="/lien-he#lien-he-nhanh"
+                  href="/lien-he#ho-tro-nhanh"
                   className="block w-full bg-[#cccccc] py-4 text-center font-semibold text-[#585858] transition-colors hover:text-white"
                 >
                   Đặt lịch

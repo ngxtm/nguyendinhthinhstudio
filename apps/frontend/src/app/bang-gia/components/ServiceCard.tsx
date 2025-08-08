@@ -3,6 +3,7 @@ import SeeMoreList from './SeeMoreList'
 import Link from 'next/link'
 
 interface ServiceCardProps {
+  id: string
   title: string
   description: string
   imageSrc: StaticImageData
@@ -15,6 +16,7 @@ interface ServiceCardProps {
 }
 
 export default function ServiceCard({
+  id,
   title,
   description,
   imageSrc,
@@ -29,7 +31,7 @@ export default function ServiceCard({
         <div className="h-px w-14 border border-b-2 border-[#bdbdbd]" />
         <p className="text-[15px] leading-relaxed">{description}</p>
         <SeeMoreList seeMoreList={seeMoreList} />
-        <Link href="/bang-gia" className="w-fit bg-[#cccccc] px-5 py-1.5 text-sm text-white flex items-center">
+        <Link href={`/bang-gia/${id}`} className="w-fit rounded-sm bg-[#cccccc] px-5 md:py-1.5 text-sm text-white flex items-center">
           Xem Bảng Giá
         </Link>
       </div>

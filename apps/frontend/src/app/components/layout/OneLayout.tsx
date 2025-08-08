@@ -1,6 +1,7 @@
 'use client'
 
 import Image, { StaticImageData } from 'next/image'
+import Link from 'next/link'
 import useHoverEffect from '@/app/hooks/useHoverEffect'
 
 interface OneLayoutSectionProps {
@@ -24,14 +25,16 @@ export default function OneLayoutSection({ imgSrc, title, titleButton }: OneLayo
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="text-center">
                 <h1 className={`mb-8 text-xl sm:text-2xl md:text-4xl font-bold text-white`}>{title}</h1>
-                <button
-                  className={hoverEffect.getButtonClasses()}
-                  onMouseEnter={hoverEffect.handleMouseEnter}
-                  onMouseLeave={hoverEffect.handleMouseLeave}
-                >
-                  <span className={hoverEffect.getSpanClasses()}></span>
-                  <span className={hoverEffect.getTextClasses()}>{titleButton}</span>
-                </button>
+                <Link href="/lien-he#ho-tro-nhanh">
+                  <button
+                    className={hoverEffect.getButtonClasses()}
+                    onMouseEnter={hoverEffect.handleMouseEnter}
+                    onMouseLeave={hoverEffect.handleMouseLeave}
+                  >
+                    <span className={hoverEffect.getSpanClasses()}></span>
+                    <span className={hoverEffect.getTextClasses()}>{titleButton}</span>
+                  </button>
+                </Link>
               </div>
             </div>
           </div>

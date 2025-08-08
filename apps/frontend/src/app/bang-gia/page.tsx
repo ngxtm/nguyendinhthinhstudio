@@ -56,10 +56,10 @@ export default function Pricing() {
                 <h2 className="text-3xl font-bold text-[#585858]">Premium</h2>
                 <div className="h-px w-14 border border-b-2 border-[#bdbdbd]" />
                 <p className="text-[15px] leading-relaxed">
-                  Premium là gói dịch vụ hình ảnh cao cấp của TVB. Phương châm của Premium là &quot;Like a Stars&quot;.
+                  Premium là gói dịch vụ hình ảnh cao cấp của NDT Studio. Phương châm của Premium là &quot;Like a Stars&quot;.
                   Các Layout Premium được sáng tạo, kiểm duyệt nghiêm ngặt trước khi xuất bản để thương mại. Hình ảnh
                   của Premium được thiết kế phù hợp với phương châm hoàn mỹ, và tỏa sáng như một ngôi sao. Đây là phiên
-                  bản Original nhất của TVB. Sử dụng những thiết bị và công nghệ cao cấp nhất trong ngành nhiếp ảnh sẽ
+                  bản Original nhất của NDT Studio. Sử dụng những thiết bị và công nghệ cao cấp nhất trong ngành nhiếp ảnh sẽ
                   cho phép thực hiện được những layout có độ khó cực kỳ cao như những bộ ảnh của các ngôi sao, của các
                   idol.
                 </p>
@@ -73,9 +73,9 @@ export default function Pricing() {
                 <h2 className="text-3xl font-bold text-[#585858]">Standard</h2>
                 <div className="h-px w-14 border border-b-2 border-[#bdbdbd]" />
                 <p className="text-[15px] leading-relaxed">
-                  Standard là gói dịch vụ hình ảnh tiết kiệm nhất của TVB. Được thiết kế để dành riêng cho những khách
+                  Standard là gói dịch vụ hình ảnh tiết kiệm nhất của NDT Studio. Được thiết kế để dành riêng cho những khách
                   hàng trẻ trung, năng động. Mang trong nội tại tinh thần: &quot;Make it easy&quot;, &quot;Do it
-                  faster&quot;, nhưng vẫn giữ được chất lượng thuần nhất với chất lượng hình ảnh của TVB. Standard làm
+                  faster&quot;, nhưng vẫn giữ được chất lượng thuần nhất với chất lượng hình ảnh của NDT Studio. Standard làm
                   mọi thứ trở nên đơn giản hơn để mọi người có thể dễ dàng tiếp cận hơn với nhiếp ảnh cao cấp. Sử dụng
                   thiết bị và công nghệ cận cao cấp cho phép gói chụp thực hiện được gần như mọi concept.
                 </p>

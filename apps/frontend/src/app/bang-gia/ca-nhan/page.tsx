@@ -1,11 +1,12 @@
 'use client'
+import { useState } from 'react'
+import { serviceCategories, additionalServiceAndTerms, pricingPackages } from './data/ca-nhan'
 import DividerWithText from '@/app/components/common/DividerWithText'
 import Footer from '@/app/components/common/Footer'
 import Header from '@/app/components/layout/Header'
 import ServiceCategories from '../components/ServiceCategories'
-import { useState } from 'react'
-import { serviceCategories } from './data/ca-nhan'
 import PricingModel from './components/PricingModel'
+import AdditionalServiceAndTerms from './components/AdditionalServiceAndTerms'
 
 export default function IndividualPrice() {
   const [openAccordions, setOpenAccordions] = useState<Set<string>>(new Set())
@@ -24,7 +25,7 @@ export default function IndividualPrice() {
 
   return (
     <>
-      <div className="space-y-10 md:px-16">
+      <div className="px-2.5 space-y-10 md:px-16">
         <Header logoText="NguyenDinhThinh" showMobileMenu={true} />
         <div className="space-y-12 pt-16 sm:pt-16 md:space-y-4">
           <h1 className="mt-8 text-center text-xl font-bold md:text-4xl">BẢNG GIÁ CÁ NHÂN</h1>
@@ -46,7 +47,7 @@ export default function IndividualPrice() {
           <h2 className="text-2xl font-bold text-[#585858] md:text-3xl">Layout</h2>
           <div className="my-8 h-px w-14 border border-b-2 border-[#bdbdbd] bg-[#bdbdbd]" />
           <p className="text-sm leading-relaxed md:text-[15px]">
-            Mỗi Layout, hay còn gọi là concept, theo cách mọi người hiểu là “01 bộ ảnh”, đối với quy chuẩn của TVB là
+            Mỗi Layout, hay còn gọi là concept, theo cách mọi người hiểu là “01 bộ ảnh”, đối với quy chuẩn của NDT Studio là
             bao gồm gần như tất cả mọi thứ liên quan để khách hàng có được hình ảnh mong muốn. Layout có thể Custom (tùy
             chỉnh) để phù hợp với mỗi cá nhân tùy theo Order (đặt hàng) của mỗi người.
           </p>
@@ -59,7 +60,8 @@ export default function IndividualPrice() {
             />
           </div>
         </div>
-        <PricingModel />
+        <PricingModel pricingPackages={pricingPackages}/>
+        <AdditionalServiceAndTerms service={additionalServiceAndTerms} />
       </div>
       <Footer />
     </>

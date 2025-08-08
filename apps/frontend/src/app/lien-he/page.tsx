@@ -16,7 +16,7 @@ export default function Contact() {
             NGUYỄN ĐÌNH THỊNH STUDIO
           </h1>
           <DividerWithText text="THÔNG TIN LIÊN HỆ" textClassName="text-[#888888] text-sm" />
-          <div className="flex w-full flex-col gap-10 md:flex-row">
+          <div className="flex items-center  w-full flex-col gap-10 md:flex-row">
             {/* Bản đồ Google Maps */}
             <div className="w-full lg:w-2/3">
               <div className="h-64 w-full overflow-hidden rounded-lg shadow-lg md:h-80 lg:h-96">
@@ -56,6 +56,13 @@ export default function Contact() {
                     <a href="tel:+84899990497" className="text-gray-600 transition-colors hover:text-gray-800">
                       0899 990 497
                     </a>
+                  </div>
+
+                  <div className="border-b border-gray-100 pb-4">
+                    <p className="mb-2 text-xs tracking-wider text-gray-400 uppercase">Chương trình khuyến mãi tháng {new Date().getMonth()}</p>
+                    <p className="leading-relaxed">
+                      Vote 5 sao trên Google Maps để được nhận ưu đãi 5% gói chụp.
+                    </p>
                   </div>
                 </div>
 
