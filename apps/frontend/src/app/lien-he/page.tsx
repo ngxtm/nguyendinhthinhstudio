@@ -59,13 +59,11 @@ export default function Contact() {
                   </div>
                 </div>
 
-                <div className="pt-4">
-                  <div id="ho-tro-nhanh">
-                    <p className="mb-4 text-xs text-gray-400">
-                      Lưu ý: Trong các ứng dụng (Google Maps, Apple Maps), có thể gõ &quot;Nguyễn Đình Thịnh
-                      Studio&quot; để tìm đúng địa điểm.
-                    </p>
-                  </div>
+                <div id="ho-tro-nhanh">
+                  <p className="mb-4 text-xs text-gray-400">
+                    Lưu ý: Trong các ứng dụng (Google Maps, Apple Maps), có thể gõ &quot;Nguyễn Đình Thịnh Studio&quot;
+                    để tìm đúng địa điểm.
+                  </p>
 
                   <div className="flex flex-col gap-3 md:flex-row">
                     <a

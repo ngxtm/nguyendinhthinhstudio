@@ -9,7 +9,7 @@ export default function DividerWithText({ text, className, textClassName, lineCl
   return (
     <div className={`relative flex items-center ${className}`}>
       <div className={`flex-grow border-t ${lineClassName}`}></div>
-      {text && <span className={`mx-4 bg-white px-2 ${textClassName}`}>{text}</span>}
+      {text && <span className={`mx-2.5 bg-white ${textClassName}`}>{text}</span>}
       <div className={`flex-grow border-t ${lineClassName}`}></div>
     </div>
   )

@@ -34,7 +34,7 @@ export default function Pricing() {
           <div className="mx-auto mt-16 max-w-4xl">
             <div className="text-center">
               <h2 className="mb-4 text-3xl font-bold text-[#585858]">Art - Beauty - Fashion</h2>
-              <div className="my-4 h-px w-14 border border-b-2 border-[#bdbdbd] bg-[#bdbdbd]"></div>
+              <div className="my-4 h-px w-14 border border-b-2 border-[#bdbdbd] bg-[#bdbdbd]" />
               <p className="text-start text-[15px] leading-relaxed">
                 Bảng giá của NDT Studio không được thiết lập dựa trên những tiêu chuẩn cũ mà mọi người thường thấy tại
                 các Studio/Photographer thông thường. Mà việc phân định giá sẽ dựa trên những tiêu chuẩn của các thương
