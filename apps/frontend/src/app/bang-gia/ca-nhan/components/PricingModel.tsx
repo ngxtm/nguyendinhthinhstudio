@@ -96,7 +96,7 @@ export default function PricingModel({ pricingPackages }: Readonly<PricingModelP
                 <div className="flex-1 space-y-8 px-6 py-4">
                   <div>
                     <h4 className="pt-4 text-2xl font-bold">{card.title}</h4>
-                    <p className="gap-0.5 text-7xl font-bold">
+                    <p className={`gap-0.5 text-7xl font-bold ${card.angleLable ? 'gold-sparkle' : ''}`}>
                       {card.price} <span className="-ml-5 text-sm">k{card.isPerPerson ? '/người' : ''}</span>{' '}
                     </p>
                   </div>
@@ -118,6 +118,39 @@ export default function PricingModel({ pricingPackages }: Readonly<PricingModelP
               </div>
             ))}
           </div>
+          {/* Local styles for gold gradient + moving glitter effect */}
+      <style>{`
+        .gold-sparkle {
+          background-image: linear-gradient(90deg, #b58b2a, #f3e27a, #d4af37, #b58b2a);
+          background-size: 300% 100%;
+          -webkit-background-clip: text;
+          background-clip: text;
+          color: transparent;
+          animation: goldFlow 6s linear infinite;
+          position: relative;
+        }
+        .gold-sparkle:after {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: -150%;
+          width: 150%;
+          height: 100%;
+          background: linear-gradient(120deg, transparent 0%, rgba(255,255,255,0.9) 20%, transparent 40%);
+          animation: shine 2.8s ease-in-out infinite;
+          -webkit-background-clip: text;
+          background-clip: text;
+        }
+        @keyframes goldFlow {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+        @keyframes shine {
+          0% { transform: translateX(0); }
+          100% { transform: translateX(200%); }
+        }
+      `}</style>
         </div>
       ))}
     </>
