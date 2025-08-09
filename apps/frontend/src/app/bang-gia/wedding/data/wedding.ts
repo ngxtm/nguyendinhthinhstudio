@@ -1,5 +1,3 @@
-import { m } from "framer-motion"
-
 export const serviceCategories = [
     {
         id: 'id-01',

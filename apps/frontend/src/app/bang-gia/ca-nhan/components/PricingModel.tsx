@@ -16,6 +16,7 @@ interface SubCard {
   services: ServiceItem[]
   subContent: string
   angleLable?: string
+  isPerPerson?: boolean
 }
 
 interface PricingPackage {
@@ -92,11 +93,11 @@ export default function PricingModel({ pricingPackages }: Readonly<PricingModelP
                     {card.angleLable}
                   </div>
                 )}
-                <div className="flex-1 space-y-8 px-10 py-4">
+                <div className="flex-1 space-y-8 px-6 py-4">
                   <div>
                     <h4 className="pt-4 text-2xl font-bold">{card.title}</h4>
                     <p className="gap-0.5 text-7xl font-bold">
-                      {card.price} <span className="-ml-5 text-sm">k</span>{' '}
+                      {card.price} <span className="-ml-5 text-sm">k{card.isPerPerson ? '/người' : ''}</span>{' '}
                     </p>
                   </div>
                   <div>
