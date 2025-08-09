@@ -25,7 +25,7 @@ export default function SeeMoreDetail({
       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
 
       <div className="absolute bottom-6 left-1/2 -translate-x-1/2 text-center text-white">
-        <AnimatedContent direction="vertical" duration={1.5} threshold={-0.5}>
+        <AnimatedContent direction="vertical" duration={2} threshold={-0.5} delay={0.3}>
           <h1 className="mb-2 text-3xl font-bold">{title}</h1>
           <p className="mb-4 text-sm text-gray-200">{description}</p>
           <Link href={linkUrl}>

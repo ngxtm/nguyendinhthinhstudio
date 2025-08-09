@@ -74,77 +74,32 @@ export const pricingPackages = [
             }
         ],
         angleLable: 'BEST',
+        offMain: true,
         subContent: 'Gói Premium đề cao sự tỉ mỉ, chỉnh chu và cá nhân hóa các bộ ảnh. Premium của thương hiệu NDT Studio luôn là sự khác biệt và sự đẳng cấp về mọi mặt.',
         subCard: [
             {
-                title: 'FAMILY PREMIUM I',
-                price: 10500,
+                title: 'FAMILY I',
+                price: 1500,
+                isPerPerson: true,
                 services: [
                     {
-                        id: 'id-01-pre1-01',
-                        content: '01 Layout gia đình 03 người: 2 người lớn, 1 em bé dưới 12 tuổi',
-                    },
-                    {
-                        id: 'id-01-pre1-02',
-                        content: '01 Layout Styling từ Head of Fashion Stylist cho mỗi người',
-                    },
-                    {
-                        id: 'id-01-pre1-03',
-                        content: '01 Layout Makeup & Hairstyle cho mỗi người',
-                    },
-                    {
-                        id: 'id-01-pre1-04',
-                        content: '05 giờ chuẩn bị và shooting',
-                    },
-                    {
-                        id: 'id-01-pre1-05',
-                        content: '08 ảnh chỉnh sửa'
-                    },
-                    {
-                        id: 'id-01-pre1-06',
-                        content: 'Thêm Người Lớn: +3000k'
-                    },
-                    {
-                        id: 'id-01-pre1-07',
-                        content: 'Thêm Em Bé (<10 tuổi): +1500k'
+                        id: 'id-01-basic1-01',
+                        content: 'Đối với gia đình: 1 -> 5 người',
                     }
                 ],
-                subContent: 'Gói chụp một bộ hình'
+                subContent: 'Gói chụp trên tính theo mỗi cá nhân'
             },
             {
-                title: 'FAMILY PREMIUM II',
-                price: 18500,
+                title: 'FAMILY II',
+                price: 1200,
+                isPerPerson: true,
                 services: [
                     {
-                        id: 'id-01-pre2-01',
-                        content: '01 Layout gia đình 03 người: 2 người lớn, 1 em bé dưới 12 tuổi',
-                    },
-                    {
-                        id: 'id-01-pre2-02',
-                        content: '02 Layout Styling từ Head of Fashion Stylist cho mỗi người',
-                    },
-                    {
-                        id: 'id-01-pre2-03',
-                        content: '02 Layout Makeup & Hairstyle cho mỗi người',
-                    },
-                    {
-                        id: 'id-01-pre2-04',
-                        content: '08 giờ chuẩn bị và shooting',
-                    },
-                    {
-                        id: 'id-01-pre2-05',
-                        content: '15 ảnh chỉnh sửa'
-                    },
-                    {
-                        id: 'id-01-pre2-06',
-                        content: 'Thêm Người Lớn: +4800k'
-                    },
-                    {
-                        id: 'id-01-pre2-07',
-                        content: 'Thêm Em Bé (<10 tuổi): +2000k'
+                        id: 'id-01-basic2-01',
+                        content: 'Đối với gia đình: trên 8 người',
                     }
                 ],
-                subContent: 'Gói chụp một bộ hình, tiết kiệm 3500k'
+                subContent: 'Gói chụp trên tính theo mỗi cá nhân'
             }
         ]
     }
@@ -158,7 +113,7 @@ export const additionalServiceAndTerms = [
             {
                 id: 'at-01-01',
                 title: 'Sửa Thêm Ảnh Premium',
-                description: 'Sửa lẻ: 100k/01 ảnh \n Combo: 800k/10 ảnh (Best Choice - Lựa chọn tốt nhất)',
+                description: '35k/01 ảnh x số lượng người',
                 isActive: true
             },
             {

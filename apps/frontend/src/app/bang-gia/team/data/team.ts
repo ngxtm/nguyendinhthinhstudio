@@ -329,25 +329,25 @@ export const additionalServiceAndTerms = [
             {
                 id: 'id-01-00',
                 title: 'Sửa Thêm Ảnh Team',
-                description: 'Sửa lẻ: \n – 500k/ 01 ảnh (team dưới 5 người) \n – 1000k/ 01 ảnh (team từ 5 người trở lên) \n Combo: \n – 2000k/ 05 ảnh (team dưới 5 người) \n – 4000k/ 05 ảnh (team từ 5 người trở lên)',
+                description: 'Sửa lẻ: \n – 500k/ 01 ảnh x số lượng người (team dưới 5 người) \n – 1000k/ 01 ảnh x số lượng người (team từ 5 người trở lên) \n Combo: \n – 2000k/ 05 ảnh x số lượng người (team dưới 5 người) \n – 4000k/ 05 ảnh x số lượng người (team từ 5 người trở lên)',
                 isActive: true
             },
             {
                 id: 'at-01-01',
                 title: 'Sửa Thêm Ảnh Premium',
-                description: 'Sửa lẻ: 100k/01 ảnh \n Combo: 800k/10 ảnh (Best Choice - Lựa chọn tốt nhất)',
+                description: 'Sửa lẻ: 100k/01 ảnh x số lượng người \n Combo: 800k/10 ảnh x số lượng người (Best Choice - Lựa chọn tốt nhất)',
                 isActive: true
             },
             {
                 id: 'at-01-02',
                 title: 'Sửa Thêm Ảnh Standard',
-                description: 'Sửa lẻ: 35k/01 ảnh \n Combo: 300k/10 ảnh (Best Choice - Lựa chọn tốt nhất)',
+                description: 'Sửa lẻ: 35k/01 ảnh x số lượng người \n Combo: 300k/10 ảnh x số lượng người (Best Choice - Lựa chọn tốt nhất)',
                 isActive: true
             },
             {
                 id: 'at-01-03',
                 title: 'Sửa Thêm Ảnh VIP',
-                description: 'Sửa lẻ: 500k/01 ảnh \n Combo: 2000k/5 ảnh (Best Choice - Lựa chọn tốt nhất)',
+                description: 'Sửa lẻ: 500k/01 ảnh x số lượng người \n Combo: 2000k/5 ảnh x số lượng người (Best Choice - Lựa chọn tốt nhất)',
                 isActive: true
             },
             {

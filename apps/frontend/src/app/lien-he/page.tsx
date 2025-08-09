@@ -99,7 +99,7 @@ export default function Contact() {
         <DividerWithText text="LIÊN HỆ NHANH" textClassName="text-[#888888] text-sm" className="mt-4" />
         <Support />
         <DividerWithText textClassName="text-[#888888] text-sm" className="mt-6" />
-        <AnimatedContent direction="vertical" duration={1.5}>
+        <AnimatedContent direction="vertical" duration={2} delay={0.2} threshold={0.2}>
           <SeeMore className="mt-12" />
         </AnimatedContent>
         <DividerWithText textClassName="text-[#888888] text-sm" className="my-12" />

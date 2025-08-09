@@ -39,6 +39,11 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* Prefer balanced line wrapping for large headings */
+.text-balance {
+  text-wrap: balance;
+}
+
 /* Mobile-first responsive utilities */
 @media (max-width: 640px) {
   .container {
@@ -71,4 +76,35 @@ body {
     min-height: 44px;
     min-width: 44px;
   }
+}
+
+.gold-sparkle {
+  background-image: linear-gradient(90deg, #b58b2a, #f3e27a, #d4af37, #b58b2a);
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: goldFlow 6s linear infinite;
+  position: relative;
+}
+.gold-sparkle:after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -150%;
+  width: 150%;
+  height: 100%;
+  background: linear-gradient(120deg, transparent 0%, rgba(255,255,255,0.9) 20%, transparent 40%);
+  animation: shine 2.8s ease-in-out infinite;
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+@keyframes goldFlow {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+@keyframes shine {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(200%); }
 }

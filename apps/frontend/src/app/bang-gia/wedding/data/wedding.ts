@@ -134,43 +134,47 @@ export const pricingPackages = [
                 angleLable: 'BEST-SELLER',
                 services: [
                     {
-                        id: 'id-01-pre1-01',
+                        id: 'id-01-pre2-01',
                         content: '02 Layout Cưới',
                     },
                     {
-                        id: 'id-01-pre1-02',
+                        id: 'id-01-pre2-02',
                         content: '02 Váy, 02 Vest',
                     },
                     {
-                        id: 'id-01-pre1-03',
+                        id: 'id-01-pre2-03',
                         content: '1 Bộ phụ kiện',
                     },
                     {
-                        id: 'id-01-pre1-04',
+                        id: 'id-01-pre2-04',
                         content: '20 ảnh chỉnh sửa'
                     },
                     {
-                        id: 'id-01-pre1-05',
+                        id: 'id-01-pre2-05',
                         content: 'Makeup & HairStylist'
                     },
                     {
-                        id: 'id-01-pre1-06',
+                        id: 'id-01-pre2-06',
                         content: 'Stylist Cao Cấp tạo hình'
                     },
                     {
-                        id: 'id-01-pre1-07',
+                        id: 'id-01-pre2-07',
                         content: 'Retouch cá nhân hóa'
                     },
                     {
-                        id: 'id-01-pre1-08',
+                        id: 'id-01-pre2-08',
                         content: '2 ảnh cổng (60x90 - Khung: 3D-CF)'
                     },
                     {
-                        id: 'id-01-pre1-09',
+                        id: 'id-01-pre2-09',
                         content: '5 ảnh (13x18 - có khung)'
                     },
                     {
-                        id: 'id-01-pre1-10',
+                        id: 'id-01-pre2-10',
+                        content: '1 Album Photobook'
+                    },
+                    {   
+                        id: 'id-01-pre2-11',
                         content: 'Slide'
                     }
                 ],
@@ -182,39 +186,43 @@ export const pricingPackages = [
                 angleLable: 'BEST-SELLER',
                 services: [
                     {
-                        id: 'id-01-pre1-01',
+                        id: 'id-01-pre3-01',
                         content: '01 Layout Cưới, 01 Layout Thời Trang',
                     },
                     {
-                        id: 'id-01-pre1-02',
+                        id: 'id-01-pre3-02',
                         content: '1 Bộ phụ kiện',
                     },
                     {
-                        id: 'id-01-pre1-04',
+                        id: 'id-01-pre3-04',
                         content: '20 ảnh chỉnh sửa'
                     },
                     {
-                        id: 'id-01-pre1-05',
+                        id: 'id-01-pre3-05',
                         content: 'Makeup & HairStylist'
                     },
                     {
-                        id: 'id-01-pre1-06',
+                        id: 'id-01-pre3-06',
                         content: 'Stylist Cao Cấp tạo hình'
                     },
                     {
-                        id: 'id-01-pre1-07',
+                        id: 'id-01-pre3-07',
                         content: 'Retouch cá nhân hóa'
                     },
                     {
-                        id: 'id-01-pre1-08',
+                        id: 'id-01-pre3-08',
                         content: '2 ảnh cổng (60x90 - Cao cấp)'
                     },
                     {
-                        id: 'id-01-pre1-09',
+                        id: 'id-01-pre3-09',
                         content: '5 ảnh (13x18 - có khung)'
                     },
                     {
-                        id: 'id-01-pre1-10',
+                        id: 'id-01-pre3-10',
+                        content: '1 Album Photobook'
+                    },
+                    {
+                        id: 'id-01-pre3-11',
                         content: 'Slide, USB'
                     }
                 ],
@@ -225,39 +233,43 @@ export const pricingPackages = [
                 price: 13900,
                 services: [
                     {
-                        id: 'id-01-pre1-01',
+                        id: 'id-01-pre4-01',
                         content: '02 Layout Ngoại Cảnh, 01 Layout Studio Cơ Bản',
                     },
                     {
-                        id: 'id-01-pre1-02',
+                        id: 'id-01-pre4-02',
                         content: '1 Bộ phụ kiện',
                     },
                     {
-                        id: 'id-01-pre1-04',
+                        id: 'id-01-pre4-04',
                         content: '20 ảnh chỉnh sửa'
                     },
                     {
-                        id: 'id-01-pre1-05',
+                        id: 'id-01-pre4-05',
                         content: 'Makeup & HairStylist'
                     },
                     {
-                        id: 'id-01-pre1-06',
+                        id: 'id-01-pre4-06',
                         content: 'Stylist Cao Cấp tạo hình'
                     },
                     {
-                        id: 'id-01-pre1-07',
+                        id: 'id-01-pre4-07',
                         content: 'Retouch cá nhân hóa'
                     },
                     {
-                        id: 'id-01-pre1-08',
+                        id: 'id-01-pre4-08',
                         content: '2 ảnh cổng (60x90 - Cao cấp)'
                     },
                     {
-                        id: 'id-01-pre1-09',
+                        id: 'id-01-pre4-09',
                         content: '5 ảnh (13x18 - có khung)'
                     },
                     {
-                        id: 'id-01-pre1-10',
+                        id: 'id-01-pre4-10',
+                        content: '1 Album Photobook'
+                    },
+                    {
+                        id: 'id-01-pre4-11',
                         content: 'Slide, USB'
                     }
                 ],

@@ -106,6 +106,7 @@ export const pricingPackages = [
       {
         title: 'PREMIUM II',
         price: 6500,
+        angleLable: 'BEST-SELLER',
         services: [
           {
             id: 'id-01-pre1-01',
@@ -133,6 +134,7 @@ export const pricingPackages = [
       {
         title: 'PREMIUM III',
         price: 9500,
+        angleLable: 'BEST-SELLER',
         services: [
           {
             id: 'id-01-pre1-01',
@@ -231,6 +233,7 @@ export const pricingPackages = [
         id: 'id-02-stan2',
         title: 'STANDARD II',
         price: 2500,
+        angleLable: 'BEST-SELLER',
         services: [
           {
             id: 'id-stan2-01',
@@ -320,6 +323,7 @@ export const pricingPackages = [
         id: 'id-03-vip2',
         title: 'VIP II',
         price: 15000,
+        angleLable: 'BEST-SELLER',
         services: [
           {
             id: 'id-vip2-01',

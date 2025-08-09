@@ -84,6 +84,7 @@ export const pricingPackages = [
             {
                 title: 'PREMIUM I',
                 price: 4200,
+                angleLable: 'BEST-SELLER',
                 services: [
                     {
                         id: 'id-01-pre1-01',
@@ -206,6 +207,7 @@ export const pricingPackages = [
                 id: 'id-02-stan2',
                 title: 'STANDARD II',
                 price: 3500,
+                angleLable: 'BEST-SELLER',
                 services: [
                     {
                         id: 'id-stan2-01',
