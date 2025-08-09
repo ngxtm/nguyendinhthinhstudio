@@ -327,6 +327,12 @@ export const additionalServiceAndTerms = [
         title: 'Dịch Vụ Kèm Thêm',
         services: [
             {
+                id: 'id-01-00',
+                title: 'Sửa Thêm Ảnh Team',
+                description: 'Sửa lẻ: \n – 500k/ 01 ảnh (team dưới 5 người) \n – 1000k/ 01 ảnh (team từ 5 người trở lên) \n Combo: \n – 2000k/ 05 ảnh (team dưới 5 người) \n – 4000k/ 05 ảnh (team từ 5 người trở lên)',
+                isActive: true
+            },
+            {
                 id: 'at-01-01',
                 title: 'Sửa Thêm Ảnh Premium',
                 description: 'Sửa lẻ: 100k/01 ảnh \n Combo: 800k/10 ảnh (Best Choice - Lựa chọn tốt nhất)',

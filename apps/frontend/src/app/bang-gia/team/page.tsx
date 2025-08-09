@@ -31,7 +31,7 @@ export default function TeamPrice() {
             <h1 className="mt-8 text-center text-xl font-bold md:text-4xl">BẢNG GIÁ TEAM</h1>
             <div>
               <p className="text-center text-[#888888]">
-                Bảng báo giá chụp ảnh cưới: Pre-wedding, Wedding Day, Album cưới
+                Bảng báo giá chụp ảnh Team/Doanh nghiệp: Profile cá nhân, ảnh nhóm, ảnh branding
               </p>
             </div>
             <DividerWithText
