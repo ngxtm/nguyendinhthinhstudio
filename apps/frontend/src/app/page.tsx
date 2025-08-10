@@ -23,7 +23,7 @@ export default function Home() {
         <AppHero />
         <div className="space-y-6 sm:space-y-8 md:space-y-10 lg:space-y-12">
           <div className="mt-6 sm:mt-8 md:mt-10">
-            <OneLayoutSection imgSrc={oneLayoutImgSrc} title="NEW COLLECTION" titleButton="KHÁM PHÁ NGAY" />
+            <OneLayoutSection imgSrc={oneLayoutImgSrc} title="NEW COLLECTION" titleButton="KHÁM PHÁ NGAY" buttonLink='/thu-vien'/>
           </div>
           <AnimatedContent direction="horizontal" reverse={true} distance={800} duration={1.5} threshold={0.1}>
             <DividerWithText
@@ -69,7 +69,7 @@ export default function Home() {
             <OneLayoutSection imgSrc={feature} title="READY TO SHOOT" titleButton="BOOKING NOW" />
           </AnimatedContent>
           <div className="space-y-6 sm:space-y-8">
-            <ServiceOverview />
+            <ServiceOverview title1ButtonLink='/thu-vien'  title2ButtonLink='/lien-he#ho-tro-nhanh' title3ButtonLink='/gioi-thieu'/>
             <SocialSection />
           </div>
           <Footer />
