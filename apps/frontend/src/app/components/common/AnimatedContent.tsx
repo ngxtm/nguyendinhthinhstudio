@@ -19,6 +19,8 @@ interface AnimatedContentProps {
   threshold?: number
   delay?: number
   onComplete?: () => void
+  finalOpacity?: number
+  className?: string
 }
 
 const AnimatedContent: React.FC<AnimatedContentProps> = ({
@@ -33,7 +35,9 @@ const AnimatedContent: React.FC<AnimatedContentProps> = ({
   scale = 1,
   threshold = 0.1,
   delay = 0,
-  onComplete
+  onComplete,
+  finalOpacity = 1,
+  className
 }) => {
   const ref = useRef<HTMLDivElement>(null)
 
@@ -54,7 +58,7 @@ const AnimatedContent: React.FC<AnimatedContentProps> = ({
     gsap.to(el, {
       [axis]: 0,
       scale: 1,
-      opacity: 1,
+      opacity: animateOpacity ? finalOpacity : 1,
       duration,
       ease,
       delay,
@@ -91,7 +95,8 @@ const AnimatedContent: React.FC<AnimatedContentProps> = ({
     scale,
     threshold,
     delay,
-    onComplete
+    onComplete,
+    finalOpacity
   ])
 
   return (
@@ -101,6 +106,7 @@ const AnimatedContent: React.FC<AnimatedContentProps> = ({
         opacity: animateOpacity ? initialOpacity : 1,
         visibility: animateOpacity && initialOpacity === 0 ? 'hidden' : 'visible'
       }}
+      className={className}
     >
       {children}
     </div>
