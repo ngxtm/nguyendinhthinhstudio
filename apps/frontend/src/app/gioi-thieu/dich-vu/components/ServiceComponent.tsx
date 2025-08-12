@@ -84,7 +84,7 @@ export default function ServiceComponent() {
         {/* Text Box */}
         <div className="w-full lg:flex-1 lg:max-w-md lg:-mr-12 xl:-mr-16">
           <AnimatedContent direction="horizontal" duration={1.5} distance={200} threshold={0.1}>
-            <div className="flex min-h-[400px] flex-col items-center lg:items-start justify-center gap-6 rounded-lg bg-[#212121] p-6 sm:gap-8 sm:p-8 lg:items-end lg:h-[70vh] xl:h-[78vh]">
+            <div className="flex min-h-[400px] flex-col items-center justify-center gap-6 rounded-lg bg-[#212121] p-6 sm:gap-8 sm:p-8 lg:items-end lg:h-[70vh] xl:h-[78vh]">
               <div className="flex flex-col gap-4 text-center sm:gap-6 lg:text-right">
                 <h2 className="text-xl font-bold text-white sm:text-2xl lg:text-3xl">LỰA CHỌN HÀNG ĐẦU</h2>
                 <hr className="sm:w-[calc(100%+1rem)] border-t-2 border-white sm:-ml-12 lg:-ml-16" />

@@ -118,7 +118,7 @@ const AppHero: React.FC<HeroProps> = ({ autoPlayInterval = 4000, images: customI
             onMouseLeave={hoverEffect.handleMouseLeave}
           >
             <span className={hoverEffect.getSpanClasses()}></span>
-            <span className={hoverEffect.getTextClasses()}>Bảng giá</span>
+            <span className={hoverEffect.getTextClasses()}>Bảng Giá</span>
           </Link>
         </div>
       </div>
