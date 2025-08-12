@@ -62,10 +62,10 @@ export default function Home() {
               mobileStackVertical={true}
             />
           </div>
-          <AnimatedContent direction="horizontal" distance={500} reverse={true} duration={1} delay={0.3}>
+          <AnimatedContent direction="horizontal" distance={500} reverse={true} duration={1.5}>
             <DividerWithText text="FEATURED" textClassName="text-[#cccccc] text-sm" className="mt-6 sm:mt-8 md:mt-10 px-6 md:px-16" />
           </AnimatedContent>
-          <AnimatedContent distance={200} direction="vertical" duration={1.5} delay={0.3}>
+          <AnimatedContent distance={200} direction="vertical" duration={1.5}>
             <OneLayoutSection imgSrc={feature} title="READY TO SHOOT" titleButton="BOOKING NOW" />
           </AnimatedContent>
           <div className="space-y-6 sm:space-y-8">
