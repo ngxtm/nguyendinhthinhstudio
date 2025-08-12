@@ -32,13 +32,13 @@ export default function useHoverEffect(options: HoverEffectOptions = {}): HoverE
 
   const getButtonClasses = useCallback(
     (baseClasses = '') => {
-      let classes = `group relative overflow-hidden rounded-md border-2 border-white bg-transparent px-3 py-1 text-white font-semibold tracking-wide transition-all duration-300 ease-in-out ${baseClasses}`
+      let classes = `group relative overflow-hidden rounded-lg border border-white bg-transparent px-3 py-1 text-white font-light transition-all duration-700 ease-out backdrop-blur-sm ${baseClasses}`
       if (enableScale) {
-        classes += 'hover:scale-105'
+        classes += ' hover:scale-[1.01] hover:border-opacity-80'
       }
 
       if (enableShadow) {
-        classes += 'hover:shadow-lg hover:shadow-white/20'
+        classes += ' hover:shadow-lg hover:shadow-white/5'
       }
 
       return classes
@@ -48,9 +48,9 @@ export default function useHoverEffect(options: HoverEffectOptions = {}): HoverE
 
   const getSpanClasses = useCallback(
     (baseClasses = '') => {
-      let classes = `absolute inset-0 bg-white transition-transform duration-300 ease-in-out ${baseClasses}`
+      let classes = `absolute inset-0 bg-gradient-to-r from-white/95 to-gray-50/95 transition-all duration-700 ease-out opacity-0 transform ${baseClasses}`
       if (enableSlideUp) {
-        classes += ' transform translate-y-full group-hover:translate-y-0'
+        classes += ' group-hover:opacity-100 group-hover:scale-105'
       }
 
       return classes
@@ -59,7 +59,7 @@ export default function useHoverEffect(options: HoverEffectOptions = {}): HoverE
   )
 
   const getTextClasses = useCallback((baseClasses = '') => {
-    return `relative z-10 transition-colors duration-300 ease-in-out group-hover:text-black ${baseClasses}`
+    return `relative z-10 transition-all duration-700 ease-out group-hover:text-slate-800 group-hover:tracking-[0.15em] group-hover:font-medium group-hover:drop-shadow-sm ${baseClasses}`
   }, [])
 
   return {
