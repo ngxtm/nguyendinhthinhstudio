@@ -74,9 +74,9 @@ const AppHero: React.FC<HeroProps> = ({ autoPlayInterval = 4000, images: customI
         {images.map((image, index) => {
           const nextIndex = currentImageIndex === images.length - 1 ? 0 : currentImageIndex + 1
           const shouldRender = index === currentImageIndex || index === nextIndex
-          
+
           if (!shouldRender) return null
-          
+
           return (
             <div
               key={image.src}
@@ -106,16 +106,19 @@ const AppHero: React.FC<HeroProps> = ({ autoPlayInterval = 4000, images: customI
 
       <div className="relative z-10 flex h-full items-center justify-start px-4 sm:px-6 md:px-8 lg:px-12">
         <div className="flex flex-col gap-3 sm:flex-row sm:gap-4 md:ml-2 lg:ml-6 xl:ml-10">
-          <Link href="/lien-he#ho-tro-nhanh" className="rounded-lg bg-white px-4 py-2 text-sm font-medium text-black transition-colors hover:bg-gray-100 sm:px-5 sm:py-2.5 sm:text-base md:px-6 md:py-3">
+          <Link
+            href="/lien-he#ho-tro-nhanh"
+            className="rounded-lg bg-white px-4 py-2 text-sm font-medium text-black transition-colors hover:bg-gray-100 sm:px-5 sm:py-2.5 sm:text-base md:px-6 md:py-3"
+          >
             Đặt lịch
           </Link>
           <Link
-            href='/bang-gia'
-            className={hoverEffect.getButtonClasses(
-              'px-4 py-2 text-sm sm:px-5 sm:py-2.5 sm:text-base md:px-6 md:py-3'
-            )}
+            href="/bang-gia"
+            className={hoverEffect.getButtonClasses('px-4 py-2 text-sm sm:px-5 sm:py-2.5 sm:text-base md:px-6 md:py-3')}
             onMouseEnter={hoverEffect.handleMouseEnter}
             onMouseLeave={hoverEffect.handleMouseLeave}
+            onFocus={hoverEffect.handleMouseEnter}
+            onBlur={hoverEffect.handleMouseLeave}
           >
             <span className={hoverEffect.getSpanClasses()}></span>
             <span className={hoverEffect.getTextClasses()}>Bảng Giá</span>
@@ -127,4 +130,3 @@ const AppHero: React.FC<HeroProps> = ({ autoPlayInterval = 4000, images: customI
 }
 
 export default AppHero
-
