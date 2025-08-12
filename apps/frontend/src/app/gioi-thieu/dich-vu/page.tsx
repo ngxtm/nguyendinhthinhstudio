@@ -20,13 +20,18 @@ export default function Service() {
         <ImageProductionComponent />
         <CreativeDirectorComponent />
         <DividerWithText
-        text="QUY TRÌNH DỊCH VỤ"
-        textClassName="text-[#888888] text-sm md:text-base"
-        className="px-4 sm:px-6 md:px-8 lg:px-12"
-      />
+          text="QUY TRÌNH DỊCH VỤ"
+          textClassName="text-[#888888] text-sm md:text-base"
+          className="px-4 sm:px-6 md:px-8 lg:px-12"
+        />
         <ServiceProcessComponnent />
+        <DividerWithText
+          text="XEM THÊM"
+          textClassName="text-[#888888] text-sm md:text-base"
+          className="px-4 sm:px-6 md:px-8 lg:px-12 mb-10"
+        />
+        <SeeMore className="mb-4 px-4 sm:px-6 md:px-8 lg:px-12" />
       </div>
-      <SeeMore className='px-4 sm:px-6 md:px-8 lg:px-12 mb-4' />
       <Footer />
     </>
   )
