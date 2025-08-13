@@ -110,7 +110,7 @@ export default function ServiceComponent() {
             <FaCameraRetro size={32} className="mx-auto mb-3 text-black sm:mb-4 md:mb-6 lg:mb-8" />
             <h2 className="mb-2 text-lg font-bold text-black sm:text-xl md:text-2xl sm:mb-3 md:mb-4">THIẾT BỊ TỐT</h2>
             <p className="text-sm text-[#bfbfbf] sm:text-base leading-relaxed">
-              Sử dụng những công nghệ - thiết bị của những thương hiệu hàng đầu - tốt nhất: Apple, Profoto, Hasselblad,
+              Sử dụng những công nghệ - thiết bị của những thương hiệu hàng đầu - tốt nhất: Apple, Profoto,
               Canon,...
             </p>
           </div>

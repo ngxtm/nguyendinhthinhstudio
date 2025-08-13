@@ -29,7 +29,7 @@ export default function SeeMore({ className }: Readonly<SeeMoreProps>) {
         title="DỊCH VỤ"
         description="Tìm hiểu về dịch vụ"
         titleButton="Xem Thêm"
-        linkUrl='/dich-vu'
+        linkUrl='/gioi-thieu/dich-vu'
       />
     </div>
   )
