@@ -17,9 +17,9 @@ export default function MiddleProcedure({ leftImage, rightImage, title, descript
         <Image src={leftImage} alt="procedure" fill className="object-cover" />
       </div>
       <div className="my-auto flex w-1/3 flex-col gap-4 px-14 md:flex-row">
-        <p className="text-8xl font-bold text-[#d8d8d8] my-auto">{number}</p>
-        <div className="flex flex-col gap-1.5">
-          <h2 className="text-4xl font-bold text-gray-800">
+        <p className="text-8xl font-bold text-[#d8d8d8] my-auto font-montserrat">{number}</p>
+        <div className="flex flex-col gap-2.5">
+          <h2 className="text-4xl font-bold text-gray-800 ">
             {title}
           </h2>
           <p className="text-base leading-relaxed text-gray-600">

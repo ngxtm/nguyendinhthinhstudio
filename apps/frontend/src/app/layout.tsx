@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { Geist, Geist_Mono, Inter } from 'next/font/google'
+import { Geist, Geist_Mono, Inter, Montserrat } from 'next/font/google'
 import localFont from 'next/font/local'
 import './globals.css'
 
@@ -25,6 +25,12 @@ const kapakana = localFont({
   display: 'swap'
 })
 
+const montserrat = Montserrat({
+  variable: '--font-montserrat',
+  subsets: ['latin'],
+  weight: ['100', '200', '300', '400', '500', '600', '700', '800', '900']
+})
+
 export const metadata: Metadata = {
   title: 'NguyenDinhThinh Studio',
   description: '...'
@@ -38,7 +44,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} ${kapakana.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} ${kapakana.variable} ${montserrat.variable} antialiased`}
       >
         {children}
       </body>
