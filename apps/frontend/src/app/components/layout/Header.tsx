@@ -339,7 +339,7 @@ const Header: React.FC<HeaderProps> = ({
                     </Link>
                     <button
                       onClick={() => handleDropdownToggle(item.label)}
-                      className="p-1 text-white transition-colors hover:text-gray-300"
+                      className="text-white transition-colors hover:text-gray-300 flex items-center justify-center max-h-fit"
                       aria-label={`Toggle ${item.label} submenu`}
                     >
                       <ChevronDown

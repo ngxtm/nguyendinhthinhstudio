@@ -4,7 +4,7 @@ interface LeftProcedureProps {
     image: string
 }
 
-export default function LeftProcedure({ title, description, image }: LeftProcedureProps) {
+export default function LeftProcedure({ title, description, image }: Readonly<LeftProcedureProps>) {
     return (
         <div>
             <p>NGUYỄN ĐÌNH THỊNH STUDIO</p>
