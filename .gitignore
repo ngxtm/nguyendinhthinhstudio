@@ -183,3 +183,6 @@ bower_components
 
 # Command files
 command.txt
+
+# Tools
+.kilocode
