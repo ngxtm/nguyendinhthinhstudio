@@ -23,7 +23,7 @@ export default function RightProcedure({ image, title, description, number }: Re
         </div>
       </div>
 
-      <div className="relative min-h-[25vh] md:hidden">
+      <div className="relative min-h-[25vh] md:hidden border-b">
         <p className="font-montserrat absolute top-0 bottom-0 left-0 flex w-full items-center justify-center text-9xl font-bold text-[#d8d8d8]">
           {number}
         </p>
