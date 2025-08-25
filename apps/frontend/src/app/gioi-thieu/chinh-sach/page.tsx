@@ -1,10 +1,11 @@
 'use client'
 
-import { useState } from 'react'
 import Footer from '@/app/components/common/Footer'
 import Header from '@/app/components/layout/Header'
+import Image from 'next/image'
+import { useState } from 'react'
 import { faq } from './data/chinh-sach'
-
+import img from '../images/gioi-thieu-2.png'
 export default function Policy() {
   const [openFAQ, setOpenFAQ] = useState<string | null>(null)
 
@@ -19,9 +20,13 @@ export default function Policy() {
         {/* Header Section */}
         <div className="mb-12 md:mb-16">
           <h1 className="mb-4 text-4xl leading-tight font-bold text-black md:text-6xl lg:text-7xl">
-            Chính sách bảo hành & dịch vụ.
+            CHÍNH SÁCH BẢO HÀNH & DỊCH VỤ
           </h1>
           <p className="text-lg font-medium text-gray-500 md:text-xl lg:text-2xl">Tinh tế • Tin cậy • Chuyên nghiệp</p>
+        </div>
+
+        <div className='relative aspect-[7/3] h-[70vh] mb-8 rounded-xl overflow-hidden mx-auto'>
+          <Image src={img} alt="chinh-sach" fill className='object-cover object-[47%_20%] md:object-[10%_40%]'  priority/>
         </div>
 
         {/* Main Policy Cards Section */}
