@@ -186,3 +186,7 @@ command.txt
 
 # Tools
 .kilocode
+
+
+apps/**/.env*
+/generated/prisma

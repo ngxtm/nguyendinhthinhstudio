@@ -1,0 +1,223 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+        
+// ============ ALBUMS & IMAGES ============
+
+model Album {
+  id          String    @id @default(uuid())
+  title       String
+  slug        String    @unique
+  description String?
+  category    String    // 'wedding' | 'couple' | 'family' | 'maternity' | 'newborn' | 'event'
+  
+  // Cover image
+  coverImageId String? @unique
+  coverImage   Image?  @relation("AlbumCover", fields: [coverImageId], references: [id])
+  
+  // Publishing
+  status             String    @default("draft") // 'draft' | 'published' | 'scheduled'
+  publishedAt        DateTime?
+  scheduledPublishAt DateTime?
+  
+  // Featured on homepage
+  isFeatured    Boolean @default(false)
+  featuredOrder Int?
+  
+  // Google Drive link (manual)
+  googleDriveLink String?
+  
+  // SEO
+  metaTitle       String?
+  metaDescription String?
+  
+  // Stats
+  viewCount  Int @default(0)
+  imageCount Int @default(0)
+  
+  // Relations
+  images   Image[]     @relation("AlbumImages")
+  tags     AlbumTag[]
+  bookings Booking[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([category])
+  @@index([status, publishedAt(sort: Desc)])
+  @@index([isFeatured, featuredOrder])
+}
+
+model Image {
+  id       String @id @default(uuid())
+  albumId  String
+  filename String
+  
+  // 5 responsive versions (WebP)
+  thumbnailUrl String // 400px
+  smallUrl     String // 800px
+  mediumUrl    String // 1200px
+  largeUrl     String // 1920px
+  xlargeUrl    String // 2560px
+  
+  // SEO
+  altText String?
+  
+  // Ordering (auto from upload + manual reorder)
+  orderIndex Int @default(0)
+  
+  // Metadata
+  width      Int?
+  height     Int?
+  fileSizeKb Int?
+  
+  // Relations
+  album      Album          @relation("AlbumImages", fields: [albumId], references: [id], onDelete: Cascade)
+  albumCover Album?         @relation("AlbumCover")
+  favorites  UserFavorite[]
+  
+  createdAt DateTime @default(now())
+  
+  @@index([albumId, orderIndex])
+}
+
+// ============ TAGS ============
+
+model Tag {
+  id          String     @id @default(uuid())
+  name        String     @unique
+  slug        String     @unique
+  description String?
+  albums      AlbumTag[]
+  createdAt   DateTime   @default(now())
+}
+
+model AlbumTag {
+  albumId String
+  tagId   String
+  album   Album  @relation(fields: [albumId], references: [id], onDelete: Cascade)
+  tag     Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  
+  @@id([albumId, tagId])
+  @@index([albumId])
+  @@index([tagId])
+}
+
+// ============ USERS ============
+
+model Profile {
+  id        String   @id // References Supabase auth.users.id
+  fullName  String?
+  phone     String?
+  email     String?  @unique
+  avatarUrl String?
+  role      String   @default("user") // 'admin' | 'user'
+  
+  favorites     UserFavorite[]
+  coupons       UserCoupon[]
+  bookings      Booking[]
+  paymentOrders PaymentOrder[]
+  
+  createdAt DateTime @default(now())
+}
+
+model UserFavorite {
+  id      String  @id @default(uuid())
+  userId  String
+  imageId String
+  user    Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
+  image   Image   @relation(fields: [imageId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+  
+  @@unique([userId, imageId])
+  @@index([userId])
+}
+
+// ============ COUPONS ============
+
+model Coupon {
+  id            String       @id @default(uuid())
+  code          String       @unique
+  discountType  String       // 'percentage' | 'fixed_amount'
+  discountValue Decimal      @db.Decimal(10, 2)
+  validFrom     DateTime
+  validUntil    DateTime
+  maxUses       Int?
+  currentUses   Int          @default(0)
+  isActive      Boolean      @default(true)
+  description   String?
+  users         UserCoupon[]
+  createdAt     DateTime     @default(now())
+  
+  @@index([code])
+  @@index([isActive, validUntil])
+}
+
+model UserCoupon {
+  id         String   @id @default(uuid())
+  userId     String
+  couponId   String
+  assignedAt DateTime @default(now())
+  usedAt     DateTime?
+  isUsed     Boolean  @default(false)
+  user       Profile  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  coupon     Coupon   @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, couponId])
+  @@index([userId, isUsed])
+}
+
+// ============ BOOKINGS ============
+
+model Booking {
+  id            String    @id @default(uuid())
+  userId        String?
+  bookingDate   DateTime  @db.Date
+  sessionType   String    // Match album categories
+  location      String?
+  notes         String?
+  status        String    @default("pending") // 'pending' | 'confirmed' | 'completed' | 'cancelled'
+  albumId       String?
+  depositAmount Decimal?  @db.Decimal(10, 2)
+  depositPaid   Boolean   @default(false)
+  
+  user          Profile?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  album         Album?         @relation(fields: [albumId], references: [id], onDelete: SetNull)
+  paymentOrders PaymentOrder[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([userId])
+  @@index([status])
+  @@index([bookingDate(sort: Desc)])
+}
+
+// ============ PAYMENTS (FUTURE) ============
+
+model PaymentOrder {
+  id            String   @id @default(uuid())
+  bookingId     String?
+  userId        String?
+  amount        Decimal  @db.Decimal(10, 2)
+  currency      String   @default("VND")
+  status        String   @default("pending") // 'pending' | 'paid' | 'failed' | 'refunded'
+  paymentMethod String?  // 'momo' | 'vnpay' | 'bank_transfer' | 'cash'
+  transactionId String?
+  paidAt        DateTime?
+  
+  booking Booking? @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  user    Profile? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  
+  createdAt DateTime @default(now())
+  
+  @@index([bookingId])
+  @@index([status])
+}

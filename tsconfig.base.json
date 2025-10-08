@@ -1,0 +1,18 @@
+{
+    "compilerOptions": {
+      "target": "ES2023",
+      "lib": ["ES2023", "DOM"],
+      "module": "ESNext",
+      "moduleResolution": "Bundler",
+      "resolvePackageJsonExports": true,
+      "strict": true,
+      "noEmit": true,
+      "skipLibCheck": true,
+      "baseUrl": ".",
+      "paths": {
+        "@ndt/types/*": ["packages/types/src/*"],
+        "@ndt/utils/*": ["packages/utils/src/*"]
+      }
+    }
+  }
+  
