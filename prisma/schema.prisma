@@ -59,12 +59,16 @@ model Image {
   albumId  String
   filename String
   
-  // 5 responsive versions (WebP)
-  thumbnailUrl String // 400px
-  smallUrl     String // 800px
-  mediumUrl    String // 1200px
-  largeUrl     String // 1920px
-  xlargeUrl    String // 2560px
+  // Cloudflare Images
+  cloudflareImageId String? @unique
+  uploadStatus      String  @default("pending") // 'pending' | 'completed' | 'failed'
+  
+  // 5 responsive versions (WebP) - Cloudflare variants URLs
+  thumbnailUrl String @default("") // 400px
+  smallUrl     String @default("") // 800px
+  mediumUrl    String @default("") // 1200px
+  largeUrl     String @default("") // 1920px
+  xlargeUrl    String @default("") // 2560px
   
   // SEO
   altText String?
@@ -85,6 +89,7 @@ model Image {
   createdAt DateTime @default(now())
   
   @@index([albumId, orderIndex])
+  @@index([uploadStatus])
 }
 
 // ============ TAGS ============
@@ -94,8 +99,12 @@ model Tag {
   name        String     @unique
   slug        String     @unique
   description String?
+  type        String     @default("style") // 'main_category' | 'sub_category' | 'style' | 'location'
+  parentSlug  String?    // For sub-categories, reference to parent (e.g., 'nu' for 'beauty')
   albums      AlbumTag[]
   createdAt   DateTime   @default(now())
+  
+  @@index([type])
 }
 
 model AlbumTag {
