@@ -185,6 +185,24 @@ const Header: React.FC<HeaderProps> = ({
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null)
   const [activeSubDropdown, setActiveSubDropdown] = useState<string | null>(null)
 
+  const handleMouseEnter = (label: string) => {
+    setActiveDropdown(label)
+  }
+
+  const handleSubDropdownMouseEnter = (label: string) => {
+    setActiveSubDropdown(label)
+  }
+
+  const handleMouseLeave = () => {
+    setActiveDropdown(null)
+    setActiveSubDropdown(null)
+  }
+
+  const closeDropdowns = () => {
+    setActiveDropdown(null)
+    setActiveSubDropdown(null)
+  }
+
   const handleDropdownToggle = (label: string) => {
     setActiveDropdown(activeDropdown === label ? null : label)
     setActiveSubDropdown(null)
@@ -192,11 +210,6 @@ const Header: React.FC<HeaderProps> = ({
 
   const handleSubDropdownToggle = (label: string) => {
     setActiveSubDropdown(activeSubDropdown === label ? null : label)
-  }
-
-  const closeDropdowns = () => {
-    setActiveDropdown(null)
-    setActiveSubDropdown(null)
   }
 
   const closeMobileMenu = () => {
@@ -221,12 +234,16 @@ const Header: React.FC<HeaderProps> = ({
       {/* Desktop Navigation Menu */}
       <nav className="hidden items-center gap-4 md:flex md:gap-6 lg:gap-8">
         {navigationItems.map(item => (
-          <div key={item.href} className="group relative">
+          <div
+            key={item.href}
+            className="group relative"
+            onMouseEnter={() => handleMouseEnter(item.label)}
+            onMouseLeave={handleMouseLeave}
+          >
             {item.children ? (
               <div className="relative">
                 <Link
                   href={item.href}
-                  onClick={() => handleDropdownToggle(item.label)}
                   className="flex items-center gap-1 text-xs font-medium transition-colors hover:text-[#c8c8c8] md:text-sm"
                 >
                   {item.label}
@@ -237,25 +254,38 @@ const Header: React.FC<HeaderProps> = ({
 
                 {/* Main Dropdown Menu */}
                 <div
-                  className={`invisible absolute top-full -left-2.5 mt-2 w-auto min-w-max bg-[#585858] opacity-0 transition-all duration-200 group-hover:visible group-hover:opacity-100 ${activeDropdown === item.label ? 'visible opacity-100' : ''}`}
+                  className={`absolute top-full -left-2.5 mt-2 w-auto min-w-max bg-[#585858] opacity-0 transition-all duration-200 ${activeDropdown === item.label ? 'visible opacity-100' : 'invisible'}`}
+                  onMouseEnter={() => handleMouseEnter(item.label)}
+                  onMouseLeave={handleMouseLeave}
                 >
                   {item.children.map(child => (
-                    <div key={child.href} className="group/sub relative">
+                    <div
+                      key={child.href}
+                      className="group/sub relative"
+                      onMouseEnter={() => handleSubDropdownMouseEnter(child.label)}
+                      onMouseLeave={() => {
+                        // Only close sub-dropdown if we're leaving the entire dropdown area
+                        if (!activeDropdown) {
+                          setActiveSubDropdown(null)
+                        }
+                      }}
+                    >
                       {child.children ? (
                         <div className="relative">
-                          <button
-                            onClick={() => handleSubDropdownToggle(child.label)}
-                            className="flex w-full items-center justify-between px-4 py-3 text-left text-white transition-colors hover:bg-[#ededed] hover:text-[#585858]"
+                          <div
+                            className="flex w-full items-center justify-between px-4 py-3 text-left text-white transition-colors hover:bg-[#ededed] hover:text-[#585858] cursor-pointer"
                           >
                             <div className="text-sm font-medium">{child.label}</div>
                             <div className="-rotate-90 text-2xl">
                               <MdArrowDropDown />
                             </div>
-                          </button>
+                          </div>
 
                           {/* Sub-dropdown Menu */}
                           <div
-                            className={`invisible absolute top-0 left-full w-auto min-w-max bg-[#585858] opacity-0 transition-all duration-200 group-hover/sub:visible group-hover/sub:opacity-100 ${activeSubDropdown === child.label ? 'visible opacity-100' : ''}`}
+                            className={`absolute top-0 left-full w-auto min-w-max bg-[#585858] opacity-0 transition-all duration-200 ${activeSubDropdown === child.label ? 'visible opacity-100' : 'invisible'}`}
+                            onMouseEnter={() => handleSubDropdownMouseEnter(child.label)}
+                            onMouseLeave={() => setActiveSubDropdown(null)}
                           >
                             {child.children.map(subChild => (
                               <Link
