@@ -1,0 +1,407 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import { Plus, Edit2, Trash2, Search, Tag as TagIcon, Copy, ExternalLink } from 'lucide-react'
+import { toast } from 'sonner'
+import {
+  getTags,
+  createTag,
+  updateTag,
+  deleteTag,
+  checkTagUsage,
+  bulkRemoveTagFromAlbums,
+  generateSlug,
+  type Tag,
+  type CreateTagDto
+} from '@/app/lib/api'
+import DeleteConfirmModal from '../components/DeleteConfirmModal'
+
+export default function TagsPage() {
+  const [tags, setTags] = useState<Tag[]>([])
+  const [loading, setLoading] = useState(true)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
+  const [editingTag, setEditingTag] = useState<Tag | null>(null)
+  const [deletingTag, setDeletingTag] = useState<{
+    tag: Tag
+    usage: { isUsed: boolean; albumCount: number; albums: any[] }
+  } | null>(null)
+  const [formData, setFormData] = useState<CreateTagDto>({
+    name: '',
+    slug: '',
+    description: ''
+  })
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [copiedSlug, setCopiedSlug] = useState<string | null>(null)
+
+  useEffect(() => {
+    loadTags()
+  }, [])
+
+  async function loadTags() {
+    try {
+      setLoading(true)
+      const data = await getTags()
+      setTags(data)
+    } catch (error) {
+      console.error('Failed to load tags:', error)
+      toast.error('Không thể tải danh sách tags')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const filteredTags = tags.filter(tag =>
+    tag.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    tag.slug.toLowerCase().includes(searchQuery.toLowerCase())
+  )
+
+  function handleOpenCreateModal() {
+    setEditingTag(null)
+    setFormData({ name: '', slug: '', description: '' })
+    setIsModalOpen(true)
+  }
+
+  function handleOpenEditModal(tag: Tag) {
+    setEditingTag(tag)
+    setFormData({
+      name: tag.name,
+      slug: tag.slug,
+      description: tag.description || ''
+    })
+    setIsModalOpen(true)
+  }
+
+  function handleNameChange(name: string) {
+    setFormData({
+      ...formData,
+      name,
+      slug: generateSlug(name)
+    })
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setIsSubmitting(true)
+
+    try {
+      if (editingTag) {
+        await updateTag(editingTag.id, formData)
+        toast.success('Cập nhật tag thành công!')
+      } else {
+        await createTag(formData)
+        toast.success('Tạo tag thành công!')
+      }
+      setIsModalOpen(false)
+      loadTags()
+    } catch (error: any) {
+      console.error('Error:', error)
+      toast.error(error.message || 'Có lỗi xảy ra')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  async function handleDeleteClick(tag: Tag) {
+    try {
+      const usage = await checkTagUsage(tag.id)
+      setDeletingTag({ tag, usage })
+      setIsDeleteModalOpen(true)
+    } catch (error) {
+      console.error('Error checking usage:', error)
+      toast.error('Không thể kiểm tra usage của tag')
+    }
+  }
+
+  async function handleConfirmDelete() {
+    if (!deletingTag) return
+
+    setIsSubmitting(true)
+    try {
+      await deleteTag(deletingTag.tag.id)
+      toast.success('Xóa tag thành công!')
+      setIsDeleteModalOpen(false)
+      setDeletingTag(null)
+      loadTags()
+    } catch (error: any) {
+      console.error('Error:', error)
+      toast.error(error.message || 'Không thể xóa tag')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  async function handleBulkRemove() {
+    if (!deletingTag) return
+
+    if (
+      !confirm(
+        `Xóa "${deletingTag.tag.name}" khỏi ${deletingTag.usage.albumCount} album?`
+      )
+    ) {
+      return
+    }
+
+    setIsSubmitting(true)
+    try {
+      const result = await bulkRemoveTagFromAlbums(deletingTag.tag.id)
+      toast.success(`Đã xóa tag khỏi ${result.removed} album!`)
+      const newUsage = await checkTagUsage(deletingTag.tag.id)
+      setDeletingTag({ ...deletingTag, usage: newUsage })
+    } catch (error: any) {
+      console.error('Error:', error)
+      toast.error(error.message || 'Không thể xóa hàng loạt')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  function handleCopySlug(slug: string) {
+    navigator.clipboard.writeText(slug)
+    setCopiedSlug(slug)
+    setTimeout(() => setCopiedSlug(null), 2000)
+  }
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <p className="text-gray-500">Đang tải...</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 p-6">
+      <div className="mx-auto max-w-6xl">
+        {/* Header */}
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold text-gray-900">Quản lý Tags</h1>
+          <p className="mt-2 text-sm text-gray-600">
+            Quản lý các thẻ phân loại album (Tết, Mùa xuân, Nàng thơ, Cá tính, Sexy...)
+          </p>
+          <div className="mt-3 flex items-center gap-4 text-sm">
+            <span className="text-gray-700">
+              <span className="font-semibold text-blue-600">{tags.length}</span> tags tổng cộng
+            </span>
+            {searchQuery && (
+              <span className="text-gray-700">
+                <span className="font-semibold text-green-600">{filteredTags.length}</span> kết quả tìm kiếm
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Search & Actions */}
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Tìm kiếm tag..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+            />
+          </div>
+          <button
+            onClick={handleOpenCreateModal}
+            className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          >
+            <Plus size={18} />
+            Thêm Tag
+          </button>
+        </div>
+
+        {/* Tags Display - Enhanced card grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {filteredTags.map(tag => (
+            <div
+              key={tag.id}
+              className="group relative rounded-xl border border-gray-200 bg-white p-4 hover:border-blue-400 hover:shadow-lg transition-all duration-200"
+            >
+              {/* Header with icon and name */}
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex items-start gap-3 flex-1 min-w-0">
+                  <div className="rounded-lg bg-blue-50 p-2 flex-shrink-0">
+                    <TagIcon size={18} className="text-blue-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-gray-900 text-base truncate">
+                      {tag.name}
+                    </h3>
+                    <div className="flex items-center gap-2 mt-1">
+                      <code className="text-xs text-gray-500 bg-gray-50 px-2 py-0.5 rounded truncate block max-w-[150px]">
+                        {tag.slug}
+                      </code>
+                      <button
+                        onClick={() => handleCopySlug(tag.slug)}
+                        className="text-gray-400 hover:text-blue-600 transition-colors"
+                        title="Copy slug"
+                      >
+                        {copiedSlug === tag.slug ? (
+                          <span className="text-green-600 text-xs font-medium">✓</span>
+                        ) : (
+                          <Copy size={12} />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Action buttons */}
+                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-2">
+                  <button
+                    onClick={() => handleOpenEditModal(tag)}
+                    className="rounded p-1.5 bg-gray-100 text-gray-600 hover:bg-blue-100 hover:text-blue-600 transition-colors"
+                    title="Chỉnh sửa"
+                  >
+                    <Edit2 size={14} />
+                  </button>
+                  <button
+                    onClick={() => handleDeleteClick(tag)}
+                    className="rounded p-1.5 bg-gray-100 text-gray-600 hover:bg-red-100 hover:text-red-600 transition-colors"
+                    title="Xóa"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Description */}
+              {tag.description ? (
+                <p className="text-sm text-gray-600 line-clamp-2 mb-3 min-h-[40px]">
+                  {tag.description}
+                </p>
+              ) : (
+                <p className="text-sm text-gray-400 italic mb-3 min-h-[40px]">
+                  Chưa có mô tả
+                </p>
+              )}
+
+              {/* Footer with quick link */}
+              <div className="flex items-center justify-end pt-3 border-t border-gray-100">
+                <a
+                  href={`/thu-vien?tag=${tag.slug}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1 hover:underline"
+                  title="Xem albums có tag này trên trang chủ"
+                >
+                  Xem trên trang chủ
+                  <ExternalLink size={12} />
+                </a>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Empty state */}
+        {filteredTags.length === 0 && (
+          <div className="rounded-lg bg-white shadow p-12 text-center">
+            <TagIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">
+              {searchQuery ? 'Không tìm thấy tag' : 'Chưa có tag nào'}
+            </h3>
+            <p className="text-sm text-gray-500 mb-6">
+              {searchQuery
+                ? 'Thử tìm kiếm với từ khóa khác'
+                : 'Tạo tag đầu tiên để bắt đầu phân loại album của bạn'}
+            </p>
+            {!searchQuery && (
+              <button
+                onClick={handleOpenCreateModal}
+                className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+              >
+                <Plus size={18} />
+                Thêm Tag Đầu Tiên
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Create/Edit Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-lg rounded-lg bg-white p-6 shadow-xl">
+            <h2 className="text-xl font-semibold text-gray-900">
+              {editingTag ? 'Chỉnh sửa Tag' : 'Thêm Tag Mới'}
+            </h2>
+            <form onSubmit={handleSubmit} className="mt-4 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Tên Tag *</label>
+                <input
+                  type="text"
+                  required
+                  value={formData.name}
+                  onChange={e => handleNameChange(e.target.value)}
+                  placeholder="VD: Tết, Mùa xuân, Nàng thơ, Cá tính, Sexy..."
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Slug *</label>
+                <input
+                  type="text"
+                  required
+                  value={formData.slug}
+                  onChange={e => setFormData({ ...formData, slug: e.target.value })}
+                  placeholder="tet, mua-xuan, nang-tho..."
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                />
+                <p className="mt-1 text-xs text-gray-500">Tự động tạo từ tên, có thể chỉnh sửa</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Mô tả</label>
+                <textarea
+                  value={formData.description}
+                  onChange={e => setFormData({ ...formData, description: e.target.value })}
+                  rows={3}
+                  placeholder="Mô tả ngắn về tag..."
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                />
+              </div>
+              <div className="flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsModalOpen(false)}
+                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {isSubmitting ? 'Đang lưu...' : editingTag ? 'Cập nhật' : 'Tạo mới'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Modal */}
+      {isDeleteModalOpen && deletingTag && (
+        <DeleteConfirmModal
+          isOpen={isDeleteModalOpen}
+          onClose={() => {
+            setIsDeleteModalOpen(false)
+            setDeletingTag(null)
+          }}
+          onConfirm={handleConfirmDelete}
+          onBulkRemove={deletingTag.usage.isUsed ? handleBulkRemove : undefined}
+          title="Xóa Tag"
+          itemName={deletingTag.tag.name}
+          itemType="tag"
+          isUsed={deletingTag.usage.isUsed}
+          albumCount={deletingTag.usage.albumCount}
+          albums={deletingTag.usage.albums}
+          isLoading={isSubmitting}
+        />
+      )}
+    </div>
+  )
+}

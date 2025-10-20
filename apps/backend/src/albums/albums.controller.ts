@@ -44,8 +44,11 @@ export class AlbumsController {
   @ApiOperation({ summary: 'Get album by slug' })
   @ApiResponse({ status: 200, description: 'Album retrieved successfully' })
   @ApiResponse({ status: 404, description: 'Album not found' })
-  findOne(@Param('slug') slug: string) {
-    return this.albumsService.findBySlug(slug);
+  findOne(
+    @Param('slug') slug: string,
+    @Query('skipViewIncrement') skipViewIncrement?: string,
+  ) {
+    return this.albumsService.findBySlug(slug, skipViewIncrement === 'true');
   }
 
   @Get(':slug/related')

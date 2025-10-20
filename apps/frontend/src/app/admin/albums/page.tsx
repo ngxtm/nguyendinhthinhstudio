@@ -5,35 +5,48 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { Plus, Edit, Trash2, Eye, Star } from 'lucide-react';
+import { toast } from 'sonner';
 import { listAlbums, deleteAlbum, toggleFeatured, type Album } from '@/app/lib/api';
+import { useAbortableEffect } from '../hooks';
 
 export default function AlbumsPage() {
   const [albums, setAlbums] = useState<Album[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'published' | 'draft'>('all');
 
-  useEffect(() => {
+  useAbortableEffect((signal) => {
+    async function loadAlbums() {
+      try {
+        setLoading(true);
+        const response = await listAlbums({
+          status: filter === 'all' ? undefined : filter,
+          limit: 50,
+        });
+
+        // Only update state if not aborted
+        if (!signal.aborted) {
+          setAlbums(response.data);
+        }
+      } catch (error: any) {
+        // Ignore abort errors
+        if (error.name === 'AbortError') return;
+
+        console.error('Failed to load albums:', error);
+        if (!signal.aborted) {
+          toast.error('Không thể tải danh sách albums');
+        }
+      } finally {
+        if (!signal.aborted) {
+          setLoading(false);
+        }
+      }
+    }
+
     loadAlbums();
   }, [filter]);
-
-  async function loadAlbums() {
-    try {
-      setLoading(true);
-      const response = await listAlbums({
-        status: filter === 'all' ? undefined : filter,
-        limit: 50,
-      });
-      setAlbums(response.data);
-    } catch (error) {
-      console.error('Failed to load albums:', error);
-      alert('Không thể tải danh sách albums');
-    } finally {
-      setLoading(false);
-    }
-  }
 
   async function handleDelete(id: string) {
     if (!confirm('Bạn có chắc muốn xóa album này?')) return;
@@ -41,10 +54,10 @@ export default function AlbumsPage() {
     try {
       await deleteAlbum(id);
       setAlbums(albums.filter((a) => a.id !== id));
-      alert('Đã xóa album!');
+      toast.success('Đã xóa album!');
     } catch (error) {
       console.error('Failed to delete album:', error);
-      alert('Không thể xóa album');
+      toast.error('Không thể xóa album');
     }
   }
 
@@ -54,7 +67,7 @@ export default function AlbumsPage() {
       setAlbums(albums.map((a) => (a.id === album.id ? updated : a)));
     } catch (error) {
       console.error('Failed to toggle featured:', error);
-      alert('Không thể cập nhật featured status');
+      toast.error('Không thể cập nhật featured status');
     }
   }
 
@@ -155,7 +168,7 @@ export default function AlbumsPage() {
                     </div>
                   </td>
                   <td className="px-6 py-4">
-                    <span className="text-sm text-gray-600">{album.category}</span>
+                    <span className="text-sm text-gray-600">{album.category?.name || '-'}</span>
                   </td>
                   <td className="px-6 py-4">
                     <StatusBadge status={album.status} />

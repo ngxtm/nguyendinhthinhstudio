@@ -65,6 +65,7 @@ export class AlbumsService {
             tag: true,
           },
         },
+        category: true,
         coverImage: true,
       },
     });
@@ -87,7 +88,7 @@ export class AlbumsService {
     }
 
     if (category) {
-      where.category = category;
+      where.categoryId = category;
     }
 
     if (isFeatured !== undefined) {
@@ -152,6 +153,7 @@ export class AlbumsService {
             tag: true,
           },
         },
+        category: true,
         coverImage: true,
         _count: {
           select: { images: true },
@@ -176,8 +178,9 @@ export class AlbumsService {
 
   /**
    * Find album by slug
+   * @param skipViewIncrement - Skip view count increment (for metadata/admin requests)
    */
-  async findBySlug(slug: string) {
+  async findBySlug(slug: string, skipViewIncrement = false) {
     const album = await this.prisma.album.findUnique({
       where: { slug },
       include: {
@@ -186,6 +189,7 @@ export class AlbumsService {
             tag: true,
           },
         },
+        category: true,
         coverImage: true,
         images: {
           where: { uploadStatus: 'completed' },
@@ -198,13 +202,15 @@ export class AlbumsService {
       throw new NotFoundException('Album not found');
     }
 
-    // Increment view count (fire and forget)
-    this.prisma.album.update({
-      where: { id: album.id },
-      data: { viewCount: { increment: 1 } },
-    }).catch(err => {
-      this.logger.error(`Failed to increment view count: ${err}`);
-    });
+    // Increment view count only for actual page views (not metadata requests)
+    if (!skipViewIncrement) {
+      this.prisma.album.update({
+        where: { id: album.id },
+        data: { viewCount: { increment: 1 } },
+      }).catch(err => {
+        this.logger.error(`Failed to increment view count: ${err}`);
+      });
+    }
 
     return album;
   }
@@ -280,6 +286,7 @@ export class AlbumsService {
             tag: true,
           },
         },
+        category: true,
         coverImage: true,
       },
     });
@@ -360,7 +367,19 @@ export class AlbumsService {
     const updated = await this.prisma.album.update({
       where: { id },
       data: { coverImageId: setCoverDto.imageId },
-      include: { coverImage: true },
+      include: {
+        coverImage: true,
+        images: {
+          where: { uploadStatus: 'completed' },
+          orderBy: { orderIndex: 'asc' },
+        },
+        tags: {
+          include: {
+            tag: true,
+          },
+        },
+        category: true,
+      },
     });
 
     return updated;
@@ -395,6 +414,15 @@ export class AlbumsService {
       data: {
         isFeatured: !album.isFeatured,
         featuredOrder,
+      },
+      include: {
+        coverImage: true,
+        tags: {
+          include: {
+            tag: true,
+          },
+        },
+        category: true,
       },
     });
 

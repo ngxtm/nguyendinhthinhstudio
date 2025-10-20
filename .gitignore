@@ -190,3 +190,7 @@ command.txt
 
 apps/**/.env*
 /generated/prisma
+
+
+#documentation
+tutorial_component/

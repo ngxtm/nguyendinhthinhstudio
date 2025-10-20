@@ -8,27 +8,31 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft } from 'lucide-react';
-import { createAlbum, getTags, type CreateAlbumDto, type Tag } from '@/app/lib/api';
-
-const CATEGORIES = [
-  { value: 'wedding', label: 'Đám cưới' },
-  { value: 'couple', label: 'Couple' },
-  { value: 'family', label: 'Gia đình' },
-  { value: 'maternity', label: 'Bà bầu' },
-  { value: 'newborn', label: 'Newborn' },
-  { value: 'event', label: 'Sự kiện' },
-];
+import { ArrowLeft, RefreshCw } from 'lucide-react';
+import { toast } from 'sonner';
+import {
+  createAlbum,
+  getTags,
+  getCategories,
+  type CreateAlbumDto,
+  type Tag,
+  type Category
+} from '@/app/lib/api';
+import CategoryCombobox from '../../components/CategoryCombobox';
 
 export default function NewAlbumPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [loadingData, setLoadingData] = useState(true);
   const [tags, setTags] = useState<Tag[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [formData, setFormData] = useState<CreateAlbumDto>({
     title: '',
     slug: '',
     description: '',
-    category: 'wedding',
+    shootDate: '',
+    categoryId: undefined,
     tagSlugs: [],
     status: 'draft',
     isFeatured: false,
@@ -37,16 +41,42 @@ export default function NewAlbumPage() {
   });
 
   useEffect(() => {
-    loadTags();
+    loadData();
   }, []);
 
-  async function loadTags() {
+  async function loadData() {
     try {
-      const allTags = await getTags();
+      setLoadingData(true);
+      const [allTags, allCategories] = await Promise.all([
+        getTags(),
+        getCategories()
+      ]);
       setTags(allTags);
+      setCategories(allCategories);
     } catch (error) {
-      console.error('Failed to load tags:', error);
+      console.error('Failed to load data:', error);
+      toast.error('Không thể tải danh sách categories và tags');
+    } finally {
+      setLoadingData(false);
     }
+  }
+
+  async function handleRefresh() {
+    await loadData();
+
+    // Re-find selected category in new list
+    if (selectedCategory) {
+      const updatedCategory = categories.find(c => c.id === selectedCategory.id);
+      setSelectedCategory(updatedCategory || null);
+    }
+  }
+
+  function handleCategoryChange(category: Category | null) {
+    setSelectedCategory(category);
+    setFormData({
+      ...formData,
+      categoryId: category?.id,
+    });
   }
 
   function generateSlug(title: string) {
@@ -88,18 +118,18 @@ export default function NewAlbumPage() {
     e.preventDefault();
 
     if (!formData.title.trim()) {
-      alert('Vui lòng nhập tên album');
+      toast.error('Vui lòng nhập tên album');
       return;
     }
 
     try {
       setLoading(true);
       const album = await createAlbum(formData);
-      alert('Đã tạo album thành công!');
+      toast.success('Đã tạo album thành công!');
       router.push(`/admin/albums/${album.slug}`);
     } catch (error) {
       console.error('Failed to create album:', error);
-      alert('Không thể tạo album. Vui lòng thử lại.');
+      toast.error('Không thể tạo album. Vui lòng thử lại.');
     } finally {
       setLoading(false);
     }
@@ -168,49 +198,80 @@ export default function NewAlbumPage() {
             />
           </div>
 
-          {/* Category */}
+          {/* Shoot Date */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Category <span className="text-red-500">*</span>
+              Ngày Chụp
             </label>
-            <select
-              value={formData.category}
-              onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+            <input
+              type="date"
+              value={formData.shootDate}
+              onChange={(e) => setFormData({ ...formData, shootDate: e.target.value })}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              required
-            >
-              {CATEGORIES.map((cat) => (
-                <option key={cat.value} value={cat.value}>
-                  {cat.label}
-                </option>
-              ))}
-            </select>
+            />
+            <p className="mt-1 text-sm text-gray-500">
+              Ngày thực hiện buổi chụp (tùy chọn)
+            </p>
           </div>
+
+          {/* Category */}
+          <div className="flex gap-2">
+            <div className="flex-1">
+              <CategoryCombobox
+                categories={categories}
+                selected={selectedCategory}
+                onChange={handleCategoryChange}
+                label="Category"
+                required={true}
+                disabled={loadingData}
+              />
+            </div>
+            <button
+              type="button"
+              onClick={handleRefresh}
+              disabled={loadingData}
+              className="mt-8 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 h-[42px]"
+              title="Tải lại danh sách"
+            >
+              <RefreshCw size={20} className={loadingData ? 'animate-spin' : ''} />
+            </button>
+          </div>
+          <p className="text-sm text-gray-500 -mt-4">
+            Vừa tạo category mới? Click nút refresh để cập nhật danh sách
+          </p>
 
           {/* Tags */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Tags
             </label>
-            <div className="flex flex-wrap gap-2">
-              {tags.map((tag) => {
-                const isSelected = formData.tagSlugs?.includes(tag.slug);
-                return (
-                  <button
-                    key={tag.id}
-                    type="button"
-                    onClick={() => toggleTag(tag.slug)}
-                    className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                      isSelected
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                  >
-                    {tag.name}
-                  </button>
-                );
-              })}
-            </div>
+            {loadingData ? (
+              <p className="text-sm text-gray-500">Đang tải tags...</p>
+            ) : tags.length === 0 ? (
+              <p className="text-sm text-gray-500">
+                Chưa có tags. <Link href="/admin/tags" className="text-blue-600 hover:underline">Tạo tags mới</Link>
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {tags.map((tag) => {
+                  const isSelected = formData.tagSlugs?.includes(tag.slug);
+                  return (
+                    <button
+                      key={tag.id}
+                      type="button"
+                      onClick={() => toggleTag(tag.slug)}
+                      className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                        isSelected
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      {tag.name}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Status */}

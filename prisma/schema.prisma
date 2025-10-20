@@ -10,46 +10,69 @@ datasource db {
         
 // ============ ALBUMS & IMAGES ============
 
+model Category {
+  id          String     @id @default(uuid())
+  name        String     @unique
+  slug        String     @unique
+  description String?
+
+  // Parent-Child hierarchy
+  parentId    String?
+  parent      Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children    Category[] @relation("CategoryHierarchy")
+
+  // Relations
+  albums      Album[]
+
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([slug])
+  @@index([parentId])
+}
+
 model Album {
   id          String    @id @default(uuid())
   title       String
   slug        String    @unique
   description String?
-  category    String    // 'wedding' | 'couple' | 'family' | 'maternity' | 'newborn' | 'event'
-  
+  shootDate   DateTime? @db.Date
+  categoryId  String?
+  category    Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
   // Cover image
   coverImageId String? @unique
   coverImage   Image?  @relation("AlbumCover", fields: [coverImageId], references: [id])
-  
+
   // Publishing
   status             String    @default("draft") // 'draft' | 'published' | 'scheduled'
   publishedAt        DateTime?
   scheduledPublishAt DateTime?
-  
+
   // Featured on homepage
   isFeatured    Boolean @default(false)
   featuredOrder Int?
-  
+
   // Google Drive link (manual)
   googleDriveLink String?
-  
+
   // SEO
   metaTitle       String?
   metaDescription String?
-  
+
   // Stats
   viewCount  Int @default(0)
   imageCount Int @default(0)
-  
+
   // Relations
   images   Image[]     @relation("AlbumImages")
   tags     AlbumTag[]
   bookings Booking[]
-  
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
-  @@index([category])
+
+  @@index([categoryId])
   @@index([status, publishedAt(sort: Desc)])
   @@index([isFeatured, featuredOrder])
 }
@@ -99,12 +122,10 @@ model Tag {
   name        String     @unique
   slug        String     @unique
   description String?
-  type        String     @default("style") // 'main_category' | 'sub_category' | 'style' | 'location'
-  parentSlug  String?    // For sub-categories, reference to parent (e.g., 'nu' for 'beauty')
   albums      AlbumTag[]
   createdAt   DateTime   @default(now())
-  
-  @@index([type])
+
+  @@index([slug])
 }
 
 model AlbumTag {

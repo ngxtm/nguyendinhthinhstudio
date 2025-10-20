@@ -75,6 +75,7 @@ export class CloudflareService {
       }
 
       this.logger.log('Requesting upload URL from Cloudflare...');
+      this.logger.log(`Metadata: ${JSON.stringify(metadata)}`);
 
       const response = await axios.post(
         `${this.baseUrl}/v2/direct_upload`,

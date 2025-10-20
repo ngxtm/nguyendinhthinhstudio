@@ -16,23 +16,32 @@ export class CreateAlbumDto {
   @IsOptional()
   slug?: string;
 
-  @ApiProperty({ 
-    example: 'Beautiful collection of lotus-themed beauty photos', 
+  @ApiProperty({
+    example: 'Beautiful collection of lotus-themed beauty photos',
     description: 'Album description',
-    required: false 
+    required: false
   })
   @IsString()
   @IsOptional()
   description?: string;
 
-  @ApiProperty({ 
-    example: 'wedding', 
-    description: 'Album category',
-    enum: ['wedding', 'couple', 'family', 'maternity', 'newborn', 'event']
+  @ApiProperty({
+    example: '2024-06-15',
+    description: 'Date when the photos were taken (YYYY-MM-DD)',
+    required: false
+  })
+  @IsDateString()
+  @IsOptional()
+  shootDate?: string;
+
+  @ApiProperty({
+    example: 'uuid-of-category',
+    description: 'Category ID (UUID)',
+    required: false
   })
   @IsString()
-  @IsNotEmpty()
-  category!: string;
+  @IsOptional()
+  categoryId?: string;
 
   @ApiProperty({ 
     example: ['nang-tho', 'nha-trang', 'bien'], 

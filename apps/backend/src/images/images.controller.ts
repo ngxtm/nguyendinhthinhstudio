@@ -10,6 +10,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Public } from '../auth/decorators/public.decorator';
+import { diskStorage } from 'multer';
 
 @ApiTags('images')
 @Controller('images')
@@ -40,7 +41,21 @@ export class ImagesController {
   @Put('mock-upload/:uploadId')
   @Post('mock-upload/:uploadId')
   @Public()
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: {
+        fileSize: 100 * 1024 * 1024, // 100MB limit
+      },
+      storage: diskStorage({
+        destination: './uploads',
+        filename: (req, file, cb) => {
+          // Generate unique filename
+          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+          cb(null, `${uniqueSuffix}-${file.originalname}`);
+        },
+      }),
+    })
+  )
   @ApiOperation({ summary: 'Mock upload endpoint for development (PUT or POST)' })
   @ApiResponse({ status: 200, description: 'Mock upload successful' })
   async mockUpload(
@@ -48,7 +63,7 @@ export class ImagesController {
     @UploadedFile() file: Express.Multer.File,
   ) {
     // Log upload info for debugging
-    console.log(`📸 Mock upload received: ${file?.originalname || 'no file'} (${uploadId})`);
+    console.log(`📸 Mock upload received: ${file?.originalname || 'no file'} (${file?.size || 0} bytes) - ID: ${uploadId}`);
 
     // Simulate successful upload by immediately confirming it
     return this.imagesService.confirmUpload({

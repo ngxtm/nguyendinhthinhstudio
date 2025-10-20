@@ -6,6 +6,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
 import { TagsModule } from './tags/tags.module';
+import { CategoriesModule } from './categories/categories.module';
 import { AuthModule } from './auth/auth.module';
 import { AlbumsModule } from './albums/albums.module';
 import { ImagesModule } from './images/images.module';
@@ -24,6 +25,7 @@ import { ImagesModule } from './images/images.module';
     PrismaModule,
     AuthModule,
     TagsModule,
+    CategoriesModule,
     AlbumsModule,
     ImagesModule,
   ],

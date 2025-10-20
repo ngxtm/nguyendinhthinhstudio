@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Geist, Geist_Mono, Inter, Montserrat } from 'next/font/google'
 import localFont from 'next/font/local'
+import Script from 'next/script'
 import './globals.css'
 
 const geistSans = Geist({
@@ -32,8 +33,75 @@ const montserrat = Montserrat({
 })
 
 export const metadata: Metadata = {
-  title: 'NguyenDinhThinh Studio',
-  description: '...'
+  metadataBase: new URL('https://ndtstudio.com'),
+  title: {
+    default: 'NDT Studio - Nhiếp ảnh chuyên nghiệp',
+    template: '%s | NDT Studio',
+  },
+  description:
+    'NDT Studio - Studio chụp ảnh chuyên nghiệp tại Việt Nam. Chuyên chụp ảnh cưới, ảnh gia đình, beauty, couple với phong cách nghệ thuật độc đáo. Đội ngũ nhiếp ảnh giàu kinh nghiệm, trang thiết bị hiện đại.',
+  keywords: [
+    'chụp ảnh',
+    'nhiếp ảnh',
+    'studio',
+    'NDT Studio',
+    'ảnh cưới',
+    'ảnh gia đình',
+    'beauty photography',
+    'couple photography',
+    'chụp ảnh chuyên nghiệp',
+    'studio chụp ảnh',
+  ].join(', '),
+  authors: [{ name: 'NDT Studio' }],
+  creator: 'NDT Studio',
+  publisher: 'NDT Studio',
+  formatDetection: {
+    email: false,
+    address: false,
+    telephone: false,
+  },
+  openGraph: {
+    type: 'website',
+    locale: 'vi_VN',
+    url: 'https://ndtstudio.com',
+    siteName: 'NDT Studio',
+    title: 'NDT Studio - Nhiếp ảnh chuyên nghiệp',
+    description:
+      'Studio chụp ảnh chuyên nghiệp tại Việt Nam. Chuyên chụp ảnh cưới, ảnh gia đình, beauty, couple với phong cách nghệ thuật độc đáo.',
+    images: [
+      {
+        url: '/og-image.jpg', // Bạn cần thêm ảnh này vào public folder
+        width: 1200,
+        height: 630,
+        alt: 'NDT Studio',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'NDT Studio - Nhiếp ảnh chuyên nghiệp',
+    description:
+      'Studio chụp ảnh chuyên nghiệp tại Việt Nam. Chuyên chụp ảnh cưới, ảnh gia đình, beauty, couple.',
+    creator: '@ndtstudio',
+    images: ['/og-image.jpg'],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
+  },
+  verification: {
+    // Thêm sau khi verify với Google Search Console
+    google: 'your-google-verification-code',
+    // yandex: 'your-yandex-verification-code',
+    // bing: 'your-bing-verification-code',
+  },
 }
 
 export default function RootLayout({
@@ -41,12 +109,39 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  // JSON-LD for Organization
+  const organizationJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    name: 'NDT Studio',
+    url: 'https://ndtstudio.com',
+    logo: 'https://ndtstudio.com/logo.png',
+    description: 'Studio chụp ảnh chuyên nghiệp tại Việt Nam',
+    address: {
+      '@type': 'PostalAddress',
+      addressCountry: 'VN',
+    },
+    sameAs: [
+      // Thêm các social media links sau
+      'https://facebook.com/ndtstudio',
+      'https://instagram.com/ndtstudio',
+    ],
+  };
+
   return (
-    <html lang="en">
+    <html lang="vi">
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} ${kapakana.variable} ${montserrat.variable} antialiased`}
       >
         {children}
+
+        {/* JSON-LD Organization Schema - Moved to body and using Script component */}
+        <Script
+          id="organization-schema"
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
+          strategy="beforeInteractive"
+        />
       </body>
     </html>
   )

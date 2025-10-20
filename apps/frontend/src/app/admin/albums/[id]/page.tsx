@@ -9,6 +9,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Upload, Edit, Trash2, Star } from 'lucide-react';
+import { toast } from 'sonner';
 import {
   getAlbum,
   setCoverImage,
@@ -37,11 +38,11 @@ export default function AlbumDetailPage() {
   async function loadAlbum() {
     try {
       setLoading(true);
-      const data = await getAlbum(slug);
+      const data = await getAlbum(slug, true); // Skip view increment for admin
       setAlbum(data);
     } catch (error) {
       console.error('Failed to load album:', error);
-      alert('Không thể tải album');
+      toast.error('Không thể tải album');
     } finally {
       setLoading(false);
     }
@@ -53,10 +54,10 @@ export default function AlbumDetailPage() {
     try {
       const updated = await setCoverImage(album.id, imageId);
       setAlbum(updated);
-      alert('Đã đặt ảnh cover!');
+      toast.success('Đã đặt ảnh cover!');
     } catch (error) {
       console.error('Failed to set cover:', error);
-      alert('Không thể đặt ảnh cover');
+      toast.error('Không thể đặt ảnh cover');
     }
   }
 
@@ -64,22 +65,22 @@ export default function AlbumDetailPage() {
     if (!album) return;
 
     if (!album.images || album.images.length === 0) {
-      alert('Vui lòng upload ít nhất 1 ảnh trước khi publish');
+      toast.error('Vui lòng upload ít nhất 1 ảnh trước khi publish');
       return;
     }
 
     if (!album.coverImage) {
-      alert('Vui lòng chọn ảnh cover trước khi publish');
+      toast.error('Vui lòng chọn ảnh cover trước khi publish');
       return;
     }
 
     try {
       const updated = await publishAlbum(album.id);
       setAlbum(updated);
-      alert('Đã publish album!');
+      toast.success('Đã publish album!');
     } catch (error) {
       console.error('Failed to publish album:', error);
-      alert('Không thể publish album');
+      toast.error('Không thể publish album');
     }
   }
 
@@ -154,7 +155,7 @@ export default function AlbumDetailPage() {
           </div>
           <div>
             <p className="text-sm text-gray-500">Category</p>
-            <p className="font-medium">{album.category}</p>
+            <p className="font-medium">{album.category?.name || '-'}</p>
           </div>
           <div>
             <p className="text-sm text-gray-500">Images</p>

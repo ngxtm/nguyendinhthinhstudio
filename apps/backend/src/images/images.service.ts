@@ -77,14 +77,14 @@ export class ImagesService {
     // Get variant URLs
     const variantUrls = this.cloudflare.getVariantUrls(confirmDto.cloudflareImageId);
 
-    // Get next order index
+    // Get next order index (start from 1, not 0)
     const lastImage = await this.prisma.image.findFirst({
       where: { albumId },
       orderBy: { orderIndex: 'desc' },
       select: { orderIndex: true },
     });
 
-    const orderIndex = (lastImage?.orderIndex ?? -1) + 1;
+    const orderIndex = (lastImage?.orderIndex ?? 0) + 1;
 
     // Create image record
     const image = await this.prisma.image.create({
@@ -213,11 +213,11 @@ export class ImagesService {
       throw new BadRequestException(`Invalid image IDs: ${invalidIds.join(', ')}`);
     }
 
-    // Update order indices
+    // Update order indices (start from 1, not 0)
     const updatePromises = reorderDto.imageIds.map((imageId, index) =>
       this.prisma.image.update({
         where: { id: imageId },
-        data: { orderIndex: index },
+        data: { orderIndex: index + 1 },
       })
     );
 

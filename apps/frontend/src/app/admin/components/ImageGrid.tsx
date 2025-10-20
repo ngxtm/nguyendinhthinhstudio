@@ -5,9 +5,10 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Star, Trash2, GripVertical } from 'lucide-react';
 import { deleteImage, reorderImages, type Image } from '@/app/lib/api';
+import { toast } from 'sonner';
 import Lightbox from 'yet-another-react-lightbox';
 import Zoom from 'yet-another-react-lightbox/plugins/zoom';
 import Fullscreen from 'yet-another-react-lightbox/plugins/fullscreen';
@@ -33,12 +34,17 @@ export default function ImageGrid({
   const [localImages, setLocalImages] = useState(images);
   const [lightboxIndex, setLightboxIndex] = useState(-1);
 
-  // Convert images to lightbox slides format
+  // Sync local state with props when images change
+  useEffect(() => {
+    setLocalImages(images);
+  }, [images]);
+
+  // Convert images to lightbox slides format - use xlargeUrl for best quality
   const slides = localImages.map((img) => ({
-    src: img.largeUrl,
+    src: img.xlargeUrl,
     alt: img.altText || img.filename,
-    width: img.width || 1920,
-    height: img.height || 1080,
+    width: img.width || 2560,
+    height: img.height || 1440,
   }));
 
   async function handleDelete(image: Image) {
@@ -47,11 +53,11 @@ export default function ImageGrid({
     try {
       await deleteImage(image.id);
       setLocalImages(localImages.filter((img) => img.id !== image.id));
-      alert('Đã xóa ảnh!');
+      toast.success('Đã xóa ảnh!');
       onDelete();
     } catch (error) {
       console.error('Failed to delete image:', error);
-      alert('Không thể xóa ảnh');
+      toast.error('Không thể xóa ảnh');
     }
   }
 
@@ -82,10 +88,11 @@ export default function ImageGrid({
     try {
       const imageIds = newImages.map((img) => img.id);
       await reorderImages(images[0]?.albumId || '', imageIds);
+      toast.success('Đã sắp xếp lại ảnh!');
       onReorder();
     } catch (error) {
       console.error('Failed to reorder images:', error);
-      alert('Không thể sắp xếp lại ảnh');
+      toast.error('Không thể sắp xếp lại ảnh');
       // Revert local state
       setLocalImages(images);
     }
@@ -113,18 +120,21 @@ export default function ImageGrid({
 
               {/* Cover Badge */}
               {image.id === coverImageId && (
-                <div className="absolute top-2 left-2 px-2 py-1 bg-yellow-500 text-white text-xs font-medium rounded">
+                <div className="absolute top-2 left-2 px-2 py-1 bg-yellow-500 text-white text-xs font-medium rounded z-10">
                   Cover
                 </div>
               )}
 
               {/* Drag Handle */}
-              <div className="absolute top-2 right-2 p-1 bg-black bg-opacity-50 rounded opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="absolute top-2 right-2 p-1 bg-black bg-opacity-50 rounded opacity-0 group-hover:opacity-100 transition-opacity z-10">
                 <GripVertical size={16} className="text-white" />
               </div>
 
               {/* Actions Overlay */}
-              <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
+              <div
+                className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 cursor-pointer z-10"
+                onClick={() => setLightboxIndex(index)}
+              >
                 <button
                   onClick={(e) => {
                     e.stopPropagation();

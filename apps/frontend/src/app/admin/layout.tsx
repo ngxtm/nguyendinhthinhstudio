@@ -4,7 +4,8 @@
  */
 
 import Link from 'next/link';
-import { LayoutDashboard, Image, Tag, Settings } from 'lucide-react';
+import { LayoutDashboard, Image, Tag, FolderOpen, Settings } from 'lucide-react';
+import { Toaster } from 'sonner';
 
 export default function AdminLayout({
   children,
@@ -17,7 +18,7 @@ export default function AdminLayout({
       <aside className="w-64 bg-white border-r border-gray-200">
         <div className="p-6">
           <h1 className="text-2xl font-bold text-gray-900">
-            NDT Studio Admin
+            NDT Studio <span className='text-amber-400'>Admin</span>
           </h1>
         </div>
 
@@ -31,6 +32,11 @@ export default function AdminLayout({
             href="/admin/albums"
             icon={<Image size={20} />}
             label="Albums"
+          />
+          <NavLink
+            href="/admin/categories"
+            icon={<FolderOpen size={20} />}
+            label="Categories"
           />
           <NavLink
             href="/admin/tags"
@@ -58,6 +64,14 @@ export default function AdminLayout({
       <main className="flex-1 overflow-auto">
         <div className="max-w-7xl mx-auto p-8">{children}</div>
       </main>
+
+      {/* Sonner Toast Notifications */}
+      <Toaster
+        position="top-right"
+        richColors
+        closeButton
+        duration={3000}
+      />
     </div>
   );
 }
