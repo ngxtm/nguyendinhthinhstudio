@@ -59,6 +59,5 @@ export default function IndividualPrice() {
         <PricingModel pricingPackages={pricingPackages}/>
         <AdditionalServiceAndTerms service={additionalServiceAndTerms} />
       </div>
-    </div>
   )
 }
