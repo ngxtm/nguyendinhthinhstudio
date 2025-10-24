@@ -1,4 +1,5 @@
 import type { NextConfig } from 'next'
+import path from 'path'
 
 const nextConfig: NextConfig = {
     reactStrictMode: true,
@@ -8,12 +9,26 @@ const nextConfig: NextConfig = {
         ],
     },
     async rewrites() {
+        if (!process.env.NEXT_PUBLIC_API_URL) {
+            return []
+        }
+
+        const sanitizedBase = process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, '')
+
         return [
             {
                 source: '/api/:path*',
-                destination: `${process.env.NEXT_PUBLIC_API_URL}/:path*`
+                destination: `${sanitizedBase}/:path*`
             }
         ]
+    },
+    webpack(config) {
+        config.resolve.alias = {
+            ...config.resolve.alias,
+            '@': path.resolve(__dirname, 'src')
+        }
+
+        return config
     }
 }
 
