@@ -151,8 +151,8 @@ export default function GalleryPage() {
                   768: 2,
                   640: 1
                 }}
-                className="flex -ml-8 w-auto"
-                columnClassName="pl-8 bg-clip-padding"
+                className="flex w-auto sm:-ml-6 lg:-ml-8"
+                columnClassName="pl-0 sm:pl-6 lg:pl-8 bg-clip-padding"
               >
                 {albums.map(album => (
                   <AlbumCard key={album.id} album={album} />
