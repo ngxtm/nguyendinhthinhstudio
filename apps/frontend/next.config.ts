@@ -1,5 +1,5 @@
 import type { NextConfig } from 'next'
-import path from 'path'
+import { resolve } from 'path'
 
 const nextConfig: NextConfig = {
     reactStrictMode: true,
@@ -25,7 +25,7 @@ const nextConfig: NextConfig = {
     webpack(config) {
         config.resolve.alias = {
             ...config.resolve.alias,
-            '@': path.resolve(__dirname, 'src')
+            '@': resolve(__dirname, 'src')
         }
 
         return config
