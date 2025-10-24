@@ -1,5 +1,3 @@
 export default function PriceDetailCategory() {
-    return (
-        
-    );
+  return null
 }

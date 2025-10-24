@@ -4,13 +4,14 @@ import { ApiError, getTagAlbums } from '@/app/lib/api'
 import TagGalleryClient from './TagGalleryClient'
 
 type PageParams = {
-  params: {
+  params: Promise<{
     slug: string
-  }
+  }>
 }
 
 export async function generateMetadata({ params }: PageParams): Promise<Metadata> {
-  const slug = decodeURIComponent(params.slug)
+  const { slug: rawSlug } = await params
+  const slug = decodeURIComponent(rawSlug)
 
   try {
     const response = await getTagAlbums(slug, { limit: 1, offset: 0 })
@@ -40,7 +41,8 @@ export async function generateMetadata({ params }: PageParams): Promise<Metadata
 }
 
 export default async function TagGalleryPage({ params }: PageParams) {
-  const slug = decodeURIComponent(params.slug)
+  const { slug: rawSlug } = await params
+  const slug = decodeURIComponent(rawSlug)
 
   try {
     const initial = await getTagAlbums(slug, { limit: 20, offset: 0 })

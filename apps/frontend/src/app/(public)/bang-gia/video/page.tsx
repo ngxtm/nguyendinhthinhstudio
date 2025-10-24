@@ -8,7 +8,7 @@ import AdditionalServiceAndTerms from '../ca-nhan/components/AdditionalServiceAn
 
 function SingleVideoSection() {
   return (
-    
+    <>
       {videoSinglePackages.map(block => (
         <div key={block.id} className="space-y-6">
           <DividerWithText
@@ -62,7 +62,7 @@ function SingleVideoSection() {
           </div>
         </div>
       ))}
-    
+    </>
   )
 }
 
@@ -115,17 +115,15 @@ function VideoProSection() {
 
 export default function VideoPrice() {
   return (
-    
-      <div className="space-y-10 px-2.5 md:px-16">
-        <div className="space-y-12 md:space-y-4">
-          <h1 className="mt-8 text-center text-xl font-bold md:text-4xl">BẢNG GIÁ DỊCH VỤ VIDEO CÁ NHÂN</h1>
-          <p className="text-center text-[#888888]">Bảng báo giá quay video cá nhân</p>
-        </div>
-
-        <SingleVideoSection />
-        <VideoProSection />
-        <AdditionalServiceAndTerms service={additionalServiceAndTerms} />
+    <div className="space-y-10 px-2.5 md:px-16">
+      <div className="space-y-12 md:space-y-4">
+        <h1 className="mt-8 text-center text-xl font-bold md:text-4xl">BẢNG GIÁ DỊCH VỤ VIDEO CÁ NHÂN</h1>
+        <p className="text-center text-[#888888]">Bảng báo giá quay video cá nhân</p>
       </div>
-    
+
+      <SingleVideoSection />
+      <VideoProSection />
+      <AdditionalServiceAndTerms service={additionalServiceAndTerms} />
+    </div>
   )
 }

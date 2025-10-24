@@ -5,7 +5,7 @@ import ImageProductionComponent from './components/ImageProductionComponent'
 import CreativeDirectorComponent from './components/CreativeDirectorComponent'
 import ServiceProcessComponnent from './components/ServiceProcessComponnent'
 import DividerWithText from '@/app/components/common/DividerWithText'
-import SeeMore from '@/app/lien-he/components/SeeMore'
+import SeeMore from '@/app/(public)/lien-he/components/SeeMore'
 import AnimatedContent from '@/app/components/common/AnimatedContent'
 
 export default function Service() {

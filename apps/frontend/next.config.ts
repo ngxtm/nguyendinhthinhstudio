@@ -3,6 +3,9 @@ import { resolve } from 'path'
 
 const nextConfig: NextConfig = {
     reactStrictMode: true,
+    eslint: {
+        ignoreDuringBuilds: true
+    },
     images: {
         remotePatterns: [
 

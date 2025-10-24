@@ -17,8 +17,9 @@ import {
   getCategories,
   type UpdateAlbumDto,
   type Tag,
-  type Category,
   type Album,
+  normalizeAlbumTags,
+  type Category as ApiCategory,
 } from '@/app/lib/api';
 import CategoryCombobox from '../../../components/CategoryCombobox';
 
@@ -31,8 +32,8 @@ export default function EditAlbumPage() {
   const [loading, setLoading] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
   const [tags, setTags] = useState<Tag[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [selectedCategories, setSelectedCategories] = useState<Category[]>([]);
+  const [categories, setCategories] = useState<ComboboxCategory[]>([]);
+  const [selectedCategories, setSelectedCategories] = useState<ComboboxCategory[]>([]);
   const [formData, setFormData] = useState<UpdateAlbumDto>({
     title: '',
     slug: '',
@@ -53,6 +54,32 @@ export default function EditAlbumPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug]);
 
+  type ComboboxCategory = {
+    id: string;
+    name: string;
+    slug: string;
+    parent?: {
+      id: string;
+      name: string;
+      slug: string;
+    } | null;
+  };
+
+  function mapCategoryToOption(category: ApiCategory): ComboboxCategory {
+    return {
+      id: category.id,
+      name: category.name,
+      slug: category.slug,
+      parent: category.parent
+        ? {
+            id: category.parent.id,
+            name: category.parent.name,
+            slug: category.parent.slug,
+          }
+        : null,
+    };
+  }
+
   async function loadData() {
     try {
       setLoadingData(true);
@@ -64,13 +91,16 @@ export default function EditAlbumPage() {
 
       setAlbum(albumData);
       setTags(allTags);
-      setCategories(allCategories);
+      const mappedCategories = allCategories.map(mapCategoryToOption);
+      setCategories(mappedCategories);
 
       const manualCategoryIds = (albumData.categories || [])
         .filter(cat => cat.source === 'manual')
         .map(cat => cat.id);
-      const selectedFromCatalog = allCategories.filter(cat => manualCategoryIds.includes(cat.id));
+      const selectedFromCatalog = mappedCategories.filter(cat => manualCategoryIds.includes(cat.id));
       setSelectedCategories(selectedFromCatalog);
+
+      const normalizedTags = normalizeAlbumTags(albumData.tags);
 
       // Populate form with album data
       setFormData({
@@ -79,7 +109,7 @@ export default function EditAlbumPage() {
         description: albumData.description || '',
         shootDate: albumData.shootDate || '',
         categoryIds: manualCategoryIds,
-        tagSlugs: albumData.tags?.map((t) => t.tag.slug) || [],
+        tagSlugs: normalizedTags.map((t) => t.slug),
         status: albumData.status,
         isFeatured: albumData.isFeatured,
         metaTitle: albumData.metaTitle || '',
@@ -99,13 +129,14 @@ export default function EditAlbumPage() {
       getCategories(),
     ]);
     setTags(allTags);
-    setCategories(allCategories);
+    const mappedCategories = allCategories.map(mapCategoryToOption);
+    setCategories(mappedCategories);
 
     setSelectedCategories(prev => {
       if (prev.length === 0) return prev;
       const mapped = prev
-        .map(cat => allCategories.find(c => c.id === cat.id))
-        .filter((cat): cat is Category => Boolean(cat));
+        .map(cat => mappedCategories.find(c => c.id === cat.id))
+        .filter((cat): cat is ComboboxCategory => Boolean(cat));
       if (mapped.length !== prev.length) {
         setFormData(current => ({
           ...current,
@@ -118,7 +149,7 @@ export default function EditAlbumPage() {
     toast.success('Đã tải lại danh sách');
   }
 
-  function handleCategoryChange(categories: Category[]) {
+  function handleCategoryChange(categories: ComboboxCategory[]) {
     setSelectedCategories(categories);
     setFormData(current => ({
       ...current,
@@ -143,7 +174,7 @@ export default function EditAlbumPage() {
       ...current,
       title,
       slug:
-        current.slug === generateSlug(current.title) || !current.slug
+        current.slug === generateSlug(current.title ?? '') || !current.slug
           ? generateSlug(title)
           : current.slug,
     }));
