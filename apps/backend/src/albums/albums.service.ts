@@ -1,10 +1,41 @@
-import { Injectable, Logger, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  BadRequestException,
+  ConflictException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CloudflareService } from '../images/cloudflare.service';
+import {
+  Album as PrismaAlbum,
+  Category as PrismaCategory,
+  Prisma,
+} from '@prisma/client';
 import { CreateAlbumDto } from './dto/create-album.dto';
 import { UpdateAlbumDto } from './dto/update-album.dto';
 import { QueryAlbumsDto } from './dto/query-albums.dto';
 import { SetCoverDto } from './dto/set-cover.dto';
+
+type CategoryAssignment = {
+  categoryId: string;
+  depth: number;
+  source: 'manual' | 'parent';
+};
+
+type AlbumCategoryLink = {
+  category: PrismaCategory | null;
+  depth: number | null;
+  source: string | null;
+};
+
+type AlbumWithRelations = PrismaAlbum & {
+  categories?: AlbumCategoryLink[];
+  tags?: any[];
+  coverImage?: any;
+  images?: any;
+  _count?: any;
+};
 
 @Injectable()
 export class AlbumsService {
@@ -39,25 +70,47 @@ export class AlbumsService {
       });
 
       if (tags.length !== createAlbumDto.tagSlugs.length) {
-        const foundSlugs = tags.map(t => t.slug);
-        const missing = createAlbumDto.tagSlugs.filter(s => !foundSlugs.includes(s));
+        const foundSlugs = tags.map((t) => t.slug);
+        const missing = createAlbumDto.tagSlugs.filter(
+          (s) => !foundSlugs.includes(s),
+        );
         throw new BadRequestException(`Tags not found: ${missing.join(', ')}`);
       }
 
-      tagIds = tags.map(t => t.id);
+      tagIds = tags.map((t) => t.id);
     }
 
     // Create album
-    const { tagSlugs, ...albumData } = createAlbumDto;
-    
+    const { tagSlugs, categoryIds, ...albumData } = createAlbumDto;
+
+    const sanitizedAlbumData = this.sanitizeAlbumPayload(albumData) as typeof albumData;
+
+    const categoryAssignments =
+      await this.buildCategoryAssignments(categoryIds);
+
     const album = await this.prisma.album.create({
       data: {
-        ...albumData,
+        ...sanitizedAlbumData,
         slug,
         publishedAt: createAlbumDto.status === 'published' ? new Date() : null,
-        tags: tagIds.length > 0 ? {
-          create: tagIds.map(tagId => ({ tagId })),
-        } : undefined,
+        tags:
+          tagIds.length > 0
+            ? {
+                create: tagIds.map((tagId) => ({ tagId })),
+              }
+            : undefined,
+        categories:
+          categoryAssignments.length > 0
+            ? {
+                create: categoryAssignments.map(
+                  ({ categoryId: catId, depth, source }) => ({
+                    categoryId: catId,
+                    depth,
+                    source,
+                  }),
+                ),
+              }
+            : undefined,
       },
       include: {
         tags: {
@@ -65,71 +118,130 @@ export class AlbumsService {
             tag: true,
           },
         },
-        category: true,
+        categories: {
+          include: {
+            category: true,
+          },
+          orderBy: {
+            depth: 'asc',
+          },
+        },
         coverImage: true,
       },
     });
 
     this.logger.log(`Album created: ${album.id}`);
-    return album;
+    return this.presentAlbum(album);
   }
 
   /**
    * Find albums with filtering and pagination
    */
   async findAll(query: QueryAlbumsDto) {
-    const { status, category, tag, isFeatured, limit, cursor, sortBy } = query;
+    const {
+      status,
+      category,
+      tag,
+      isFeatured,
+      limit,
+      cursor,
+      sortBy,
+      search,
+    } = query;
 
-    // Build where clause
-    const where: any = {};
+    const filters: Prisma.AlbumWhereInput[] = [];
 
     if (status && status !== 'all') {
-      where.status = status;
+      filters.push({ status });
     }
 
     if (category) {
-      where.categoryId = category;
+      filters.push({
+        categories: {
+          some: {
+            category: {
+              OR: [{ id: category }, { slug: category }],
+            },
+          },
+        },
+      });
     }
 
-    if (isFeatured !== undefined) {
-      where.isFeatured = isFeatured;
+    if (typeof isFeatured === 'boolean') {
+      filters.push({ isFeatured });
     }
 
     if (tag) {
-      where.tags = {
-        some: {
-          tag: {
-            slug: tag,
+      filters.push({
+        tags: {
+          some: {
+            tag: {
+              slug: tag,
+            },
           },
         },
-      };
+      });
     }
 
-    // Cursor pagination
     if (cursor) {
-      where.id = { lt: cursor };
+      filters.push({ id: { lt: cursor } });
     }
+
+    if (search) {
+      const term = search.trim();
+      if (term) {
+        const contains = {
+          contains: term,
+          mode: 'insensitive' as const,
+        };
+
+        filters.push({
+          OR: [
+            { title: contains },
+            { slug: contains },
+            {
+              categories: {
+                some: {
+                  category: {
+                    OR: [{ name: contains }, { slug: contains }],
+                  },
+                },
+              },
+            },
+            {
+              tags: {
+                some: {
+                  tag: {
+                    OR: [{ name: contains }, { slug: contains }],
+                  },
+                },
+              },
+            },
+          ],
+        });
+      }
+    }
+
+    const where: Prisma.AlbumWhereInput | undefined =
+      filters.length === 0
+        ? undefined
+        : filters.length === 1
+        ? filters[0]
+        : { AND: filters };
+
+    const limitValue = Math.min(Math.max(limit ?? 20, 1), 50);
 
     // Build orderBy clause
     let orderBy: any = {};
     switch (sortBy) {
       case 'newest':
-        orderBy = [
-          { publishedAt: 'desc' },
-          { createdAt: 'desc' },
-        ];
+        orderBy = [{ publishedAt: 'desc' }, { createdAt: 'desc' }];
         break;
       case 'oldest':
-        orderBy = [
-          { publishedAt: 'asc' },
-          { createdAt: 'asc' },
-        ];
+        orderBy = [{ publishedAt: 'asc' }, { createdAt: 'asc' }];
         break;
       case 'popular':
-        orderBy = [
-          { viewCount: 'desc' },
-          { publishedAt: 'desc' },
-        ];
+        orderBy = [{ viewCount: 'desc' }, { publishedAt: 'desc' }];
         break;
       case 'featured':
         orderBy = [
@@ -146,14 +258,21 @@ export class AlbumsService {
     const albums = await this.prisma.album.findMany({
       where,
       orderBy,
-      take: limit + 1, // Fetch one extra to check if there's a next page
+      take: limitValue + 1, // Fetch one extra to check if there's a next page
       include: {
         tags: {
           include: {
             tag: true,
           },
         },
-        category: true,
+        categories: {
+          include: {
+            category: true,
+          },
+          orderBy: {
+            depth: 'asc',
+          },
+        },
         coverImage: true,
         _count: {
           select: { images: true },
@@ -162,16 +281,16 @@ export class AlbumsService {
     });
 
     // Determine if there's a next page
-    const hasMore = albums.length > limit;
-    const data = hasMore ? albums.slice(0, limit) : albums;
+    const hasMore = albums.length > limitValue;
+    const data = hasMore ? albums.slice(0, limitValue) : albums;
     const nextCursor = hasMore ? data[data.length - 1].id : null;
 
     return {
-      data,
+      data: data.map((album) => this.presentAlbum(album)),
       pagination: {
         hasMore,
         nextCursor,
-        limit,
+        limit: limitValue,
       },
     };
   }
@@ -189,7 +308,14 @@ export class AlbumsService {
             tag: true,
           },
         },
-        category: true,
+        categories: {
+          include: {
+            category: true,
+          },
+          orderBy: {
+            depth: 'asc',
+          },
+        },
         coverImage: true,
         images: {
           where: { uploadStatus: 'completed' },
@@ -204,15 +330,17 @@ export class AlbumsService {
 
     // Increment view count only for actual page views (not metadata requests)
     if (!skipViewIncrement) {
-      this.prisma.album.update({
-        where: { id: album.id },
-        data: { viewCount: { increment: 1 } },
-      }).catch(err => {
-        this.logger.error(`Failed to increment view count: ${err}`);
-      });
+      this.prisma.album
+        .update({
+          where: { id: album.id },
+          data: { viewCount: { increment: 1 } },
+        })
+        .catch((err) => {
+          this.logger.error(`Failed to increment view count: ${err}`);
+        });
     }
 
-    return album;
+    return this.presentAlbum(album);
   }
 
   /**
@@ -234,7 +362,9 @@ export class AlbumsService {
       });
 
       if (existing) {
-        throw new ConflictException(`Album with slug "${updateAlbumDto.slug}" already exists`);
+        throw new ConflictException(
+          `Album with slug "${updateAlbumDto.slug}" already exists`,
+        );
       }
     }
 
@@ -247,16 +377,20 @@ export class AlbumsService {
         });
 
         if (tags.length !== updateAlbumDto.tagSlugs.length) {
-          const foundSlugs = tags.map(t => t.slug);
-          const missing = updateAlbumDto.tagSlugs.filter(s => !foundSlugs.includes(s));
-          throw new BadRequestException(`Tags not found: ${missing.join(', ')}`);
+          const foundSlugs = tags.map((t) => t.slug);
+          const missing = updateAlbumDto.tagSlugs.filter(
+            (s) => !foundSlugs.includes(s),
+          );
+          throw new BadRequestException(
+            `Tags not found: ${missing.join(', ')}`,
+          );
         }
 
-        const tagIds = tags.map(t => t.id);
+        const tagIds = tags.map((t) => t.id);
 
         tagOperations = {
           deleteMany: {},
-          create: tagIds.map(tagId => ({ tagId })),
+          create: tagIds.map((tagId) => ({ tagId })),
         };
       } else {
         tagOperations = {
@@ -271,14 +405,33 @@ export class AlbumsService {
       publishedAt = new Date();
     }
 
-    const { tagSlugs, ...albumData } = updateAlbumDto;
+    const { tagSlugs, categoryIds, ...albumData } = updateAlbumDto;
+
+    const sanitizedAlbumData = this.sanitizeAlbumPayload(albumData) as typeof albumData;
+
+    let categoryOperations: any = undefined;
+    if (categoryIds !== undefined) {
+      const categoryAssignments =
+        await this.buildCategoryAssignments(categoryIds);
+      categoryOperations = {
+        deleteMany: {},
+        create: categoryAssignments.map(
+          ({ categoryId: catId, depth, source }) => ({
+            categoryId: catId,
+            depth,
+            source,
+          }),
+        ),
+      };
+    }
 
     const updated = await this.prisma.album.update({
       where: { id },
       data: {
-        ...albumData,
+        ...sanitizedAlbumData,
         publishedAt: publishedAt !== undefined ? publishedAt : undefined,
         tags: tagOperations,
+        categories: categoryOperations,
       },
       include: {
         tags: {
@@ -286,13 +439,20 @@ export class AlbumsService {
             tag: true,
           },
         },
-        category: true,
+        categories: {
+          include: {
+            category: true,
+          },
+          orderBy: {
+            depth: 'asc',
+          },
+        },
         coverImage: true,
       },
     });
 
     this.logger.log(`Album updated: ${id}`);
-    return updated;
+    return this.presentAlbum(updated);
   }
 
   /**
@@ -314,15 +474,21 @@ export class AlbumsService {
 
     // Step 1: Delete all images from Cloudflare first
     if (album.images.length > 0) {
-      this.logger.log(`Deleting ${album.images.length} images from Cloudflare for album ${id}`);
+      this.logger.log(
+        `Deleting ${album.images.length} images from Cloudflare for album ${id}`,
+      );
 
       const deletePromises = album.images.map(async (image) => {
         if (image.cloudflareImageId) {
           try {
             await this.cloudflare.deleteImage(image.cloudflareImageId);
-            this.logger.log(`Deleted Cloudflare image: ${image.cloudflareImageId}`);
+            this.logger.log(
+              `Deleted Cloudflare image: ${image.cloudflareImageId}`,
+            );
           } catch (error) {
-            this.logger.error(`Failed to delete Cloudflare image ${image.cloudflareImageId}: ${error}`);
+            this.logger.error(
+              `Failed to delete Cloudflare image ${image.cloudflareImageId}: ${error}`,
+            );
             // Continue even if Cloudflare deletion fails
           }
         }
@@ -336,7 +502,9 @@ export class AlbumsService {
       where: { id },
     });
 
-    this.logger.log(`Album deleted: ${id} (${album.images.length} images removed)`);
+    this.logger.log(
+      `Album deleted: ${id} (${album.images.length} images removed)`,
+    );
     return {
       message: 'Album deleted successfully',
       imagesDeleted: album.images.length,
@@ -378,11 +546,18 @@ export class AlbumsService {
             tag: true,
           },
         },
-        category: true,
+        categories: {
+          include: {
+            category: true,
+          },
+          orderBy: {
+            depth: 'asc',
+          },
+        },
       },
     });
 
-    return updated;
+    return this.presentAlbum(updated);
   }
 
   /**
@@ -422,11 +597,203 @@ export class AlbumsService {
             tag: true,
           },
         },
-        category: true,
+        categories: {
+          include: {
+            category: true,
+          },
+          orderBy: {
+            depth: 'asc',
+          },
+        },
       },
     });
 
-    return updated;
+    return this.presentAlbum(updated);
+  }
+
+  private sanitizeAlbumPayload(
+    data: Partial<CreateAlbumDto | UpdateAlbumDto>,
+  ): Partial<CreateAlbumDto | UpdateAlbumDto> {
+    const sanitized: Record<string, any> = { ...data };
+
+    const optionalStrings: Array<keyof Pick<
+      CreateAlbumDto,
+      'description' | 'metaTitle' | 'metaDescription' | 'googleDriveLink'
+    >> = ['description', 'metaTitle', 'metaDescription', 'googleDriveLink'];
+
+    optionalStrings.forEach((field) => {
+      if (field in sanitized) {
+        const value = sanitized[field];
+        if (typeof value === 'string') {
+          const trimmed = value.trim();
+          if (trimmed === '') {
+            delete sanitized[field];
+          } else {
+            sanitized[field] = trimmed;
+          }
+        }
+      }
+    });
+
+    if ('shootDate' in sanitized) {
+      const value = sanitized.shootDate as string | Date | undefined | null;
+      if (!value) {
+        delete sanitized.shootDate;
+      } else if (typeof value === 'string') {
+        sanitized.shootDate = new Date(value);
+      }
+    }
+
+    if ('slug' in sanitized && typeof sanitized.slug === 'string') {
+      sanitized.slug = sanitized.slug.trim();
+      if (!sanitized.slug) {
+        delete sanitized.slug;
+      }
+    }
+
+    if ('status' in sanitized && typeof sanitized.status === 'string') {
+      const trimmedStatus = sanitized.status.trim();
+      if (trimmedStatus) {
+        sanitized.status = trimmedStatus;
+      } else {
+        delete sanitized.status;
+      }
+    }
+
+    return sanitized as Partial<CreateAlbumDto | UpdateAlbumDto>;
+  }
+
+  private async buildCategoryAssignments(
+    categoryIds?: string[],
+  ): Promise<CategoryAssignment[]> {
+    if (!categoryIds || categoryIds.length === 0) {
+      return [];
+    }
+
+    const uniqueIds = Array.from(new Set(categoryIds));
+    const manualSet = new Set(uniqueIds);
+
+    const baseCategories = await this.prisma.category.findMany({
+      where: { id: { in: uniqueIds } },
+      select: { id: true, parentId: true },
+    });
+
+    if (baseCategories.length !== uniqueIds.length) {
+      const foundIds = new Set(baseCategories.map((c) => c.id));
+      const missing = uniqueIds.filter((id) => !foundIds.has(id));
+      throw new BadRequestException(
+        `Categories not found: ${missing.join(', ')}`,
+      );
+    }
+
+    const bestDepth = new Map<string, number>();
+    const parentCache = new Map<string, string | null>();
+    baseCategories.forEach((cat) => {
+      parentCache.set(cat.id, cat.parentId ?? null);
+    });
+
+    const stack = baseCategories.map((cat) => ({ id: cat.id, depth: 0 }));
+
+    while (stack.length > 0) {
+      const { id, depth } = stack.pop();
+
+      const existingDepth = bestDepth.get(id);
+      if (existingDepth !== undefined && existingDepth <= depth) {
+        continue;
+      }
+      bestDepth.set(id, depth);
+
+      let parentId = parentCache.get(id);
+      if (parentId === undefined) {
+        const parent = await this.prisma.category.findUnique({
+          where: { id },
+          select: { parentId: true },
+        });
+        parentId = parent?.parentId ?? null;
+        parentCache.set(id, parentId);
+      }
+
+      if (parentId) {
+        if (!parentCache.has(parentId)) {
+          const parentParent = await this.prisma.category.findUnique({
+            where: { id: parentId },
+            select: { parentId: true },
+          });
+          parentCache.set(parentId, parentParent?.parentId ?? null);
+        }
+
+        stack.push({ id: parentId, depth: depth + 1 });
+      }
+    }
+
+    const assignments: CategoryAssignment[] = Array.from(
+      bestDepth.entries(),
+    ).map(([categoryId, depth]) => ({
+      categoryId,
+      depth,
+      source: manualSet.has(categoryId) ? 'manual' : 'parent',
+    }));
+
+    assignments.sort(
+      (a, b) => a.depth - b.depth || a.categoryId.localeCompare(b.categoryId),
+    );
+
+    return assignments;
+  }
+
+  async getDashboardStats() {
+    const [totalAlbums, publishedAlbums, draftAlbums, aggregates] = await Promise.all([
+      this.prisma.album.count(),
+      this.prisma.album.count({ where: { status: 'published' } }),
+      this.prisma.album.count({ where: { status: 'draft' } }),
+      this.prisma.album.aggregate({
+        _sum: {
+          imageCount: true,
+          viewCount: true,
+        },
+      }),
+    ]);
+
+    return {
+      totalAlbums,
+      publishedAlbums,
+      draftAlbums,
+      totalImages: aggregates._sum?.imageCount ?? 0,
+      totalViews: aggregates._sum?.viewCount ?? 0,
+    };
+  }
+
+  /**
+   * Normalize album relations for API consumers
+   */
+  presentAlbum(album: AlbumWithRelations) {
+    const categories = (album.categories ?? [])
+      .filter(
+        (link): link is AlbumCategoryLink & { category: PrismaCategory } =>
+          Boolean(link?.category),
+      )
+      .map((link) => ({
+        id: link.category.id,
+        name: link.category.name,
+        slug: link.category.slug,
+        depth: link.depth ?? 0,
+        source: link.source === 'parent' ? 'parent' : 'manual',
+      }))
+      .sort((a, b) => a.depth - b.depth || a.name.localeCompare(b.name));
+
+    const primaryCategory =
+      categories.find((cat) => cat.source === 'manual') ??
+      categories[0] ??
+      null;
+
+    const { categories: _categories, ...rest } = album;
+
+    return {
+      ...rest,
+      primaryCategory,
+      categories,
+      category: primaryCategory,
+    };
   }
 
   /**
@@ -444,4 +811,3 @@ export class AlbumsService {
       .replace(/-+/g, '-');
   }
 }
-

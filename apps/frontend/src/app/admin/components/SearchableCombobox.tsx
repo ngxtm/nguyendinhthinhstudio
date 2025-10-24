@@ -73,9 +73,9 @@ export default function SearchableCombobox({
                   Không tìm thấy kết quả
                 </div>
               ) : (
-                <>
-                  {/* None option */}
+                [
                   <Combobox.Option
+                    key="none-option"
                     value={null}
                     className={({ active }) =>
                       `relative cursor-pointer select-none py-2 pl-10 pr-4 ${
@@ -99,10 +99,8 @@ export default function SearchableCombobox({
                         ) : null}
                       </>
                     )}
-                  </Combobox.Option>
-
-                  {/* Options */}
-                  {filteredOptions.map((option) => (
+                  </Combobox.Option>,
+                  ...filteredOptions.map((option) => (
                     <Combobox.Option
                       key={option.id}
                       className={({ active }) =>
@@ -132,8 +130,8 @@ export default function SearchableCombobox({
                         </>
                       )}
                     </Combobox.Option>
-                  ))}
-                </>
+                  )),
+                ]
               )}
             </Combobox.Options>
           </Transition>

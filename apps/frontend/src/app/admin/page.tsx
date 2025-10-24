@@ -7,19 +7,11 @@
 
 import { useState } from 'react'
 import { Plus, FolderOpen, Image, Eye, Tag, Folder, TrendingUp } from 'lucide-react'
-import { listAlbums, type Album } from '@/app/lib/api/albums'
+import { listAlbums, getAlbumDashboardStats, type Album, type AlbumDashboardStats } from '@/app/lib/api/albums'
 import { useAbortableEffect } from './hooks'
 
-interface DashboardStats {
-  totalAlbums: number
-  publishedAlbums: number
-  draftAlbums: number
-  totalImages: number
-  totalViews: number
-}
-
 export default function AdminDashboard() {
-  const [stats, setStats] = useState<DashboardStats>({
+  const [stats, setStats] = useState<AlbumDashboardStats>({
     totalAlbums: 0,
     publishedAlbums: 0,
     draftAlbums: 0,
@@ -34,33 +26,30 @@ export default function AdminDashboard() {
       try {
         setLoading(true)
 
-        // Fetch all albums để tính statistics
-        const [allAlbums, publishedAlbums, draftAlbums] = await Promise.all([
-          listAlbums({ limit: 1000 }),
-          listAlbums({ status: 'published', limit: 1000 }),
-          listAlbums({ status: 'draft', limit: 1000 })
+        const [statsResponse, recentResponse] = await Promise.all([
+          getAlbumDashboardStats(),
+          listAlbums({ sortBy: 'newest', limit: 5 }, { signal })
         ])
 
         // Only update state if not aborted
         if (signal.aborted) return
 
-        // Tính tổng images và views
-        const totalImages = allAlbums.data.reduce((sum, album) => sum + album.imageCount, 0)
-        const totalViews = allAlbums.data.reduce((sum, album) => sum + album.viewCount, 0)
-
-        setStats({
-          totalAlbums: allAlbums.data.length,
-          publishedAlbums: publishedAlbums.data.length,
-          draftAlbums: draftAlbums.data.length,
-          totalImages,
-          totalViews
-        })
+        setStats(statsResponse)
 
         // Lấy 5 albums mới nhất
-        setRecentAlbums(allAlbums.data.slice(0, 5))
+        setRecentAlbums(recentResponse.data)
       } catch (error) {
-        // Ignore abort errors
-        if (error instanceof Error && error.name === 'AbortError') return
+        if (signal.aborted) {
+          return
+        }
+
+        const abortError =
+          (error instanceof DOMException && error.name === 'AbortError') ||
+          ((error as any)?.name === 'AbortError')
+
+        if (abortError) {
+          return
+        }
 
         console.error('Failed to load dashboard data:', error)
       } finally {
@@ -179,7 +168,7 @@ export default function AdminDashboard() {
                 {recentAlbums.map((album) => (
                   <a
                     key={album.id}
-                    href={`/admin/albums/${album.id}`}
+                    href={`/admin/albums/${album.slug}`}
                     className="flex items-center gap-4 p-3 rounded-lg hover:bg-gray-50 transition-colors border border-gray-100"
                   >
                     {album.coverImage?.thumbnailUrl ? (

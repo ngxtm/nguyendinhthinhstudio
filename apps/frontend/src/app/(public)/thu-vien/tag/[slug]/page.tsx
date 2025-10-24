@@ -1,0 +1,65 @@
+import type { Metadata } from 'next'
+import { notFound } from 'next/navigation'
+import { ApiError, getTagAlbums } from '@/app/lib/api'
+import TagGalleryClient from './TagGalleryClient'
+
+type PageParams = {
+  params: {
+    slug: string
+  }
+}
+
+export async function generateMetadata({ params }: PageParams): Promise<Metadata> {
+  const slug = decodeURIComponent(params.slug)
+
+  try {
+    const response = await getTagAlbums(slug, { limit: 1, offset: 0 })
+    const tagName = response.tag.name
+    const description = response.tag.description || `Khám phá các album thuộc tag ${tagName} tại Nguyen Dinh Thinh Studio.`
+    const pageTitle = `${tagName} | Thư viện ảnh`
+
+    return {
+      title: pageTitle,
+      description,
+      openGraph: {
+        title: pageTitle,
+        description,
+      },
+    }
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) {
+      return {
+      title: 'Tag không tồn tại | Thư viện ảnh',
+      }
+    }
+
+    return {
+      title: 'Thư viện ảnh',
+    }
+  }
+}
+
+export default async function TagGalleryPage({ params }: PageParams) {
+  const slug = decodeURIComponent(params.slug)
+
+  try {
+    const initial = await getTagAlbums(slug, { limit: 20, offset: 0 })
+
+    return (
+      <div className="px-4 md:px-8 lg:px-16">
+        <TagGalleryClient
+          slug={slug}
+          initialTag={initial.tag}
+          initialAlbums={initial.data}
+          initialPagination={initial.pagination}
+        />
+      </div>
+    )
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) {
+      notFound()
+    }
+
+    throw error
+  }
+}

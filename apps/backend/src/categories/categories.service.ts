@@ -231,29 +231,50 @@ export class CategoriesService {
   async checkUsage(id: string) {
     const category = await this.prisma.category.findUnique({
       where: { id },
-      include: {
-        albums: {
-          select: {
-            id: true,
-            title: true,
-            slug: true,
-          },
-          take: 100, // Limit to 100 albums for display
-        },
-        _count: {
-          select: { albums: true },
-        },
-      },
+      select: { id: true },
     });
 
     if (!category) {
       throw new NotFoundException(`Category với ID "${id}" không tồn tại`);
     }
 
+    const assignments = await this.prisma.albumCategory.findMany({
+      where: { categoryId: id },
+      include: {
+        album: {
+          select: {
+            id: true,
+            title: true,
+            slug: true,
+          },
+        },
+      },
+      orderBy: [
+        { source: 'desc' },
+        { createdAt: 'desc' },
+      ],
+      take: 100,
+    });
+
+    const manualAlbums: { id: string; title: string; slug: string }[] = [];
+    const seen = new Set<string>();
+
+    assignments.forEach((assignment) => {
+      if (assignment.source !== 'manual') {
+        return;
+      }
+      const album = assignment.album;
+      if (!album || seen.has(album.id)) {
+        return;
+      }
+      seen.add(album.id);
+      manualAlbums.push(album);
+    });
+
     return {
-      isUsed: category._count.albums > 0,
-      albumCount: category._count.albums,
-      albums: category.albums,
+      isUsed: manualAlbums.length > 0,
+      albumCount: manualAlbums.length,
+      albums: manualAlbums,
     };
   }
 
@@ -267,15 +288,27 @@ export class CategoriesService {
       throw new NotFoundException(`Category với ID "${categoryId}" không tồn tại`);
     }
 
-    // Update all albums to remove this category
-    const result = await this.prisma.album.updateMany({
+    const assignments = await this.prisma.albumCategory.findMany({
       where: { categoryId },
-      data: { categoryId: null },
+      select: { albumId: true },
     });
 
+    if (assignments.length === 0) {
+      return {
+        removed: 0,
+        message: 'Không tìm thấy album nào để xóa category',
+      };
+    }
+
+    await this.prisma.albumCategory.deleteMany({
+      where: { categoryId },
+    });
+
+    const uniqueAlbumCount = new Set(assignments.map((item) => item.albumId)).size;
+
     return {
-      removed: result.count,
-      message: `Đã xóa category khỏi ${result.count} album`,
+      removed: uniqueAlbumCount,
+      message: `Đã xóa category khỏi ${uniqueAlbumCount} album`,
     };
   }
 }

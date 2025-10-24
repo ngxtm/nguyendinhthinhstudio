@@ -6,7 +6,7 @@
 import { Metadata } from 'next';
 import Script from 'next/script';
 import { notFound } from 'next/navigation';
-import { getAlbum, getRelatedAlbums } from '@/app/lib/api';
+import { getAlbum, getRelatedAlbums, normalizeAlbumTags, normalizeAlbumCategories } from '@/app/lib/api';
 import AlbumDetailClient from './AlbumDetailClient';
 
 type Props = {
@@ -21,9 +21,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   try {
     const album = await getAlbum(slug, true); // Skip view increment for metadata
 
-    // Extract tag names for keywords
-    const tagNames = album.tags?.map((t) => t.name).join(', ') || '';
-    const categoryName = album.category?.name || '';
+    const resolvedTags = normalizeAlbumTags(album.tags);
+    const tagNames = resolvedTags.map((t) => t.name);
+    const tagNamesString = tagNames.join(', ');
+    const resolvedCategories = normalizeAlbumCategories(album.categories);
+    const primaryCategory = resolvedCategories.find((cat) => cat.source === 'manual') || resolvedCategories[0] || null;
+    const categoryName = primaryCategory?.name || '';
 
     // Build comprehensive description
     const description =
@@ -31,7 +34,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       album.description ||
       `Xem bộ sưu tập ${album.title} với ${album.imageCount} ảnh chất lượng cao. ${
         categoryName ? `Thể loại: ${categoryName}.` : ''
-      } ${tagNames ? `Tags: ${tagNames}.` : ''} Nhiếp ảnh chuyên nghiệp bởi NDT Studio.`;
+      } ${tagNames.length ? `Tags: ${tagNamesString}.` : ''} Nhiếp ảnh chuyên nghiệp bởi NDT Studio.`;
 
     const title = album.metaTitle || `${album.title} | Thư viện ảnh NDT Studio`;
 
@@ -44,7 +47,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       keywords: [
         album.title,
         categoryName,
-        ...tagNames.split(', ').filter(Boolean),
+        ...tagNames,
         'nhiếp ảnh',
         'chụp ảnh',
         'NDT Studio',
@@ -128,6 +131,26 @@ export default async function AlbumDetailPage({ params }: Props) {
     notFound();
   }
 
+  const resolvedTags = normalizeAlbumTags(album.tags);
+  const resolvedCategories = normalizeAlbumCategories(album.categories);
+  const albumForClient = {
+    ...album,
+    tags: resolvedTags,
+    categories: resolvedCategories,
+    primaryCategory: resolvedCategories.find((cat) => cat.source === 'manual') || resolvedCategories[0] || null,
+  };
+
+  const relatedForClient = relatedAlbums.map((related) => {
+    const relatedTags = normalizeAlbumTags(related.tags);
+    const relatedCategories = normalizeAlbumCategories(related.categories);
+    return {
+      ...related,
+      tags: relatedTags,
+      categories: relatedCategories,
+      primaryCategory: related.primaryCategory || relatedCategories.find((cat) => cat.source === 'manual') || null,
+    };
+  });
+
   // Generate JSON-LD structured data for Google
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -155,8 +178,8 @@ export default async function AlbumDetailPage({ params }: Props) {
       width: img.width,
       height: img.height,
     })),
-    keywords: album.tags?.map((t) => t.name).join(', '),
-    genre: album.category?.name,
+    keywords: resolvedTags.map((t) => t.name).join(', '),
+    genre: albumForClient.primaryCategory?.name,
     interactionStatistic: {
       '@type': 'InteractionCounter',
       interactionType: 'https://schema.org/ViewAction',
@@ -193,7 +216,7 @@ export default async function AlbumDetailPage({ params }: Props) {
   return (
     <>
       {/* Client Component handles interactivity */}
-      <AlbumDetailClient album={album} relatedAlbums={relatedAlbums} />
+      <AlbumDetailClient album={albumForClient} relatedAlbums={relatedForClient} />
 
       {/* JSON-LD Structured Data for Google */}
       <Script

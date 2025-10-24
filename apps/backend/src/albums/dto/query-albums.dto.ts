@@ -32,6 +32,15 @@ export class QueryAlbumsDto {
   @IsOptional()
   tag?: string;
 
+  @ApiProperty({
+    example: 'wedding',
+    description: 'Search keyword across title, slug, categories, and tags',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  search?: string;
+
   @ApiProperty({ 
     example: true, 
     description: 'Filter featured albums only',

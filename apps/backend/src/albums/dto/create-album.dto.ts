@@ -1,16 +1,26 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsNotEmpty, IsOptional, IsArray, IsBoolean, IsDateString } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsArray,
+  IsBoolean,
+  IsDateString,
+} from 'class-validator';
 
 export class CreateAlbumDto {
-  @ApiProperty({ example: 'Nàng Sen - Beauty Collection', description: 'Album title' })
+  @ApiProperty({
+    example: 'Nàng Sen - Beauty Collection',
+    description: 'Album title',
+  })
   @IsString()
   @IsNotEmpty()
   title!: string;
 
-  @ApiProperty({ 
-    example: 'nang-sen-beauty-collection', 
+  @ApiProperty({
+    example: 'nang-sen-beauty-collection',
     description: 'URL-friendly slug (auto-generated if not provided)',
-    required: false 
+    required: false,
   })
   @IsString()
   @IsOptional()
@@ -19,7 +29,7 @@ export class CreateAlbumDto {
   @ApiProperty({
     example: 'Beautiful collection of lotus-themed beauty photos',
     description: 'Album description',
-    required: false
+    required: false,
   })
   @IsString()
   @IsOptional()
@@ -28,93 +38,95 @@ export class CreateAlbumDto {
   @ApiProperty({
     example: '2024-06-15',
     description: 'Date when the photos were taken (YYYY-MM-DD)',
-    required: false
+    required: false,
   })
   @IsDateString()
   @IsOptional()
   shootDate?: string;
 
   @ApiProperty({
-    example: 'uuid-of-category',
-    description: 'Category ID (UUID)',
-    required: false
+    example: ['uuid-of-category'],
+    description: 'Category IDs (UUID) including sub-categories',
+    required: false,
+    type: [String],
   })
-  @IsString()
+  @IsArray()
+  @IsString({ each: true })
   @IsOptional()
-  categoryId?: string;
+  categoryIds?: string[];
 
-  @ApiProperty({ 
-    example: ['nang-tho', 'nha-trang', 'bien'], 
+  @ApiProperty({
+    example: ['nang-tho', 'nha-trang', 'bien'],
     description: 'Tag slugs to associate with album',
     required: false,
-    type: [String]
+    type: [String],
   })
   @IsArray()
   @IsString({ each: true })
   @IsOptional()
   tagSlugs?: string[];
 
-  @ApiProperty({ 
-    example: 'draft', 
+  @ApiProperty({
+    example: 'draft',
     description: 'Publishing status',
     enum: ['draft', 'published', 'scheduled'],
-    default: 'draft'
+    default: 'draft',
   })
   @IsString()
   @IsOptional()
   status?: string;
 
-  @ApiProperty({ 
-    example: '2024-12-31T00:00:00Z', 
+  @ApiProperty({
+    example: '2024-12-31T00:00:00Z',
     description: 'Scheduled publish date/time',
-    required: false 
+    required: false,
   })
   @IsDateString()
   @IsOptional()
   scheduledPublishAt?: string;
 
-  @ApiProperty({ 
-    example: false, 
+  @ApiProperty({
+    example: false,
     description: 'Featured on homepage',
-    default: false 
+    default: false,
   })
   @IsBoolean()
   @IsOptional()
   isFeatured?: boolean;
 
-  @ApiProperty({ 
-    example: 1, 
+  @ApiProperty({
+    example: 1,
     description: 'Featured order (lower = higher priority)',
-    required: false 
+    required: false,
   })
   @IsOptional()
   featuredOrder?: number;
 
-  @ApiProperty({ 
-    example: 'https://drive.google.com/drive/folders/xxx', 
+  @ApiProperty({
+    example: 'https://drive.google.com/drive/folders/xxx',
     description: 'Google Drive link for original photos',
-    required: false 
+    required: false,
   })
   @IsString()
   @IsOptional()
   googleDriveLink?: string;
 
-  @ApiProperty({ 
-    example: 'Nàng Sen - Beauty Photos | NDT Studio', 
+  @ApiProperty({
+    example: 'Nàng Sen - Beauty Photos | NDT Studio',
     description: 'SEO meta title',
-    required: false 
+    required: false,
   })
   @IsString()
   @IsOptional()
   metaTitle?: string;
 
-  @ApiProperty({ 
-    example: 'Stunning beauty photography collection featuring lotus theme at Nha Trang beach', 
+  @ApiProperty({
+    example:
+      'Stunning beauty photography collection featuring lotus theme at Nha Trang beach',
     description: 'SEO meta description',
-    required: false 
+    required: false,
   })
   @IsString()
   @IsOptional()
   metaDescription?: string;
 }
-

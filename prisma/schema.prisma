@@ -22,7 +22,7 @@ model Category {
   children    Category[] @relation("CategoryHierarchy")
 
   // Relations
-  albums      Album[]
+  albums      AlbumCategory[]
 
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
@@ -37,8 +37,6 @@ model Album {
   slug        String    @unique
   description String?
   shootDate   DateTime? @db.Date
-  categoryId  String?
-  category    Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
 
   // Cover image
   coverImageId String? @unique
@@ -65,16 +63,32 @@ model Album {
   imageCount Int @default(0)
 
   // Relations
-  images   Image[]     @relation("AlbumImages")
-  tags     AlbumTag[]
-  bookings Booking[]
+  images      Image[]        @relation("AlbumImages")
+  tags        AlbumTag[]
+  bookings    Booking[]
+  categories  AlbumCategory[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([categoryId])
   @@index([status, publishedAt(sort: Desc)])
   @@index([isFeatured, featuredOrder])
+}
+
+model AlbumCategory {
+  albumId    String
+  categoryId String
+  source     String   @default("manual")
+  depth      Int      @default(0)
+
+  album    Album    @relation(fields: [albumId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@id([albumId, categoryId])
+  @@index([categoryId])
+  @@index([albumId])
 }
 
 model Image {

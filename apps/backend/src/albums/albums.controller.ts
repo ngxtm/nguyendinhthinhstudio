@@ -39,6 +39,14 @@ export class AlbumsController {
     return this.albumsService.findAll(query);
   }
 
+  @Get('dashboard/stats')
+  @Public()
+  @ApiOperation({ summary: 'Get aggregated dashboard statistics' })
+  @ApiResponse({ status: 200, description: 'Dashboard stats retrieved successfully' })
+  getDashboardStats() {
+    return this.albumsService.getDashboardStats();
+  }
+
   @Get(':slug')
   @Public()
   @ApiOperation({ summary: 'Get album by slug' })

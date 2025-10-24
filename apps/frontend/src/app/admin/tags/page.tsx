@@ -172,10 +172,9 @@ export default function TagsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="mx-auto max-w-6xl">
+    <div className="mx-auto w-full max-w-6xl space-y-6">
         {/* Header */}
-        <div className="mb-6">
+        <div>
           <h1 className="text-3xl font-bold text-gray-900">Quản lý Tags</h1>
           <p className="mt-2 text-sm text-gray-600">
             Quản lý các thẻ phân loại album (Tết, Mùa xuân, Nàng thơ, Cá tính, Sexy...)
@@ -193,8 +192,8 @@ export default function TagsPage() {
         </div>
 
         {/* Search & Actions */}
-        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="relative flex-1 max-w-md">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="relative w-full sm:max-w-xs md:max-w-sm">
             <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
@@ -206,7 +205,7 @@ export default function TagsPage() {
           </div>
           <button
             onClick={handleOpenCreateModal}
-            className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 sm:w-auto"
           >
             <Plus size={18} />
             Thêm Tag
@@ -221,7 +220,7 @@ export default function TagsPage() {
               className="group relative rounded-xl border border-gray-200 bg-white p-4 hover:border-blue-400 hover:shadow-lg transition-all duration-200"
             >
               {/* Header with icon and name */}
-              <div className="flex items-start justify-between mb-3">
+              <div className="mb-3 flex items-start justify-between">
                 <div className="flex items-start gap-3 flex-1 min-w-0">
                   <div className="rounded-lg bg-blue-50 p-2 flex-shrink-0">
                     <TagIcon size={18} className="text-blue-600" />
@@ -249,18 +248,17 @@ export default function TagsPage() {
                   </div>
                 </div>
 
-                {/* Action buttons */}
-                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-2">
+                <div className="ml-2 flex gap-1 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100">
                   <button
                     onClick={() => handleOpenEditModal(tag)}
-                    className="rounded p-1.5 bg-gray-100 text-gray-600 hover:bg-blue-100 hover:text-blue-600 transition-colors"
+                    className="inline-flex items-center justify-center rounded p-1.5 bg-gray-100 text-gray-600 transition-colors hover:bg-blue-100 hover:text-blue-600"
                     title="Chỉnh sửa"
                   >
                     <Edit2 size={14} />
                   </button>
                   <button
                     onClick={() => handleDeleteClick(tag)}
-                    className="rounded p-1.5 bg-gray-100 text-gray-600 hover:bg-red-100 hover:text-red-600 transition-colors"
+                    className="inline-flex items-center justify-center rounded p-1.5 bg-gray-100 text-gray-600 transition-colors hover:bg-red-100 hover:text-red-600"
                     title="Xóa"
                   >
                     <Trash2 size={14} />
@@ -319,7 +317,6 @@ export default function TagsPage() {
             )}
           </div>
         )}
-      </div>
 
       {/* Create/Edit Modal */}
       {isModalOpen && (

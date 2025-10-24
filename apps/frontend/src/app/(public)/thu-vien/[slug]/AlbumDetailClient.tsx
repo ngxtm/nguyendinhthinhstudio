@@ -8,12 +8,12 @@
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, Eye, Calendar } from 'lucide-react'
-import { type Album } from '@/app/lib/api'
+import { type Album, normalizeAlbumTags, normalizeAlbumCategories } from '@/app/lib/api'
 import Masonry from 'react-masonry-css'
 import PhotoSwipeLightbox from 'photoswipe/lightbox'
 import 'photoswipe/style.css'
 import DividerWithText from '../../../components/common/DividerWithText'
-import { DEFAULT_PHOTOSWIPE_OPTIONS, registerPhotoSwipeUI } from '@/app/lib/photoswipe'
+import { getDefaultPhotoSwipeOptions, registerPhotoSwipeUI } from '@/app/lib/photoswipe'
 
 type Props = {
   album: Album
@@ -22,28 +22,30 @@ type Props = {
 
 export default function AlbumDetailClient({ album, relatedAlbums }: Props) {
   const [imagesLoaded, setImagesLoaded] = useState(false)
-  const [loadedCount, setLoadedCount] = useState(0)
   const [imageDimensions, setImageDimensions] = useState<Record<string, { width: number; height: number }>>({})
   const lightboxRef = useRef<PhotoSwipeLightbox | null>(null)
 
-  const totalImages = album.images?.length || 0
+  const displayTags = normalizeAlbumTags(album.tags)
+  const displayCategories = normalizeAlbumCategories(album.categories)
+  const primaryCategory = album.primaryCategory || displayCategories.find(cat => cat.source === 'manual') || null
 
   // Preload all images before showing and get real dimensions
   useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
     if (!album.images || album.images.length === 0) {
       setImagesLoaded(true)
       return
     }
 
-    let loaded = 0
     const dimensions: Record<string, { width: number; height: number }> = {}
 
     const imagePromises = album.images.map(img => {
       return new Promise(resolve => {
-        const image = new Image()
+        const image = new window.Image()
         image.onload = () => {
-          loaded++
-          setLoadedCount(loaded)
           // Store real dimensions from loaded image
           dimensions[img.id] = {
             width: img.width || image.naturalWidth,
@@ -52,8 +54,6 @@ export default function AlbumDetailClient({ album, relatedAlbums }: Props) {
           resolve(true)
         }
         image.onerror = () => {
-          loaded++
-          setLoadedCount(loaded)
           // Fallback to DB values or default
           dimensions[img.id] = {
             width: img.width || 3840,
@@ -87,11 +87,8 @@ export default function AlbumDetailClient({ album, relatedAlbums }: Props) {
   useEffect(() => {
     if (!album.images || album.images.length === 0) return
 
-    // Debug: Log config to verify padding
-    console.log('PhotoSwipe config:', DEFAULT_PHOTOSWIPE_OPTIONS)
-
     // Initialize PhotoSwipe with centralized config
-    lightboxRef.current = new PhotoSwipeLightbox(DEFAULT_PHOTOSWIPE_OPTIONS)
+    lightboxRef.current = new PhotoSwipeLightbox(getDefaultPhotoSwipeOptions())
 
     lightboxRef.current.init()
 
@@ -173,15 +170,16 @@ export default function AlbumDetailClient({ album, relatedAlbums }: Props) {
                 )}
 
                 {/* Tags */}
-                {album.tags && album.tags.length > 0 && (
+                {displayTags.length > 0 && (
                   <div className="mb-3 flex flex-wrap gap-2 md:mb-4">
-                    {album.tags.map((tag, index) => (
-                      <span
-                        key={tag.id || `tag-${index}`}
+                    {displayTags.map((tag, index) => (
+                      <Link
+                        key={tag.id || tag.slug || `tag-${index}`}
+                        href={tag.slug ? `/thu-vien/tag/${tag.slug}` : '#'}
                         className="rounded-full bg-neutral-100 px-2.5 py-1 text-xs font-medium text-neutral-700 transition-colors hover:bg-neutral-200 md:px-3 md:py-1.5 md:text-sm"
                       >
                         #{tag.name}
-                      </span>
+                      </Link>
                     ))}
                   </div>
                 )}
@@ -206,12 +204,23 @@ export default function AlbumDetailClient({ album, relatedAlbums }: Props) {
                   <span>{album.viewCount} lượt xem</span>
                 </div>
 
-                {/* Category Badge */}
-                {album.category && (
-                  <div className="mt-3 md:mt-4">
-                    <span className="inline-flex items-center rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 md:px-4 md:py-2 md:text-sm">
-                      {album.category.name}
-                    </span>
+                {/* Category Badges */}
+                {(displayCategories.length > 0 || primaryCategory) && (
+                  <div className="mt-3 flex flex-wrap gap-2 md:mt-4">
+                    {(displayCategories.length > 0 ? displayCategories : primaryCategory ? [primaryCategory] : [])
+                      .filter(category => category)
+                      .map(category => (
+                        <span
+                          key={category.id}
+                          className={`inline-flex items-center rounded-lg px-3 py-1.5 text-xs font-medium md:px-4 md:py-2 md:text-sm ${
+                            category.source === 'manual'
+                              ? 'bg-blue-50 text-blue-700'
+                              : 'bg-neutral-100 text-neutral-600'
+                          }`}
+                        >
+                          {category.name}
+                        </span>
+                      ))}
                   </div>
                 )}
               </div>
@@ -311,7 +320,7 @@ export default function AlbumDetailClient({ album, relatedAlbums }: Props) {
               <h2 className="mb-6 text-left text-xl font-bold text-neutral-900 md:mb-8 md:text-2xl">KHÁM PHÁ THÊM</h2>
               <div className="grid grid-cols-2 gap-4 md:grid-cols-3 md:gap-6 lg:grid-cols-4">
                 {relatedAlbums.slice(0, 8).map(related => (
-                  <Link href={`/thu-vien/${related.slug}`} className="group mb-8 block">
+                  <Link key={related.id ?? related.slug} href={`/thu-vien/${related.slug}`} className="group mb-8 block">
                     {/* Cover Image */}
                     <div className="relative overflow-hidden rounded-lg bg-neutral-100">
                       {related.coverImage ? (

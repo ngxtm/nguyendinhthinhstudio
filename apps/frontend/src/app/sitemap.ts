@@ -11,10 +11,25 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   try {
     // Fetch all published albums
-    const { data: albums } = await getAlbums({
-      status: 'published',
-      limit: 1000, // Get all albums
-    });
+    const albums = [] as Awaited<ReturnType<typeof getAlbums>>['data'];
+    let cursor: string | undefined;
+    let hasMore = true;
+
+    while (hasMore) {
+      const response = await getAlbums({
+        status: 'published',
+        limit: 50,
+        cursor,
+      });
+
+      albums.push(...response.data);
+      hasMore = response.pagination.hasMore;
+      cursor = response.pagination.nextCursor ?? undefined;
+
+      if (!hasMore) {
+        break;
+      }
+    }
 
     // Generate album URLs
     const albumUrls: MetadataRoute.Sitemap = albums.map((album) => ({

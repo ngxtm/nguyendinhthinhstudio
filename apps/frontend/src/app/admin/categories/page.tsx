@@ -170,10 +170,9 @@ export default function CategoriesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="mx-auto max-w-6xl">
+    <div className="mx-auto w-full max-w-6xl space-y-6">
         {/* Header */}
-        <div className="mb-6">
+        <div>
           <h1 className="text-3xl font-bold text-gray-900">Quản lý Categories</h1>
           <p className="mt-2 text-sm text-gray-600">
             Quản lý các danh mục album (Wedding, Couple, Family...)
@@ -181,8 +180,8 @@ export default function CategoriesPage() {
         </div>
 
         {/* Search & Actions */}
-        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="relative flex-1 max-w-md">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="relative w-full sm:max-w-xs md:max-w-sm">
             <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
@@ -194,7 +193,7 @@ export default function CategoriesPage() {
           </div>
           <button
             onClick={handleOpenCreateModal}
-            className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 sm:w-auto"
           >
             <Plus size={18} />
             Thêm Category
@@ -202,8 +201,9 @@ export default function CategoriesPage() {
         </div>
 
         {/* Categories Table */}
-        <div className="overflow-hidden rounded-lg bg-white shadow">
-          <table className="min-w-full divide-y divide-gray-200">
+        <div className="rounded-lg bg-white shadow">
+          <div className="overflow-x-auto">
+            <table className="min-w-[720px] w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
@@ -290,8 +290,8 @@ export default function CategoriesPage() {
               )}
             </tbody>
           </table>
+          </div>
         </div>
-      </div>
 
       {/* Create/Edit Modal */}
       {isModalOpen && (

@@ -21,8 +21,15 @@ export default function GalleryPage() {
   const [cursor, setCursor] = useState<string | null>(null)
   const observerRef = useRef<IntersectionObserver | null>(null)
   const loadMoreRef = useRef<HTMLDivElement>(null)
+  const requestInFlightRef = useRef(false)
 
   const loadAlbums = useCallback(async (initial: boolean) => {
+    if (requestInFlightRef.current) {
+      return
+    }
+
+    requestInFlightRef.current = true
+
     try {
       if (initial) {
         setLoading(true)
@@ -50,6 +57,7 @@ export default function GalleryPage() {
     } finally {
       setLoading(false)
       setLoadingMore(false)
+      requestInFlightRef.current = false
     }
   }, [cursor])
 
@@ -62,7 +70,13 @@ export default function GalleryPage() {
     // Setup Intersection Observer cho infinite scroll
     observerRef.current = new IntersectionObserver(
       entries => {
-        if (entries[0].isIntersecting && hasMore && !loadingMore) {
+        if (
+          entries[0].isIntersecting &&
+          hasMore &&
+          !loadingMore &&
+          !loading &&
+          !requestInFlightRef.current
+        ) {
           loadAlbums(false)
         }
       },
@@ -78,7 +92,7 @@ export default function GalleryPage() {
         observerRef.current.disconnect()
       }
     }
-  }, [hasMore, loadingMore, loadAlbums])
+  }, [hasMore, loadingMore, loading, loadAlbums])
 
   if (loading) {
     return (

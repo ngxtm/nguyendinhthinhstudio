@@ -48,16 +48,18 @@ export default function AlbumDetailPage() {
     }
   }
 
-  async function handleSetCover(imageId: string) {
-    if (!album) return;
+  async function handleSetCover(imageId: string): Promise<boolean> {
+    if (!album) return false;
 
     try {
       const updated = await setCoverImage(album.id, imageId);
       setAlbum(updated);
       toast.success('Đã đặt ảnh cover!');
+      return true;
     } catch (error) {
       console.error('Failed to set cover:', error);
       toast.error('Không thể đặt ảnh cover');
+      return false;
     }
   }
 
@@ -155,7 +157,14 @@ export default function AlbumDetailPage() {
           </div>
           <div>
             <p className="text-sm text-gray-500">Category</p>
-            <p className="font-medium">{album.category?.name || '-'}</p>
+            <p className="font-medium">
+              {album.categories && album.categories.length > 0
+                ? album.categories
+                    .filter(cat => cat.source === 'manual')
+                    .map(cat => cat.name)
+                    .join(', ') || '-'
+                : '-'}
+            </p>
           </div>
           <div>
             <p className="text-sm text-gray-500">Images</p>

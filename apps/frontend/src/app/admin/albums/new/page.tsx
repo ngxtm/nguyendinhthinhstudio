@@ -26,13 +26,13 @@ export default function NewAlbumPage() {
   const [loadingData, setLoadingData] = useState(true);
   const [tags, setTags] = useState<Tag[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
+  const [selectedCategories, setSelectedCategories] = useState<Category[]>([]);
   const [formData, setFormData] = useState<CreateAlbumDto>({
     title: '',
     slug: '',
     description: '',
     shootDate: '',
-    categoryId: undefined,
+    categoryIds: [],
     tagSlugs: [],
     status: 'draft',
     isFeatured: false,
@@ -53,6 +53,19 @@ export default function NewAlbumPage() {
       ]);
       setTags(allTags);
       setCategories(allCategories);
+      setSelectedCategories(prev => {
+        if (prev.length === 0) return prev;
+        const mapped = prev
+          .map(cat => allCategories.find(c => c.id === cat.id))
+          .filter((cat): cat is Category => Boolean(cat));
+        if (mapped.length !== prev.length) {
+          setFormData(current => ({
+            ...current,
+            categoryIds: mapped.map(cat => cat.id),
+          }));
+        }
+        return mapped;
+      });
     } catch (error) {
       console.error('Failed to load data:', error);
       toast.error('Không thể tải danh sách categories và tags');
@@ -63,20 +76,14 @@ export default function NewAlbumPage() {
 
   async function handleRefresh() {
     await loadData();
-
-    // Re-find selected category in new list
-    if (selectedCategory) {
-      const updatedCategory = categories.find(c => c.id === selectedCategory.id);
-      setSelectedCategory(updatedCategory || null);
-    }
   }
 
-  function handleCategoryChange(category: Category | null) {
-    setSelectedCategory(category);
-    setFormData({
-      ...formData,
-      categoryId: category?.id,
-    });
+  function handleCategoryChange(nextCategories: Category[]) {
+    setSelectedCategories(nextCategories);
+    setFormData((current) => ({
+      ...current,
+      categoryIds: nextCategories.map(cat => cat.id),
+    }));
   }
 
   function generateSlug(title: string) {
@@ -92,25 +99,25 @@ export default function NewAlbumPage() {
   }
 
   function handleTitleChange(title: string) {
-    setFormData({
-      ...formData,
+    setFormData((current) => ({
+      ...current,
       title,
       slug: generateSlug(title),
-    });
+    }));
   }
 
   function toggleTag(tagSlug: string) {
     const currentTags = formData.tagSlugs || [];
     if (currentTags.includes(tagSlug)) {
-      setFormData({
-        ...formData,
+      setFormData((current) => ({
+        ...current,
         tagSlugs: currentTags.filter((s) => s !== tagSlug),
-      });
+      }));
     } else {
-      setFormData({
-        ...formData,
+      setFormData((current) => ({
+        ...current,
         tagSlugs: [...currentTags, tagSlug],
-      });
+      }));
     }
   }
 
@@ -119,6 +126,11 @@ export default function NewAlbumPage() {
 
     if (!formData.title.trim()) {
       toast.error('Vui lòng nhập tên album');
+      return;
+    }
+
+    if (!formData.categoryIds || formData.categoryIds.length === 0) {
+      toast.error('Vui lòng chọn ít nhất một category');
       return;
     }
 
@@ -175,7 +187,7 @@ export default function NewAlbumPage() {
             <input
               type="text"
               value={formData.slug}
-              onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
+              onChange={(e) => setFormData((current) => ({ ...current, slug: e.target.value }))}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="nang-sen-beauty-collection"
             />
@@ -191,7 +203,7 @@ export default function NewAlbumPage() {
             </label>
             <textarea
               value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              onChange={(e) => setFormData((current) => ({ ...current, description: e.target.value }))}
               rows={4}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="Bộ ảnh đẹp với chủ đề hoa sen..."
@@ -206,7 +218,7 @@ export default function NewAlbumPage() {
             <input
               type="date"
               value={formData.shootDate}
-              onChange={(e) => setFormData({ ...formData, shootDate: e.target.value })}
+              onChange={(e) => setFormData((current) => ({ ...current, shootDate: e.target.value }))}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
             <p className="mt-1 text-sm text-gray-500">
@@ -219,7 +231,7 @@ export default function NewAlbumPage() {
             <div className="flex-1">
               <CategoryCombobox
                 categories={categories}
-                selected={selectedCategory}
+                selected={selectedCategories}
                 onChange={handleCategoryChange}
                 label="Category"
                 required={true}
@@ -285,7 +297,7 @@ export default function NewAlbumPage() {
                   type="radio"
                   value="draft"
                   checked={formData.status === 'draft'}
-                  onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
+                onChange={(e) => setFormData((current) => ({ ...current, status: e.target.value as any }))}
                   className="mr-2"
                 />
                 <span>Draft</span>
@@ -295,7 +307,7 @@ export default function NewAlbumPage() {
                   type="radio"
                   value="published"
                   checked={formData.status === 'published'}
-                  onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
+                onChange={(e) => setFormData((current) => ({ ...current, status: e.target.value as any }))}
                   className="mr-2"
                 />
                 <span>Published</span>
@@ -309,7 +321,7 @@ export default function NewAlbumPage() {
               <input
                 type="checkbox"
                 checked={formData.isFeatured}
-                onChange={(e) => setFormData({ ...formData, isFeatured: e.target.checked })}
+                onChange={(e) => setFormData((current) => ({ ...current, isFeatured: e.target.checked }))}
                 className="mr-2 rounded"
               />
               <span className="text-sm font-medium text-gray-700">
@@ -330,7 +342,7 @@ export default function NewAlbumPage() {
                 <input
                   type="text"
                   value={formData.metaTitle}
-                  onChange={(e) => setFormData({ ...formData, metaTitle: e.target.value })}
+                  onChange={(e) => setFormData((current) => ({ ...current, metaTitle: e.target.value }))}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="Nàng Sen - Bộ ảnh Beauty | NDT Studio"
                 />
@@ -342,7 +354,7 @@ export default function NewAlbumPage() {
                 </label>
                 <textarea
                   value={formData.metaDescription}
-                  onChange={(e) => setFormData({ ...formData, metaDescription: e.target.value })}
+                  onChange={(e) => setFormData((current) => ({ ...current, metaDescription: e.target.value }))}
                   rows={3}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="Khám phá bộ ảnh đẹp với chủ đề hoa sen tại NDT Studio..."
