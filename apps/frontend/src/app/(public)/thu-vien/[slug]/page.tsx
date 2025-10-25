@@ -6,7 +6,7 @@
 import { Metadata } from 'next';
 import Script from 'next/script';
 import { notFound } from 'next/navigation';
-import { getAlbum, getRelatedAlbums, normalizeAlbumTags, normalizeAlbumCategories } from '@/app/lib/api';
+import { getAlbum, getRelatedAlbums, normalizeAlbumTags, normalizeAlbumCategories } from '../../../lib/api';
 import AlbumDetailClient from './AlbumDetailClient';
 
 type Props = {

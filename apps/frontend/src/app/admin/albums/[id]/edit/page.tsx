@@ -20,7 +20,7 @@ import {
   type Album,
   normalizeAlbumTags,
   type Category as ApiCategory,
-} from '@/app/lib/api';
+} from '../../../../lib/api';
 import CategoryCombobox from '../../../components/CategoryCombobox';
 
 export default function EditAlbumPage() {

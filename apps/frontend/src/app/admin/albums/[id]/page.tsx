@@ -16,7 +16,7 @@ import {
   publishAlbum,
   type Album,
   type Image,
-} from '@/app/lib/api';
+} from '../../../lib/api';
 import ImageUploadZone from '../../components/ImageUploadZone';
 import ImageGrid from '../../components/ImageGrid';
 

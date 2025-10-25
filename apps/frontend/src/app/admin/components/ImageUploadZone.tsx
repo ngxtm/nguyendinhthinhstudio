@@ -8,7 +8,7 @@
 import { useState, useRef, useCallback } from 'react';
 import { Upload, X, FileImage, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { uploadImage } from '@/app/lib/api';
+import { uploadImage } from '../../lib/api';
 import imageCompression from 'browser-image-compression';
 
 interface Props {

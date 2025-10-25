@@ -8,12 +8,12 @@
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, Eye, Calendar } from 'lucide-react'
-import { type Album, normalizeAlbumTags, normalizeAlbumCategories } from '@/app/lib/api'
+import { type Album, normalizeAlbumTags, normalizeAlbumCategories } from '../../../lib/api'
 import Masonry from 'react-masonry-css'
 import PhotoSwipeLightbox from 'photoswipe/lightbox'
 import 'photoswipe/style.css'
 import DividerWithText from '../../../components/common/DividerWithText'
-import { getDefaultPhotoSwipeOptions, registerPhotoSwipeUI } from '@/app/lib/photoswipe'
+import { getDefaultPhotoSwipeOptions, registerPhotoSwipeUI } from '../../../lib/photoswipe'
 
 type Props = {
   album: Album

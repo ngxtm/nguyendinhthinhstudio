@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
-import { ApiError, getTagAlbums } from '@/app/lib/api'
+import { ApiError, getTagAlbums } from '../../../../lib/api'
 import TagGalleryClient from './TagGalleryClient'
 
 type PageParams = {
