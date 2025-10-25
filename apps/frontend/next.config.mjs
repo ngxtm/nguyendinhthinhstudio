@@ -7,12 +7,6 @@ const __dirname = dirname(__filename)
 /** @type {import('next').NextConfig} */
 const nextConfig = {
     reactStrictMode: true,
-    output: 'standalone',
-    experimental: {
-        serverActions: {
-            bodySizeLimit: '2mb'
-        }
-    },
     eslint: {
         ignoreDuringBuilds: true
     },
@@ -33,11 +27,12 @@ const nextConfig = {
             }
         ]
     },
-    webpack(config) {
-        config.resolve.alias = {
-            ...config.resolve.alias,
-            '@': join(__dirname, 'src')
-        }
+    webpack(config, { isServer }) {
+        // Add path alias
+        config.resolve.alias['@'] = join(__dirname, 'src')
+        
+        // Ensure webpack resolves these extensions
+        config.resolve.extensions.push('.ts', '.tsx', '.js', '.jsx')
 
         return config
     }
