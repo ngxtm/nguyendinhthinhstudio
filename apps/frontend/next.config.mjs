@@ -7,13 +7,11 @@ const __dirname = dirname(__filename)
 /** @type {import('next').NextConfig} */
 const nextConfig = {
     reactStrictMode: true,
-    output: 'export',
     eslint: {
         ignoreDuringBuilds: true
     },
     images: {
-        remotePatterns: [],
-        unoptimized: true
+        remotePatterns: []
     },
     webpack(config, { isServer }) {
         // Add path alias
