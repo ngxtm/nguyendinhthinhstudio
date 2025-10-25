@@ -7,25 +7,13 @@ const __dirname = dirname(__filename)
 /** @type {import('next').NextConfig} */
 const nextConfig = {
     reactStrictMode: true,
+    output: 'export',
     eslint: {
         ignoreDuringBuilds: true
     },
     images: {
-        remotePatterns: []
-    },
-    async rewrites() {
-        if (!process.env.NEXT_PUBLIC_API_URL) {
-            return []
-        }
-
-        const sanitizedBase = process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, '')
-
-        return [
-            {
-                source: '/api/:path*',
-                destination: `${sanitizedBase}/:path*`
-            }
-        ]
+        remotePatterns: [],
+        unoptimized: true
     },
     webpack(config, { isServer }) {
         // Add path alias
