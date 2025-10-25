@@ -8,9 +8,9 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
 import Masonry from 'react-masonry-css';
 import { Star, Trash2, GripVertical } from 'lucide-react';
-import { deleteImage, reorderImages, type Image } from '../../lib/api';
+import { deleteImage, reorderImages, type Image } from '@/lib/api';
 import { toast } from 'sonner';
-import { usePhotoSwipe } from '../../lib/photoswipe';
+import { usePhotoSwipe } from '@/lib/photoswipe';
 import 'photoswipe/style.css';
 
 const CLOUDFLARE_HASH = process.env.NEXT_PUBLIC_CLOUDFLARE_IMAGES_HASH;

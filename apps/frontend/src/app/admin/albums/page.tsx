@@ -9,7 +9,7 @@ import { useMemo, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { Plus, Edit, Trash2, Eye, Star, Search } from 'lucide-react';
 import { toast } from 'sonner';
-import { listAlbums, deleteAlbum, toggleFeatured, type Album } from '../../lib/api';
+import { listAlbums, deleteAlbum, toggleFeatured, type Album } from '@/lib/api';
 import { useAbortableEffect, useDebouncedValue } from '../hooks';
 
 type AlbumFilter = 'all' | 'published' | 'draft';

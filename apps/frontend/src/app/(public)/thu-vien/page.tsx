@@ -9,7 +9,7 @@ import { useEffect, useState, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { Eye } from 'lucide-react'
 import Masonry from 'react-masonry-css'
-import { listAlbums, type Album } from '../../lib/api'
+import { listAlbums, type Album } from '@/lib/api'
 import DividerWithText from '../../components/common/DividerWithText'
 import NavigationLinks from '../../components/common/NavigationLinks'
 

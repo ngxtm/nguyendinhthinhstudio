@@ -13,7 +13,7 @@ import {
   generateSlug,
   type Tag,
   type CreateTagDto
-} from '../../lib/api'
+} from '@/lib/api'
 import DeleteConfirmModal from '../components/DeleteConfirmModal'
 
 export default function TagsPage() {

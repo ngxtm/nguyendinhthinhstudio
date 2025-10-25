@@ -4,7 +4,7 @@
  */
 
 import { MetadataRoute } from 'next';
-import { getAlbums } from './lib/api';
+import { getAlbums } from '@/lib/api';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = 'https://ndtstudio.site';
