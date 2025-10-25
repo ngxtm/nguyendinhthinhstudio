@@ -6,7 +6,7 @@ import Masonry from 'react-masonry-css'
 import { Eye } from 'lucide-react'
 import DividerWithText from '../../../../components/common/DividerWithText'
 import NavigationLinks from '../../../../components/common/NavigationLinks'
-import { getTagAlbums, type Album, type Tag, type TagAlbumsResponse } from '../../../../lib/api'
+import { getTagAlbums, type Album, type Tag, type TagAlbumsResponse } from '@/lib/api'
 
 interface Props {
   slug: string

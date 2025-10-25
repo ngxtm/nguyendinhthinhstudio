@@ -7,7 +7,7 @@
 
 import { useState } from 'react'
 import { Plus, FolderOpen, Image, Eye, Tag, Folder, TrendingUp } from 'lucide-react'
-import { listAlbums, getAlbumDashboardStats, type Album, type AlbumDashboardStats } from '../lib/api/albums'
+import { listAlbums, getAlbumDashboardStats, type Album, type AlbumDashboardStats } from '@/lib/api/albums'
 import { useAbortableEffect } from './hooks'
 
 export default function AdminDashboard() {

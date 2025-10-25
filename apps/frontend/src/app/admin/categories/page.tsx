@@ -13,7 +13,7 @@ import {
   generateSlug,
   type Category,
   type CreateCategoryDto
-} from '../../lib/api'
+} from '@/lib/api'
 import DeleteConfirmModal from '../components/DeleteConfirmModal'
 import SearchableCombobox from '../components/SearchableCombobox'
 
