@@ -2,7 +2,7 @@
   "name": "backend",
   "version": "0.0.1",
   "prisma": {
-    "schema": "../../prisma/schema.prisma"
+    "schema": "./prisma/schema.prisma"
   },
   "description": "",
   "author": "",

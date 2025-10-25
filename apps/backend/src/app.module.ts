@@ -15,8 +15,6 @@ import { ImagesModule } from './images/images.module';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: '../../.env',
-      ignoreEnvFile: false,
     }),
     ThrottlerModule.forRoot([{
       ttl: 60000, // 1 minute
