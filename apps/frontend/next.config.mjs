@@ -1,39 +1,46 @@
-import { resolve, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath } from 'url'
+import { dirname, join } from 'path'
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  reactStrictMode: true,
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-  images: {
-    remotePatterns: [],
-  },
-  async rewrites() {
-    if (!process.env.NEXT_PUBLIC_API_URL) {
-      return [];
+    reactStrictMode: true,
+    output: 'standalone',
+    experimental: {
+        serverActions: {
+            bodySizeLimit: '2mb'
+        }
+    },
+    eslint: {
+        ignoreDuringBuilds: true
+    },
+    images: {
+        remotePatterns: []
+    },
+    async rewrites() {
+        if (!process.env.NEXT_PUBLIC_API_URL) {
+            return []
+        }
+
+        const sanitizedBase = process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, '')
+
+        return [
+            {
+                source: '/api/:path*',
+                destination: `${sanitizedBase}/:path*`
+            }
+        ]
+    },
+    webpack(config) {
+        config.resolve.alias = {
+            ...config.resolve.alias,
+            '@': join(__dirname, 'src')
+        }
+
+        return config
     }
+}
 
-    const sanitizedBase = process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, '');
-
-    return [
-      {
-        source: '/api/:path*',
-        destination: `${sanitizedBase}/:path*`,
-      },
-    ];
-  },
-  webpack(config) {
-    config.resolve.alias = {
-      ...config.resolve.alias,
-      '@': resolve(__dirname, 'src'),
-    };
-
-    return config;
-  },
-};
-
-export default nextConfig;
+export default nextConfig

@@ -25,16 +25,8 @@
       }
     ],
     "paths": {
-      "@/": [
-        "./src/"
-      ]
+      "@/*": ["./src/*"]
     }
-    // "paths": {
-    //   "@/*": ["./src/*"]
-    // }
-    // "paths": {
-    //   "@/*": ["apps/frontend/src/*"]
-    // }
   },
   "include": [
     "next-env.d.ts",
