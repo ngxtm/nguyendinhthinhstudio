@@ -1,12 +1,11 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Image from 'next/image'
 
-import heroBg3 from '../../images/hero-bg-3.jpg'
 import useHoverEffect from '@/app/hooks/useHoverEffect'
 import Link from 'next/link'
-import { cloudflareImages } from '@/config/images'
+import { heroImages } from '@/config/images'
 
 interface HeroImage {
   src: string
@@ -20,16 +19,7 @@ interface HeroProps {
 }
 
 const AppHero: React.FC<HeroProps> = ({ autoPlayInterval = 4000, images: customImages }) => {
-  const defaultImages: HeroImage[] = useMemo(
-    () => [
-      { src: cloudflareImages.hero1, alt: 'Hero Image 1', priority: true },
-      { src: cloudflareImages.hero2, alt: 'Hero Image 2' },
-      { src: cloudflareImages.hero3, alt: 'Hero Image 3' }
-    ],
-    []
-  )
-
-  const images = customImages || defaultImages
+  const images = customImages || heroImages
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
 
   const nextImage = useCallback(() => {

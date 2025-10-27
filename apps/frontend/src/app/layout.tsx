@@ -38,6 +38,9 @@ export const metadata: Metadata = {
     default: 'NDT Studio - Nhiếp ảnh chuyên nghiệp',
     template: '%s | NDT Studio',
   },
+  icons: {
+    icon: '/favicon.jpg',
+  },
   description:
     'NDT Studio - Studio chụp ảnh chuyên nghiệp tại Việt Nam. Chuyên chụp ảnh cưới, ảnh gia đình, beauty, couple với phong cách nghệ thuật độc đáo. Đội ngũ nhiếp ảnh giàu kinh nghiệm, trang thiết bị hiện đại.',
   keywords: [

@@ -226,7 +226,7 @@ const Header: React.FC<HeaderProps> = ({
           {logoSrc ? (
             <Image src={logoSrc} alt={logoAlt} width={150} height={50} className="h-auto max-h-12 w-auto" priority />
           ) : (
-            <span className="font-kapakana text-lg sm:text-xl md:text-2xl">{logoText}</span>
+            <span className="font-montserrat text-base sm:text-lg md:text-xl">{logoText}</span>
           )}
         </Link>
       </div>
