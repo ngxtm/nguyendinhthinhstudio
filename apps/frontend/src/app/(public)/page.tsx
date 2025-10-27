@@ -13,7 +13,7 @@ export default function Home() {
     <div className="space-y-6 sm:space-y-8 md:space-y-10 lg:space-y-12">
       <AppHero />
       <div className="mt-6 sm:mt-8 md:mt-10">
-        <OneLayoutSection imgSrc={collectionImages[0].src} title="NEW COLLECTION" titleButton="KHÁM PHÁ NGAY" buttonLink='/thu-vien'/>
+        <OneLayoutSection imgSrc={collectionImages[0].src} title="NEW COLLECTION" titleButton="KHÁM PHÁ NGAY" buttonLink='/thu-vien' priority />
       </div>
       <AnimatedContent direction="horizontal" reverse={true} distance={800} duration={1.5} threshold={0.1}>
         <DividerWithText
