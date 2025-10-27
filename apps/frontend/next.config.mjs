@@ -11,7 +11,12 @@ const nextConfig = {
         ignoreDuringBuilds: true
     },
     images: {
-        remotePatterns: []
+        remotePatterns: [
+            {
+                protocol: 'https',
+                hostname: 'imagedelivery.net'
+            }
+        ]
     },
     webpack(config, { isServer }) {
         // Add path alias
