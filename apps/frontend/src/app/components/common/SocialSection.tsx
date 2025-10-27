@@ -20,7 +20,7 @@ export default function SocialSection() {
   ]
 
   return (
-    <div>
+    <div className='pb-10'>
       <p className="text-center text-lg md:text-2xl font-semibold">Theo dõi chúng tôi thêm tại mạng xã hội</p>
       <div className="mt-4 flex items-center justify-center gap-4">
         {socialLinks.map(link => (

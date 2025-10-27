@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useRef, useEffect, ReactNode } from 'react'
+import React, { useRef, useLayoutEffect, ReactNode } from 'react'
 import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 
@@ -40,13 +40,30 @@ const AnimatedContent: React.FC<AnimatedContentProps> = ({
   className
 }) => {
   const ref = useRef<HTMLDivElement>(null)
+  const tweenRef = useRef<gsap.core.Tween | null>(null)
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = ref.current
     if (!el) return
 
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (prefersReducedMotion) {
+      gsap.set(el, {
+        x: 0,
+        y: 0,
+        scale: 1,
+        opacity: animateOpacity ? finalOpacity : 1,
+        clearProps: 'transform'
+      })
+      el.style.visibility = 'visible'
+      return
+    }
+
+    const isTouchDevice = ScrollTrigger.isTouch
     const axis = direction === 'horizontal' ? 'x' : 'y'
-    const offset = reverse ? -distance : distance
+    const rawOffset = reverse ? -distance : distance
+    const offset = isTouchDevice ? rawOffset * 0.65 : rawOffset
+    const resolvedDuration = isTouchDevice ? Math.min(duration, 0.6) : duration
     const startPct = (1 - threshold) * 100
 
     gsap.set(el, {
@@ -55,11 +72,11 @@ const AnimatedContent: React.FC<AnimatedContentProps> = ({
       opacity: animateOpacity ? initialOpacity : 1
     })
 
-    gsap.to(el, {
+    tweenRef.current = gsap.to(el, {
       [axis]: 0,
       scale: 1,
       opacity: animateOpacity ? finalOpacity : 1,
-      duration,
+      duration: resolvedDuration,
       ease,
       delay,
       onStart: () => {
@@ -72,17 +89,15 @@ const AnimatedContent: React.FC<AnimatedContentProps> = ({
         trigger: el,
         start: `top ${startPct}%`,
         toggleActions: 'play none none none',
-        once: true
+        once: true,
+        invalidateOnRefresh: true
       }
     })
 
     return () => {
-      ScrollTrigger.getAll().forEach(t => {
-        if (t.trigger === el) {
-          t.kill()
-        }
-      })
-      gsap.killTweensOf(el)
+      tweenRef.current?.scrollTrigger?.kill()
+      tweenRef.current?.kill()
+      tweenRef.current = null
     }
   }, [
     distance,
@@ -104,7 +119,8 @@ const AnimatedContent: React.FC<AnimatedContentProps> = ({
       ref={ref} 
       style={{ 
         opacity: animateOpacity ? initialOpacity : 1,
-        visibility: animateOpacity && initialOpacity === 0 ? 'hidden' : 'visible'
+        visibility: animateOpacity && initialOpacity === 0 ? 'hidden' : 'visible',
+        willChange: `transform${animateOpacity ? ', opacity' : ''}`
       }}
       className={className}
     >
