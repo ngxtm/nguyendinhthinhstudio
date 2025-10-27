@@ -15,7 +15,7 @@ export default function Contact() {
     image: 'https://ndtstudio.com/logo.png',
     description: 'Studio chụp ảnh chuyên nghiệp tại Nha Trang - Chuyên chụp ảnh cưới, couple, gia đình, beauty với phong cách nghệ thuật độc đáo',
     url: 'https://ndtstudio.com',
-    telephone: '+84899990497',
+    telephone: '+84983885473',
     priceRange: '₫₫₫',
     address: {
       '@type': 'PostalAddress',
@@ -133,8 +133,8 @@ export default function Contact() {
 
                   <div className="border-b border-gray-100 pb-4">
                     <p className="mb-2 text-xs tracking-wider text-gray-400 uppercase">Hotline</p>
-                    <a href="tel:+84899990497" className="text-gray-600 transition-colors hover:text-gray-800">
-                      0899 990 497
+                    <a href="tel:+84983885473" className="text-gray-600 transition-colors hover:text-gray-800">
+                      0983 885 473
                     </a>
                   </div>
 

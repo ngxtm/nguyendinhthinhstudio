@@ -19,8 +19,8 @@ export default function OneLayoutSection({ imgSrc, title, titleButton, buttonLin
   })
 
   return (
-    <div className="flex h-[400px] w-full items-center justify-center sm:h-[640px] md:h-[800px]">
-      <div className="relative h-[400px] w-[300px] overflow-hidden sm:h-[640px] sm:w-[480px] md:h-[800px] md:w-[600px]">
+    <div className="flex h-[600px] w-full items-center justify-center px-4 sm:h-[515px] sm:px-6 md:h-[670px] md:px-8">
+      <div className="relative h-[600px] w-full max-w-[270px] overflow-hidden sm:h-[515px] sm:max-w-[387px] md:h-[670px] md:max-w-[550px]">
         <Image src={imgSrc} alt="One Layout Picture" fill className="object-cover" />
         <div className="absolute inset-0 bg-black/15" />
         <div className="absolute inset-0 flex items-center justify-center">

@@ -1,6 +1,7 @@
 'use client'
 
 import Image, { StaticImageData } from 'next/image'
+import Link from 'next/link'
 import AnimatedContent from '../common/AnimatedContent'
 
 interface TwoLayoutSectionProps {
@@ -8,10 +9,12 @@ interface TwoLayoutSectionProps {
   pic1alt?: string
   pic1title?: string
   pic1titleButton?: string
+  pic1ButtonLink?: string
   pic2src?: string | StaticImageData
   pic2alt?: string
   pic2title?: string
   pic2titleButton?: string
+  pic2ButtonLink?: string
   pic1width?: number
   pic1height?: number
   pic2width?: number
@@ -25,10 +28,12 @@ export default function TwoLayoutSection({
   pic1alt = 'Ảnh 1',
   pic1title = 'KHÁM PHÁ BỘ ẢNH',
   pic1titleButton = 'NỮ',
+  pic1ButtonLink = '#',
   pic2src = '',
   pic2alt = 'Ảnh 2',
   pic2title = 'KHÁM PHÁ BỘ ẢNH',
   pic2titleButton = 'Nam',
+  pic2ButtonLink = '#',
   pic1width = 100,
   pic1height = 100,
   pic2width = 100,
@@ -86,9 +91,11 @@ export default function TwoLayoutSection({
                 <h2 className="mb-2 text-lg leading-tight font-bold text-white sm:mb-4 sm:text-xl md:text-2xl">
                   {pic1title}
                 </h2>
-                <button className="rounded-md border-2 border-white bg-transparent px-3 py-1.5 text-sm font-semibold text-white transition-all duration-300 hover:bg-white hover:text-black active:scale-95 sm:px-4 sm:py-2 sm:text-base">
-                  {pic1titleButton}
-                </button>
+                <Link href={pic1ButtonLink}>
+                  <button className="rounded-md border-2 border-white bg-transparent px-3 py-1.5 text-sm font-semibold text-white transition-all duration-300 hover:bg-white hover:text-black active:scale-95 sm:px-4 sm:py-2 sm:text-base">
+                    {pic1titleButton}
+                  </button>
+                </Link>
               </div>
             </div>
           </div>
@@ -130,9 +137,11 @@ export default function TwoLayoutSection({
                 <h2 className="mb-2 text-lg leading-tight font-bold text-white sm:mb-4 sm:text-xl md:text-2xl">
                   {pic2title}
                 </h2>
-                <button className="rounded-md border-2 border-white bg-transparent px-3 py-1.5 text-sm font-semibold text-white transition-all duration-300 hover:bg-white hover:text-black active:scale-95 sm:px-4 sm:py-2 sm:text-base">
-                  {pic2titleButton}
-                </button>
+                <Link href={pic2ButtonLink}>
+                  <button className="rounded-md border-2 border-white bg-transparent px-3 py-1.5 text-sm font-semibold text-white transition-all duration-300 hover:bg-white hover:text-black active:scale-95 sm:px-4 sm:py-2 sm:text-base">
+                    {pic2titleButton}
+                  </button>
+                </Link>
               </div>
             </div>
           </div>

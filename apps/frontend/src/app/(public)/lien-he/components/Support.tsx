@@ -7,7 +7,7 @@ export default function Support() {
       <div className="flex flex-col justify-center gap-4 md:flex-row">
         <div className="flex flex-col items-center justify-center gap-4 rounded-3xl border-2 border-[#888888] p-6 md:h-[32vh] md:w-[65vh]">
           <a
-            href="tel:+84899990497"
+            href="tel:+84983885473"
             target="_blank"
             rel="noopener noreferrer"
             className="group flex h-16 w-16 cursor-pointer items-center justify-center rounded-full border-2 border-[#585858] bg-white text-[#585858] transition-all duration-300 hover:scale-110 hover:border-0 hover:bg-green-600 hover:text-white hover:shadow-lg"
@@ -18,11 +18,11 @@ export default function Support() {
             </span>
           </a>
           <div className="text-center">
-            <h3 className="mb-2 text-2xl font-bold text-[#585858]">Tổng Đài CSKH 1</h3>
+            <h3 className="mb-2 text-2xl font-bold text-[#585858]">Tổng Đài CSKH</h3>
             <p className="mb-2 text-gray-600">Thời gian trực tuyến: 07:00 – 24:00</p>
             <p className="text-gray-600">
               Hoặc bạn muốn{' '}
-              <a href="https://zalo.me/0899990497" className="text-blue-500 hover:underline">
+              <a href="https://zalo.me/0983885473" className="text-blue-500 hover:underline">
                 CHAT ZALO
               </a>
             </p>
@@ -41,7 +41,7 @@ export default function Support() {
             </span>
           </a>
           <div className="text-center">
-            <h3 className="mb-2 text-2xl font-bold text-[#585858]">Tổng Đài CSKH 2</h3>
+            <h3 className="mb-2 text-2xl font-bold text-[#585858]">Hỗ Trợ Kỹ Thuật</h3>
             <p className="mb-2 text-gray-600">Thời gian trực tuyến: 07:00 – 24:00</p>
             <p className="text-gray-600">
               Hoặc bạn muốn{' '}
