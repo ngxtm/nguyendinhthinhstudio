@@ -3,11 +3,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Image from 'next/image'
 
-import heroBg1 from '../../images/hero-bg.jpg'
-import heroBg2 from '../../images/hero-bg-2.jpg'
 import heroBg3 from '../../images/hero-bg-3.jpg'
 import useHoverEffect from '@/app/hooks/useHoverEffect'
 import Link from 'next/link'
+import { cloudflareImages } from '@/config/images'
 
 interface HeroImage {
   src: string
@@ -23,9 +22,9 @@ interface HeroProps {
 const AppHero: React.FC<HeroProps> = ({ autoPlayInterval = 4000, images: customImages }) => {
   const defaultImages: HeroImage[] = useMemo(
     () => [
-      { src: heroBg1.src, alt: 'Hero Image 1', priority: true },
-      { src: heroBg2.src, alt: 'Hero Image 2' },
-      { src: heroBg3.src, alt: 'Hero Image 3' }
+      { src: cloudflareImages.hero1, alt: 'Hero Image 1', priority: true },
+      { src: cloudflareImages.hero2, alt: 'Hero Image 2' },
+      { src: cloudflareImages.hero3, alt: 'Hero Image 3' }
     ],
     []
   )

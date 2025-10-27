@@ -33,7 +33,7 @@ const montserrat = Montserrat({
 })
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://ndtstudio.com'),
+  metadataBase: new URL('https://ndtstudio.site'),
   title: {
     default: 'NDT Studio - Nhiếp ảnh chuyên nghiệp',
     template: '%s | NDT Studio',
@@ -51,6 +51,9 @@ export const metadata: Metadata = {
     'couple photography',
     'chụp ảnh chuyên nghiệp',
     'studio chụp ảnh',
+    'nha trang',
+    'ảnh coupe',
+    'chụp ảnh kỷ yếu',
   ].join(', '),
   authors: [{ name: 'NDT Studio' }],
   creator: 'NDT Studio',
@@ -58,16 +61,16 @@ export const metadata: Metadata = {
   formatDetection: {
     email: false,
     address: false,
-    telephone: false,
+    telephone: true,
   },
   openGraph: {
     type: 'website',
     locale: 'vi_VN',
-    url: 'https://ndtstudio.com',
+    url: 'https://ndtstudio.site',
     siteName: 'NDT Studio',
     title: 'NDT Studio - Nhiếp ảnh chuyên nghiệp',
     description:
-      'Studio chụp ảnh chuyên nghiệp tại Việt Nam. Chuyên chụp ảnh cưới, ảnh gia đình, beauty, couple với phong cách nghệ thuật độc đáo.',
+      'Studio chụp ảnh chuyên nghiệp tại Nha Trang. Chuyên chụp ảnh cưới, ảnh gia đình, beauty, couple với phong cách nghệ thuật độc đáo.',
     images: [
       {
         url: '/og-image.jpg', // Bạn cần thêm ảnh này vào public folder
@@ -96,6 +99,9 @@ export const metadata: Metadata = {
       'max-snippet': -1,
     },
   },
+  
+
+
   verification: {
     // Thêm sau khi verify với Google Search Console
     google: 'your-google-verification-code',
