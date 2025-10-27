@@ -191,7 +191,7 @@ function AlbumCard({ album }: { album: Album }) {
       </div>
 
       {/* Title */}
-      <h3 className="mt-3 text-left text-sm font-medium text-neutral-900 transition-colors line-clamp-2 group-hover:text-neutral-600 md:text-base">
+      <h3 className="mt-3 text-left text-sm font-bold text-neutral-900 transition-colors line-clamp-2 group-hover:text-neutral-600 md:text-base">
         {album.title}
       </h3>
     </Link>
