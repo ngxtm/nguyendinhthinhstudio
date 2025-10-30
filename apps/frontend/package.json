@@ -11,6 +11,7 @@
     "format:check": "prettier --check \"**/*.{js,jsx,ts,tsx,json,css,md}\""
   },
   "dependencies": {
+    "@vercel/speed-insights": "^1.2.0",
     "browser-image-compression": "^2.0.2",
     "framer-motion": "^12.23.3",
     "gsap": "^3.13.0",
