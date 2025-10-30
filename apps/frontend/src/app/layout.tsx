@@ -3,6 +3,7 @@ import { Geist, Geist_Mono, Inter, Montserrat } from 'next/font/google'
 import localFont from 'next/font/local'
 import Script from 'next/script'
 import './globals.css'
+import { SpeedInsights } from '@vercel/speed-insights/next'
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -36,10 +37,10 @@ export const metadata: Metadata = {
   metadataBase: new URL('https://ndtstudio.site'),
   title: {
     default: 'NDT Studio - Nhiếp ảnh chuyên nghiệp',
-    template: '%s | NDT Studio',
+    template: '%s | NDT Studio'
   },
   icons: {
-    icon: '/favicon.jpg',
+    icon: '/favicon.jpg'
   },
   description:
     'NDT Studio - Studio chụp ảnh chuyên nghiệp tại Việt Nam. Chuyên chụp ảnh cưới, ảnh gia đình, beauty, couple với phong cách nghệ thuật độc đáo. Đội ngũ nhiếp ảnh giàu kinh nghiệm, trang thiết bị hiện đại.',
@@ -56,7 +57,7 @@ export const metadata: Metadata = {
     'studio chụp ảnh',
     'nha trang',
     'ảnh coupe',
-    'chụp ảnh kỷ yếu',
+    'chụp ảnh kỷ yếu'
   ].join(', '),
   authors: [{ name: 'NDT Studio' }],
   creator: 'NDT Studio',
@@ -64,7 +65,7 @@ export const metadata: Metadata = {
   formatDetection: {
     email: false,
     address: false,
-    telephone: true,
+    telephone: true
   },
   openGraph: {
     type: 'website',
@@ -79,17 +80,16 @@ export const metadata: Metadata = {
         url: '/og-image.jpg', // Bạn cần thêm ảnh này vào public folder
         width: 1200,
         height: 630,
-        alt: 'NDT Studio',
-      },
-    ],
+        alt: 'NDT Studio'
+      }
+    ]
   },
   twitter: {
     card: 'summary_large_image',
     title: 'NDT Studio - Nhiếp ảnh chuyên nghiệp',
-    description:
-      'Studio chụp ảnh chuyên nghiệp tại Việt Nam. Chuyên chụp ảnh cưới, ảnh gia đình, beauty, couple.',
+    description: 'Studio chụp ảnh chuyên nghiệp tại Việt Nam. Chuyên chụp ảnh cưới, ảnh gia đình, beauty, couple.',
     creator: '@ndtstudio',
-    images: ['/og-image.jpg'],
+    images: ['/og-image.jpg']
   },
   robots: {
     index: true,
@@ -99,18 +99,16 @@ export const metadata: Metadata = {
       follow: true,
       'max-video-preview': -1,
       'max-image-preview': 'large',
-      'max-snippet': -1,
-    },
+      'max-snippet': -1
+    }
   },
-  
-
 
   verification: {
     // Thêm sau khi verify với Google Search Console
-    google: 'your-google-verification-code',
+    google: 'your-google-verification-code'
     // yandex: 'your-yandex-verification-code',
     // bing: 'your-bing-verification-code',
-  },
+  }
 }
 
 export default function RootLayout({
@@ -128,14 +126,14 @@ export default function RootLayout({
     description: 'Studio chụp ảnh chuyên nghiệp tại Việt Nam',
     address: {
       '@type': 'PostalAddress',
-      addressCountry: 'VN',
+      addressCountry: 'VN'
     },
     sameAs: [
       // Thêm các social media links sau
       'https://facebook.com/ndtstudio',
-      'https://instagram.com/ndtstudio',
-    ],
-  };
+      'https://instagram.com/ndtstudio'
+    ]
+  }
 
   return (
     <html lang="vi">
@@ -143,6 +141,8 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} ${kapakana.variable} ${montserrat.variable} antialiased`}
       >
         {children}
+
+        <SpeedInsights />
 
         {/* JSON-LD Organization Schema - Moved to body and using Script component */}
         <Script
