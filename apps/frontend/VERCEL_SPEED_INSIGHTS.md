@@ -1,8 +1,25 @@
 # Vercel Speed Insights Setup Guide
 
 ## Current Status
-✅ **@vercel/speed-insights** package is installed
+✅ **@vercel/speed-insights** package is installed in frontend app
 ✅ **SpeedInsights** component is integrated in `src/app/layout.tsx`
+
+## ⚠️ IMPORTANT: Enable Speed Insights in Vercel Dashboard
+
+**Speed Insights MUST be enabled in Vercel Dashboard to work!**
+
+### Steps to Enable:
+1. Go to https://vercel.com/dashboard
+2. Select your project: **nguyendinhthinhstudio**
+3. Navigate to **Settings** → **Analytics**
+4. Find **Speed Insights** section
+5. Click **Enable Speed Insights**
+6. Wait for the next deployment (or redeploy manually)
+
+Without enabling this in Vercel Dashboard, you will get a 500 error when loading:
+```
+GET /_vercel/speed-insights/script.js net::ERR_ABORTED 500
+```
 
 ## Important Notes
 
