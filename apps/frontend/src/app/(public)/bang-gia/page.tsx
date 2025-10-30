@@ -29,7 +29,7 @@ export default function Pricing() {
     itemListElement: [
       {
         '@type': 'Service',
-        '@id': 'https://ndtstudio.com/bang-gia#premium',
+        '@id': 'https://ndtstudio.site/bang-gia#premium',
         name: 'Premium Photography Package - NDT Studio',
         description: 'Gói dịch vụ hình ảnh cao cấp với phương châm "Like a Stars". Sử dụng thiết bị và công nghệ cao cấp nhất trong ngành nhiếp ảnh.',
         provider: {
@@ -59,7 +59,7 @@ export default function Pricing() {
       },
       {
         '@type': 'Service',
-        '@id': 'https://ndtstudio.com/bang-gia#standard',
+        '@id': 'https://ndtstudio.site/bang-gia#standard',
         name: 'Standard Photography Package - NDT Studio',
         description: 'Gói dịch vụ hình ảnh tiết kiệm với tinh thần "Make it easy", "Do it faster". Phù hợp với khách hàng trẻ trung, năng động.',
         provider: {
@@ -81,7 +81,7 @@ export default function Pricing() {
       },
       {
         '@type': 'Service',
-        '@id': 'https://ndtstudio.com/bang-gia#wedding',
+        '@id': 'https://ndtstudio.site/bang-gia#wedding',
         name: 'Wedding Photography - NDT Studio',
         description: 'Dịch vụ chụp ảnh cưới chuyên nghiệp với phong cách nghệ thuật độc đáo',
         provider: {
@@ -96,7 +96,7 @@ export default function Pricing() {
       },
       {
         '@type': 'Service',
-        '@id': 'https://ndtstudio.com/bang-gia#couple',
+        '@id': 'https://ndtstudio.site/bang-gia#couple',
         name: 'Couple Photography - NDT Studio',
         description: 'Dịch vụ chụp ảnh cặp đôi, đôi bạn thân, nhóm bạn với nhiều concept độc đáo',
         provider: {
@@ -121,13 +121,13 @@ export default function Pricing() {
         '@type': 'ListItem',
         position: 1,
         name: 'Trang chủ',
-        item: 'https://ndtstudio.com'
+        item: 'https://ndtstudio.site'
       },
       {
         '@type': 'ListItem',
         position: 2,
         name: 'Bảng giá',
-        item: 'https://ndtstudio.com/bang-gia'
+        item: 'https://ndtstudio.site/bang-gia'
       }
     ]
   };

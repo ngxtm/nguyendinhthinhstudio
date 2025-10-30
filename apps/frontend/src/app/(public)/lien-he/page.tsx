@@ -10,11 +10,11 @@ export default function Contact() {
   const localBusinessSchema = {
     '@context': 'https://schema.org',
     '@type': 'LocalBusiness',
-    '@id': 'https://ndtstudio.com/lien-he',
+    '@id': 'https://ndtstudio.site/lien-he',
     name: 'Nguyễn Đình Thịnh Studio',
-    image: 'https://ndtstudio.com/logo.png',
+    image: 'https://ndtstudio.site/logo.png',
     description: 'Studio chụp ảnh chuyên nghiệp tại Nha Trang - Chuyên chụp ảnh cưới, couple, gia đình, beauty với phong cách nghệ thuật độc đáo',
-    url: 'https://ndtstudio.com',
+    url: 'https://ndtstudio.site',
     telephone: '+84983885473',
     priceRange: '₫₫₫',
     address: {
@@ -62,13 +62,13 @@ export default function Contact() {
         '@type': 'ListItem',
         position: 1,
         name: 'Trang chủ',
-        item: 'https://ndtstudio.com'
+        item: 'https://ndtstudio.site'
       },
       {
         '@type': 'ListItem',
         position: 2,
         name: 'Liên hệ',
-        item: 'https://ndtstudio.com/lien-he'
+        item: 'https://ndtstudio.site/lien-he'
       }
     ]
   };

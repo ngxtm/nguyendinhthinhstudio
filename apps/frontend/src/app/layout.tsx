@@ -121,8 +121,8 @@ export default function RootLayout({
     '@context': 'https://schema.org',
     '@type': 'Organization',
     name: 'NDT Studio',
-    url: 'https://ndtstudio.com',
-    logo: 'https://ndtstudio.com/logo.png',
+    url: 'https://ndtstudio.site',
+    logo: 'https://ndtstudio.site/logo.png',
     description: 'Studio chụp ảnh chuyên nghiệp tại Việt Nam',
     address: {
       '@type': 'PostalAddress',
@@ -130,8 +130,9 @@ export default function RootLayout({
     },
     sameAs: [
       // Thêm các social media links sau
-      'https://facebook.com/ndtstudio',
-      'https://instagram.com/ndtstudio'
+      'https://facebook.com/nguyendinhthinh.foto',
+      'https://instagram.com/nguyendinhthinh.foto',
+      'https://www.tiktok.com/@nguyendinhthinhstudio'
     ]
   }
 

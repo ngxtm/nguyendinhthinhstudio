@@ -61,7 +61,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
         title,
         description,
         type: 'article',
-        url: `https://ndtstudio.com/thu-vien/${slug}`,
+        url: `https://ndtstudio.site/thu-vien/${slug}`,
         siteName: 'NDT Studio',
         images: coverImageUrl
           ? [
@@ -99,7 +99,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
       // Alternate languages (if you have multi-language support)
       alternates: {
-        canonical: `https://ndtstudio.com/thu-vien/${slug}`,
+        canonical: `https://ndtstudio.site/thu-vien/${slug}`,
       },
     };
   } catch (error) {
@@ -160,7 +160,7 @@ export default async function AlbumDetailPage({ params }: Props) {
     creator: {
       '@type': 'Organization',
       name: 'NDT Studio',
-      url: 'https://ndtstudio.com',
+      url: 'https://ndtstudio.site',
     },
     datePublished: album.publishedAt,
     image: album.images?.map((img) => ({
@@ -196,19 +196,19 @@ export default async function AlbumDetailPage({ params }: Props) {
         '@type': 'ListItem',
         position: 1,
         name: 'Trang chủ',
-        item: 'https://ndtstudio.com',
+        item: 'https://ndtstudio.site',
       },
       {
         '@type': 'ListItem',
         position: 2,
         name: 'Thư viện',
-        item: 'https://ndtstudio.com/thu-vien',
+        item: 'https://ndtstudio.site/thu-vien',
       },
       {
         '@type': 'ListItem',
         position: 3,
         name: album.title,
-        item: `https://ndtstudio.com/thu-vien/${slug}`,
+        item: `https://ndtstudio.site/thu-vien/${slug}`,
       },
     ],
   };
