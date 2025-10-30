@@ -143,10 +143,8 @@ export default function RootLayout({
       >
         {children}
 
-        {/* Speed Insights only works in production or when deployed on Vercel */}
         <SpeedInsights />
 
-        {/* JSON-LD Organization Schema - Moved to body and using Script component */}
         <Script
           id="organization-schema"
           type="application/ld+json"
