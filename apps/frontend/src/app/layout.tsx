@@ -63,7 +63,7 @@ export const metadata: Metadata = {
   publisher: 'NDT Studio',
   formatDetection: {
     email: false,
-    address: false,
+    address: true,
     telephone: true
   },
   openGraph: {

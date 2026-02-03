@@ -194,3 +194,6 @@ apps/**/.env*
 
 #documentation
 tutorial_component/
+
+# Claude
+.claude/
