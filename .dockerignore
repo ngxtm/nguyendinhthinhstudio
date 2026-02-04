@@ -1,0 +1,36 @@
+# Dependencies
+node_modules
+**/node_modules
+
+# Build outputs
+.next
+dist
+.turbo
+
+# Development
+.env
+.env.*
+!.env.example
+.env*.local
+*.log
+.git
+.gitignore
+
+# IDE
+.vscode
+.idea
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test
+coverage
+*.spec.ts
+*.test.ts
+
+# Plans and docs (not needed in container)
+.claude
+docs
+*.md
+!README.md
