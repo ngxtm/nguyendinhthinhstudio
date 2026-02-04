@@ -7,10 +7,9 @@ import * as bodyParser from 'body-parser';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Increase body size limit for large image uploads
-  // Cho phép upload ảnh lớn (tối đa 200MB)
-  app.use(bodyParser.json({ limit: '200mb' }));
-  app.use(bodyParser.urlencoded({ limit: '200mb', extended: true }));
+  // Increase body size limit for large image uploads (50MB max)
+  app.use(bodyParser.json({ limit: '50mb' }));
+  app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 
   // Enable global validation
   app.useGlobalPipes(
@@ -24,29 +23,31 @@ async function bootstrap() {
     }),
   );
 
-  // Swagger configuration
-  const config = new DocumentBuilder()
-    .setTitle('NDT Studio Gallery API')
-    .setDescription('Backend API for NDT Studio Gallery - Albums, Images, and Authentication')
-    .setVersion('1.0')
-    .addBearerAuth(
-      {
-        type: 'http',
-        scheme: 'bearer',
-        bearerFormat: 'JWT',
-        name: 'Authorization',
-        description: 'Enter your Supabase JWT token',
-        in: 'header',
-      },
-      'bearer',
-    )
-    .addTag('albums', 'Album management endpoints')
-    .addTag('images', 'Image upload and management endpoints')
-    .addTag('tags', 'Tag management endpoints')
-    .build();
+  // Swagger configuration (disabled in production)
+  if (process.env.NODE_ENV !== 'production') {
+    const config = new DocumentBuilder()
+      .setTitle('NDT Studio Gallery API')
+      .setDescription('Backend API for NDT Studio Gallery - Albums, Images, and Authentication')
+      .setVersion('1.0')
+      .addBearerAuth(
+        {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT',
+          name: 'Authorization',
+          description: 'Enter your Supabase JWT token',
+          in: 'header',
+        },
+        'bearer',
+      )
+      .addTag('albums', 'Album management endpoints')
+      .addTag('images', 'Image upload and management endpoints')
+      .addTag('tags', 'Tag management endpoints')
+      .build();
 
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api', app, document);
+    const document = SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup('api', app, document);
+  }
 
   // Enable CORS with environment-based origins for production
   const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3001'];
