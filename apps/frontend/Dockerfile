@@ -13,6 +13,9 @@ COPY packages/ui/package.json ./packages/ui/
 COPY packages/eslint-config/package.json ./packages/eslint-config/
 COPY packages/typescript-config/package.json ./packages/typescript-config/
 
+# Copy prisma schema (required for postinstall script)
+COPY apps/backend/prisma ./apps/backend/prisma/
+
 RUN npm ci
 
 # Stage 2: Build
