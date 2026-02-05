@@ -10,20 +10,6 @@ services:
       - NODE_ENV=production
       - NEXT_PUBLIC_API_URL=https://api.ndtstudio.site
       - NEXT_PUBLIC_CLOUDFLARE_IMAGES_HASH=${NEXT_PUBLIC_CLOUDFLARE_IMAGES_HASH}
-    labels:
-      - traefik.enable=true
-      # HTTP router
-      - traefik.http.routers.ndtstudio-frontend.rule=Host(`ndtstudio.site`) || Host(`www.ndtstudio.site`)
-      - traefik.http.routers.ndtstudio-frontend.entrypoints=web
-      - traefik.http.routers.ndtstudio-frontend.service=ndtstudio-frontend
-      # HTTPS router
-      - traefik.http.routers.ndtstudio-frontend-secure.rule=Host(`ndtstudio.site`) || Host(`www.ndtstudio.site`)
-      - traefik.http.routers.ndtstudio-frontend-secure.entrypoints=websecure
-      - traefik.http.routers.ndtstudio-frontend-secure.tls=true
-      - traefik.http.routers.ndtstudio-frontend-secure.tls.certresolver=letsencrypt
-      - traefik.http.routers.ndtstudio-frontend-secure.service=ndtstudio-frontend
-      # Service
-      - traefik.http.services.ndtstudio-frontend.loadbalancer.server.port=3000
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/health"]
       interval: 30s
@@ -56,20 +42,6 @@ services:
       - CLOUDFLARE_IMAGES_HASH=${CLOUDFLARE_IMAGES_HASH}
       - CLOUDFLARE_R2_BUCKET_NAME=${CLOUDFLARE_R2_BUCKET_NAME}
       - ALLOWED_ORIGINS=https://ndtstudio.site,https://www.ndtstudio.site
-    labels:
-      - traefik.enable=true
-      # HTTP router
-      - traefik.http.routers.ndtstudio-backend.rule=Host(`api.ndtstudio.site`)
-      - traefik.http.routers.ndtstudio-backend.entrypoints=web
-      - traefik.http.routers.ndtstudio-backend.service=ndtstudio-backend
-      # HTTPS router
-      - traefik.http.routers.ndtstudio-backend-secure.rule=Host(`api.ndtstudio.site`)
-      - traefik.http.routers.ndtstudio-backend-secure.entrypoints=websecure
-      - traefik.http.routers.ndtstudio-backend-secure.tls=true
-      - traefik.http.routers.ndtstudio-backend-secure.tls.certresolver=letsencrypt
-      - traefik.http.routers.ndtstudio-backend-secure.service=ndtstudio-backend
-      # Service
-      - traefik.http.services.ndtstudio-backend.loadbalancer.server.port=3000
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/health"]
       interval: 30s
