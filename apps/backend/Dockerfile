@@ -14,15 +14,15 @@ COPY apps/backend/prisma ./apps/backend/prisma/
 # Install all dependencies including devDependencies
 RUN npm ci
 
-# Install NestJS CLI globally for build
-RUN npm install -g @nestjs/cli
-
 # Copy source code
 COPY . .
 
-# Build backend
+# Build backend using tsc directly (more reliable than nest-cli in monorepo)
 WORKDIR /app/apps/backend
-RUN nest build
+RUN npx tsc -p tsconfig.build.json
+
+# Verify build output exists
+RUN ls -la dist/ && test -f dist/main.js
 
 # Stage 2: Production
 FROM base AS runner
