@@ -13,16 +13,10 @@ COPY apps/backend/prisma ./apps/backend/prisma/
 
 RUN npm ci
 
-# Generate Prisma client
-WORKDIR /app/apps/backend
-RUN npx prisma generate
-
 # Stage 2: Build
 FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/apps/backend/node_modules ./apps/backend/node_modules
-COPY --from=deps /app/apps/backend/node_modules/.prisma ./apps/backend/node_modules/.prisma
 COPY . .
 
 WORKDIR /app/apps/backend
@@ -36,9 +30,9 @@ ENV NODE_ENV=production
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nestjs
 
-# Copy built application
+# Copy built application and dependencies
 COPY --from=builder --chown=nestjs:nodejs /app/apps/backend/dist ./dist
-COPY --from=builder --chown=nestjs:nodejs /app/apps/backend/node_modules ./node_modules
+COPY --from=builder --chown=nestjs:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=nestjs:nodejs /app/apps/backend/prisma ./prisma
 
 USER nestjs
