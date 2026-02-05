@@ -6,33 +6,34 @@ FROM base AS builder
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-# Copy root package files and all workspace package.json
+# Copy root package files for monorepo
 COPY package.json package-lock.json ./
 COPY apps/backend/package.json ./apps/backend/
 COPY apps/backend/prisma ./apps/backend/prisma/
 
-# Install all dependencies including devDependencies
+# Install all dependencies (including devDependencies for build)
 RUN npm ci
 
-# Copy source code
+# Copy all source code
 COPY . .
 
-# Build backend using tsc directly
+# Build backend with NestJS CLI (handles path aliases correctly)
 WORKDIR /app/apps/backend
-RUN npx tsc -p tsconfig.build.json
+RUN npx nest build
 
-# Verify build output exists (compiled files are in dist/src/)
-RUN ls -la dist/src/ && test -f dist/src/main.js
+# Verify build output
+RUN ls -la dist/ && test -f dist/main.js
 
 # Stage 2: Production
 FROM base AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nestjs
+# Create non-root user for security
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nestjs
 
-# Copy built application and production dependencies
+# Copy built application
 COPY --from=builder --chown=nestjs:nodejs /app/apps/backend/dist ./dist
 COPY --from=builder --chown=nestjs:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=nestjs:nodejs /app/apps/backend/prisma ./prisma
@@ -40,4 +41,4 @@ COPY --from=builder --chown=nestjs:nodejs /app/apps/backend/prisma ./prisma
 USER nestjs
 
 EXPOSE 3000
-CMD ["node", "dist/src/main.js"]
+CMD ["node", "dist/main.js"]
