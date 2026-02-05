@@ -39,10 +39,14 @@ ENV NODE_ENV=production
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-# Copy standalone output
-COPY --from=builder /app/apps/frontend/public ./public
+# Copy standalone output (includes monorepo structure due to outputFileTracingRoot)
 COPY --from=builder --chown=nextjs:nodejs /app/apps/frontend/.next/standalone ./
+
+# Copy static files to correct location
 COPY --from=builder --chown=nextjs:nodejs /app/apps/frontend/.next/static ./apps/frontend/.next/static
+
+# Copy public folder to correct location
+COPY --from=builder --chown=nextjs:nodejs /app/apps/frontend/public ./apps/frontend/public
 
 USER nextjs
 
