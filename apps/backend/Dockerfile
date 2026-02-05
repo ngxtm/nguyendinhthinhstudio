@@ -13,14 +13,20 @@ COPY apps/backend/prisma ./apps/backend/prisma/
 
 RUN npm ci
 
+# Install NestJS CLI globally for build
+RUN npm install -g @nestjs/cli
+
 # Stage 2: Build
 FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /usr/local/lib/node_modules /usr/local/lib/node_modules
+COPY --from=deps /usr/local/bin/nest /usr/local/bin/nest
 COPY . .
 
-# Build from root using node_modules/.bin path
-RUN ./node_modules/.bin/nest build --path apps/backend/tsconfig.json
+# Build backend
+WORKDIR /app/apps/backend
+RUN nest build
 
 # Stage 3: Production
 FROM base AS runner
