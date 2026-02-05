@@ -17,12 +17,12 @@ RUN npm ci
 # Copy source code
 COPY . .
 
-# Build backend using tsc directly (more reliable than nest-cli in monorepo)
+# Build backend using tsc directly
 WORKDIR /app/apps/backend
 RUN npx tsc -p tsconfig.build.json
 
-# Verify build output exists
-RUN ls -la dist/ && test -f dist/main.js
+# Verify build output exists (compiled files are in dist/src/)
+RUN ls -la dist/src/ && test -f dist/src/main.js
 
 # Stage 2: Production
 FROM base AS runner
@@ -40,4 +40,4 @@ COPY --from=builder --chown=nestjs:nodejs /app/apps/backend/prisma ./prisma
 USER nestjs
 
 EXPOSE 3000
-CMD ["node", "dist/main.js"]
+CMD ["node", "dist/src/main.js"]
