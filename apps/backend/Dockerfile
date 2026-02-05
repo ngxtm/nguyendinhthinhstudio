@@ -17,12 +17,15 @@ RUN npm ci
 # Copy all source code
 COPY . .
 
-# Build backend with NestJS CLI (handles path aliases correctly)
+# Build backend
 WORKDIR /app/apps/backend
 RUN npx nest build
 
+# Replace path aliases with relative paths (critical for runtime)
+RUN npx tsc-alias -p tsconfig.build.json
+
 # Verify build output
-RUN ls -la dist/ && test -f dist/main.js
+RUN ls -la dist/src/ && test -f dist/src/main.js
 
 # Stage 2: Production
 FROM base AS runner
@@ -41,4 +44,4 @@ COPY --from=builder --chown=nestjs:nodejs /app/apps/backend/prisma ./prisma
 USER nestjs
 
 EXPOSE 3000
-CMD ["node", "dist/main.js"]
+CMD ["node", "dist/src/main.js"]
