@@ -10,8 +10,11 @@ const nextConfig = {
             }
         ]
     },
-    // Enable Turbopack (Next.js 16 default)
-    turbopack: {}
+    // Turbopack configuration
+    turbopack: {
+        // Set root to monorepo root to silence lockfile warning
+        root: '../..'
+    }
 }
 
 export default nextConfig

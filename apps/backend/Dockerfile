@@ -6,7 +6,7 @@ FROM base AS deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-# Copy root package files
+# Copy root package files and all workspace package.json
 COPY package.json package-lock.json ./
 COPY apps/backend/package.json ./apps/backend/
 COPY apps/backend/prisma ./apps/backend/prisma/
@@ -19,8 +19,8 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-WORKDIR /app/apps/backend
-RUN npm run build
+# Build from root using node_modules/.bin path
+RUN ./node_modules/.bin/nest build --path apps/backend/tsconfig.json
 
 # Stage 3: Production
 FROM base AS runner

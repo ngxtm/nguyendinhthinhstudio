@@ -24,6 +24,9 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
+# Disable Next.js telemetry
+ENV NEXT_TELEMETRY_DISABLED=1
+
 # Build frontend only
 WORKDIR /app/apps/frontend
 RUN npm run build
