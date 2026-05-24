@@ -1,19 +1,29 @@
-import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
-import { CloudflareService } from './cloudflare.service';
+import { ImageUrlService } from './image-url.service';
+import { StorageService } from './storage.service';
 import { UploadRequestDto } from './dto/upload-request.dto';
 import { UploadConfirmDto } from './dto/upload-confirm.dto';
 import { UpdateImageDto } from './dto/update-image.dto';
 import { ReorderImagesDto } from './dto/reorder-images.dto';
 
+type PendingUpload = UploadRequestDto & { objectKey: string };
+
 @Injectable()
 export class ImagesService {
   private readonly logger = new Logger(ImagesService.name);
-  private readonly uploadRequests = new Map<string, UploadRequestDto>();
+  private readonly uploadRequests = new Map<string, PendingUpload>();
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly cloudflare: CloudflareService,
+    private readonly storage: StorageService,
+    private readonly imageUrl: ImageUrlService,
   ) {}
 
   /**
@@ -32,50 +42,57 @@ export class ImagesService {
 
     // Check if album already has 50 images (limit)
     if (album._count.images >= 50) {
-      throw new BadRequestException('Album already has maximum number of images (50)');
+      throw new BadRequestException(
+        'Album already has maximum number of images (50)',
+      );
     }
 
-    // Get presigned URL from Cloudflare
-    const { uploadURL, id } = await this.cloudflare.getDirectUploadUrl({
-      albumId: uploadRequest.albumId,
-      filename: uploadRequest.filename,
-    });
+    const uploadId = randomUUID();
+    const { uploadUrl, objectKey } = await this.storage.getPresignedUploadUrl(
+      uploadRequest.albumId,
+      uploadRequest.filename,
+      uploadRequest.contentType,
+      uploadId,
+      uploadRequest.fileSize,
+    );
 
-    // Store upload request temporarily (for webhook confirmation)
-    this.uploadRequests.set(id, uploadRequest);
+    this.uploadRequests.set(uploadId, { ...uploadRequest, objectKey });
 
     // Clean up after 15 minutes (URL expires)
-    setTimeout(() => {
-      this.uploadRequests.delete(id);
-    }, 15 * 60 * 1000);
+    setTimeout(
+      () => {
+        this.uploadRequests.delete(uploadId);
+      },
+      15 * 60 * 1000,
+    );
 
     return {
-      uploadUrl: uploadURL,
-      uploadId: id,
+      uploadUrl,
+      uploadId,
       expiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
     };
   }
 
   /**
-   * Confirm image upload via webhook from Cloudflare
+   * Confirm image upload after R2 direct upload
    */
   async confirmUpload(confirmDto: UploadConfirmDto) {
-    // Get original upload request
     const uploadRequest = this.uploadRequests.get(confirmDto.uploadId);
-    
+
     if (!uploadRequest) {
-      this.logger.warn(`Upload request not found for ID: ${confirmDto.uploadId}`);
+      this.logger.warn(
+        `Upload request not found for ID: ${confirmDto.uploadId}`,
+      );
       // Don't throw error, just log - webhook might come after cleanup
     }
 
     const albumId = uploadRequest?.albumId;
-    
+
     if (!albumId) {
       throw new BadRequestException('Album ID not found in upload request');
     }
 
-    // Get variant URLs
-    const variantUrls = this.cloudflare.getVariantUrls(confirmDto.cloudflareImageId);
+    const variantUrls = this.imageUrl.getVariantUrls(uploadRequest.objectKey);
 
     // Get next order index (start from 1, not 0)
     const lastImage = await this.prisma.image.findFirst({
@@ -91,7 +108,7 @@ export class ImagesService {
       data: {
         albumId,
         filename: uploadRequest?.filename || 'uploaded-image',
-        cloudflareImageId: confirmDto.cloudflareImageId,
+        r2ObjectKey: uploadRequest.objectKey,
         uploadStatus: 'completed',
         thumbnailUrl: variantUrls.thumbnailUrl,
         smallUrl: variantUrls.smallUrl,
@@ -99,6 +116,7 @@ export class ImagesService {
         largeUrl: variantUrls.largeUrl,
         xlargeUrl: variantUrls.xlargeUrl,
         orderIndex,
+        fileSizeKb: Math.round(uploadRequest.fileSize / 1024),
       },
     });
 
@@ -129,7 +147,7 @@ export class ImagesService {
     }
 
     return this.prisma.image.findMany({
-      where: { 
+      where: {
         albumId,
         uploadStatus: 'completed',
       },
@@ -168,13 +186,12 @@ export class ImagesService {
       throw new NotFoundException('Image not found');
     }
 
-    // Delete from Cloudflare
-    if (image.cloudflareImageId) {
+    if (image.r2ObjectKey) {
       try {
-        await this.cloudflare.deleteImage(image.cloudflareImageId);
+        await this.storage.deleteObject(image.r2ObjectKey);
       } catch (error) {
-        this.logger.error(`Failed to delete image from Cloudflare: ${error}`);
-        // Continue with DB deletion even if Cloudflare deletion fails
+        this.logger.error(`Failed to delete image from R2: ${error}`);
+        // Continue with DB deletion even if object deletion fails
       }
     }
 
@@ -206,11 +223,15 @@ export class ImagesService {
     }
 
     // Validate all image IDs belong to this album
-    const albumImageIds = album.images.map(img => img.id);
-    const invalidIds = reorderDto.imageIds.filter(id => !albumImageIds.includes(id));
+    const albumImageIds = album.images.map((img) => img.id);
+    const invalidIds = reorderDto.imageIds.filter(
+      (id) => !albumImageIds.includes(id),
+    );
 
     if (invalidIds.length > 0) {
-      throw new BadRequestException(`Invalid image IDs: ${invalidIds.join(', ')}`);
+      throw new BadRequestException(
+        `Invalid image IDs: ${invalidIds.join(', ')}`,
+      );
     }
 
     // Update order indices (start from 1, not 0)
@@ -218,7 +239,7 @@ export class ImagesService {
       this.prisma.image.update({
         where: { id: imageId },
         data: { orderIndex: index + 1 },
-      })
+      }),
     );
 
     await Promise.all(updatePromises);
@@ -226,4 +247,3 @@ export class ImagesService {
     return { message: 'Images reordered successfully' };
   }
 }
-

@@ -1,0 +1,1 @@
+ALTER TABLE "Image" RENAME COLUMN "cloudflareImageId" TO "r2ObjectKey";

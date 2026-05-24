@@ -97,7 +97,7 @@ model Image {
   filename String
   
   // Cloudflare Images
-  cloudflareImageId String? @unique
+  r2ObjectKey String? @unique
   uploadStatus      String  @default("pending") // 'pending' | 'completed' | 'failed'
   
   // 5 responsive versions (WebP) - Cloudflare variants URLs

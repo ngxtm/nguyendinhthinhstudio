@@ -6,7 +6,7 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CloudflareService } from '../images/cloudflare.service';
+import { StorageService } from '../images/storage.service';
 import {
   Album as PrismaAlbum,
   Category as PrismaCategory,
@@ -43,7 +43,7 @@ export class AlbumsService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly cloudflare: CloudflareService,
+    private readonly storage: StorageService,
   ) {}
 
   /**
@@ -463,7 +463,7 @@ export class AlbumsService {
       where: { id },
       include: {
         images: {
-          where: { cloudflareImageId: { not: null } },
+          where: { r2ObjectKey: { not: null } },
         },
       },
     });
@@ -472,24 +472,21 @@ export class AlbumsService {
       throw new NotFoundException('Album not found');
     }
 
-    // Step 1: Delete all images from Cloudflare first
     if (album.images.length > 0) {
       this.logger.log(
-        `Deleting ${album.images.length} images from Cloudflare for album ${id}`,
+        `Deleting ${album.images.length} images from R2 for album ${id}`,
       );
 
       const deletePromises = album.images.map(async (image) => {
-        if (image.cloudflareImageId) {
+        if (image.r2ObjectKey) {
           try {
-            await this.cloudflare.deleteImage(image.cloudflareImageId);
-            this.logger.log(
-              `Deleted Cloudflare image: ${image.cloudflareImageId}`,
-            );
+            await this.storage.deleteObject(image.r2ObjectKey);
+            this.logger.log(`Deleted R2 object: ${image.r2ObjectKey}`);
           } catch (error) {
             this.logger.error(
-              `Failed to delete Cloudflare image ${image.cloudflareImageId}: ${error}`,
+              `Failed to delete R2 object ${image.r2ObjectKey}: ${error}`,
             );
-            // Continue even if Cloudflare deletion fails
+            // Continue even if object deletion fails
           }
         }
       });

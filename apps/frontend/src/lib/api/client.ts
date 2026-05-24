@@ -155,13 +155,17 @@ export async function uploadFile(
       reject(new Error('Upload failed: Timeout (quá 10 phút)'));
     });
 
-    // Cloudflare requires POST with multipart/form-data, not PUT
-    xhr.open('POST', url);
+    const isMockUpload = url.includes('/images/mock-upload/');
+    xhr.open(isMockUpload ? 'POST' : 'PUT', url);
 
-    // Create FormData to send file as multipart/form-data
+    if (!isMockUpload) {
+      xhr.setRequestHeader('Content-Type', file.type);
+      xhr.send(file);
+      return;
+    }
+
     const formData = new FormData();
     formData.append('file', file);
-
     xhr.send(formData);
   });
 }
