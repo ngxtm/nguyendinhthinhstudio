@@ -151,6 +151,7 @@ sonar-project.properties
 # Backup files
 *.bak
 *.backup
+*.locked-backup/
 *.orig
 
 # Runtime data
