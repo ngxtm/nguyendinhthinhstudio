@@ -12,16 +12,16 @@
     "postinstall": "prisma generate --schema=apps/backend/prisma/schema.prisma"
   },
   "devDependencies": {
-    "@eslint/js": "^10.0.1",
-    "eslint": "^10.0.2",
+    "@eslint/js": "^9.31.0",
+    "eslint": "^9.31.0",
     "eslint-plugin-react": "^7.37.5",
-    "globals": "^17.3.0",
+    "globals": "^16.3.0",
     "prettier": "^3.6.2",
     "prisma": "^6.17.0",
     "tsx": "^4.20.6",
     "turbo": "^2.5.5",
     "typescript": "5.8.3",
-    "typescript-eslint": "^8.56.1"
+    "typescript-eslint": "^8.37.0"
   },
   "engines": {
     "node": ">=18"
@@ -32,8 +32,6 @@
     "packages/*"
   ],
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.1000.0",
-    "@aws-sdk/s3-request-presigner": "^3.1000.0",
     "@headlessui/react": "^2.2.9",
     "@prisma/client": "^6.17.0",
     "next": "^16.0.0",
