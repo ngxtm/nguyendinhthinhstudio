@@ -1,0 +1,27 @@
+services:
+  imgproxy:
+    image: darthsim/imgproxy:v3.30.1
+    container_name: ndt-imgproxy-local
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      IMGPROXY_KEY: ${IMGPROXY_KEY:?IMGPROXY_KEY is required}
+      IMGPROXY_SALT: ${IMGPROXY_SALT:?IMGPROXY_SALT is required}
+      IMGPROXY_ALLOW_INSECURE: "false"
+      IMGPROXY_USE_S3: "true"
+      AWS_ACCESS_KEY_ID: ${IMGPROXY_R2_ACCESS_KEY_ID:?IMGPROXY_R2_ACCESS_KEY_ID is required}
+      AWS_SECRET_ACCESS_KEY: ${IMGPROXY_R2_SECRET_ACCESS_KEY:?IMGPROXY_R2_SECRET_ACCESS_KEY is required}
+      AWS_REGION: auto
+      IMGPROXY_S3_ENDPOINT: ${R2_S3_ENDPOINT:?R2_S3_ENDPOINT is required}
+      IMGPROXY_CONCURRENCY: "2"
+      IMGPROXY_MAX_SRC_RESOLUTION: "50"
+      IMGPROXY_TTL: "31536000"
+      IMGPROXY_PREFERRED_FORMATS: webp,avif
+      IMGPROXY_ENFORCE_WEBP: "true"
+      IMGPROXY_MAX_ANIMATION_FRAMES: "1"
+    healthcheck:
+      test: ["CMD", "imgproxy", "health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3

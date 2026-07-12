@@ -10,11 +10,13 @@ import { CategoriesModule } from './categories/categories.module';
 import { AuthModule } from './auth/auth.module';
 import { AlbumsModule } from './albums/albums.module';
 import { ImagesModule } from './images/images.module';
+import { validateEnv } from './config/env.validation';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      validate: validateEnv,
     }),
     ThrottlerModule.forRoot([{
       ttl: 60000, // 1 minute

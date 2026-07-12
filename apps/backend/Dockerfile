@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM node:20-alpine AS base
+FROM node:24-alpine AS base
 
 # Stage 1: Dependencies & Build
 FROM base AS builder
@@ -40,9 +40,6 @@ RUN addgroup --system --gid 1001 nodejs && \
 COPY --from=builder --chown=nestjs:nodejs /app/apps/backend/dist ./dist
 COPY --from=builder --chown=nestjs:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=nestjs:nodejs /app/apps/backend/prisma ./prisma
-
-# Create uploads directory with correct permissions
-RUN mkdir -p /app/uploads && chown nestjs:nodejs /app/uploads
 
 USER nestjs
 

@@ -13,7 +13,6 @@ export class StorageService {
   private readonly logger = new Logger(StorageService.name);
   private readonly s3: S3Client;
   private readonly bucketname: string;
-  private readonly isMockUpload: boolean;
 
   constructor(private readonly config: ConfigService) {
     this.s3 = new S3Client({
@@ -26,7 +25,6 @@ export class StorageService {
     });
 
     this.bucketname = config.get<string>('CLOUDFLARE_R2_BUCKET_NAME');
-    this.isMockUpload = config.get<string>('USE_MOCK_UPLOAD') === 'true';
   }
 
   async getPresignedUploadUrl(
@@ -37,10 +35,6 @@ export class StorageService {
     filesize: number,
   ): Promise<{ uploadUrl: string; objectKey: string }> {
     const objectKey = `albums/${albumId}/${randomUUID()}-${filename}`;
-    if (this.isMockUpload) {
-      const uploadUrl = `http://localhost:3000/images/mock-upload/${uploadId}`;
-      return { uploadUrl, objectKey };
-    }
 
     const putObjectCommand = new PutObjectCommand({
       Bucket: this.bucketname,
