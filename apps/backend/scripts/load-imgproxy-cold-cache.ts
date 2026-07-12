@@ -11,6 +11,7 @@ import { validateEnv } from '../src/config/env.validation';
 const execFileAsync = promisify(execFile);
 const objectCount = 10;
 const requestConcurrency = 2;
+const ansiEscapePattern = /\u001b\[[0-?]*[ -/]*[@-~]/g;
 
 type Arguments = {
   container: string;
@@ -159,12 +160,12 @@ function startTelemetry(container: string): {
 
   telemetry.stdout.on('data', (chunk: Buffer) => {
     output += chunk.toString();
-    const lines = output.split(/\r?\n/);
+    const lines = output.replace(ansiEscapePattern, '').split(/\r?\n/);
     output = lines.pop() ?? '';
 
     for (const line of lines) {
       try {
-        const stats = JSON.parse(line) as DockerStats;
+        const stats = JSON.parse(line.trim()) as DockerStats;
         const memoryPercent = Number.parseFloat(stats.MemPerc ?? '');
         if (!Number.isFinite(memoryPercent) || !stats.MemUsage) {
           continue;
