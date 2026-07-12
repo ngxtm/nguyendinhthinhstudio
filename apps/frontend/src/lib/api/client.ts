@@ -155,17 +155,8 @@ export async function uploadFile(
       reject(new Error('Upload failed: Timeout (quá 10 phút)'));
     });
 
-    const isMockUpload = url.includes('/images/mock-upload/');
-    xhr.open(isMockUpload ? 'POST' : 'PUT', url);
-
-    if (!isMockUpload) {
-      xhr.setRequestHeader('Content-Type', file.type);
-      xhr.send(file);
-      return;
-    }
-
-    const formData = new FormData();
-    formData.append('file', file);
-    xhr.send(formData);
+    xhr.open('PUT', url);
+    xhr.setRequestHeader('Content-Type', file.type);
+    xhr.send(file);
   });
 }

@@ -31,19 +31,19 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3000
-      - DATABASE_URL=${DATABASE_URL}
-      - DIRECT_URL=${DIRECT_URL}
-      - SUPABASE_URL=${SUPABASE_URL}
-      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
-      - SUPABASE_JWT_SECRET=${SUPABASE_JWT_SECRET}
-      - CLOUDFLARE_R2_BUCKET_NAME=${CLOUDFLARE_R2_BUCKET_NAME}
-      - R2_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID}
-      - R2_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY}
-      - R2_S3_ENDPOINT=${R2_S3_ENDPOINT}
-      - IMGPROXY_KEY=${IMGPROXY_KEY}
-      - IMGPROXY_SALT=${IMGPROXY_SALT}
-      - IMGPROXY_BASE_URL=${IMGPROXY_BASE_URL}
-      - ALLOWED_ORIGINS=https://ndtstudio.site,https://www.ndtstudio.site
+      - DATABASE_URL=${DATABASE_URL:?DATABASE_URL is required}
+      - DIRECT_URL=${DIRECT_URL:?DIRECT_URL is required}
+      - SUPABASE_URL=${SUPABASE_URL:?SUPABASE_URL is required}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY:?SUPABASE_ANON_KEY is required}
+      - SUPABASE_JWT_SECRET=${SUPABASE_JWT_SECRET:?SUPABASE_JWT_SECRET is required}
+      - CLOUDFLARE_R2_BUCKET_NAME=${CLOUDFLARE_R2_BUCKET_NAME:?CLOUDFLARE_R2_BUCKET_NAME is required}
+      - R2_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID:?R2_ACCESS_KEY_ID is required}
+      - R2_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY:?R2_SECRET_ACCESS_KEY is required}
+      - R2_S3_ENDPOINT=${R2_S3_ENDPOINT:?R2_S3_ENDPOINT is required}
+      - IMGPROXY_KEY=${IMGPROXY_KEY:?IMGPROXY_KEY is required}
+      - IMGPROXY_SALT=${IMGPROXY_SALT:?IMGPROXY_SALT is required}
+      - IMGPROXY_BASE_URL=${IMGPROXY_BASE_URL:?IMGPROXY_BASE_URL is required}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:?ALLOWED_ORIGINS is required}
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/health"]
       interval: 30s
@@ -60,15 +60,15 @@ services:
     networks:
       - dokploy-network
     environment:
-      - IMGPROXY_KEY=${IMGPROXY_KEY}
-      - IMGPROXY_SALT=${IMGPROXY_SALT}
+      - IMGPROXY_KEY=${IMGPROXY_KEY:?IMGPROXY_KEY is required}
+      - IMGPROXY_SALT=${IMGPROXY_SALT:?IMGPROXY_SALT is required}
       - IMGPROXY_ALLOW_INSECURE=false
       - IMGPROXY_USE_S3=true
-      - AWS_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID}
-      - AWS_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY}
+      - AWS_ACCESS_KEY_ID=${IMGPROXY_R2_ACCESS_KEY_ID:?IMGPROXY_R2_ACCESS_KEY_ID is required}
+      - AWS_SECRET_ACCESS_KEY=${IMGPROXY_R2_SECRET_ACCESS_KEY:?IMGPROXY_R2_SECRET_ACCESS_KEY is required}
       - AWS_REGION=auto
-      - IMGPROXY_S3_ENDPOINT=${R2_S3_ENDPOINT}
-      - IMGPROXY_CONCURRENCY=10
+      - IMGPROXY_S3_ENDPOINT=${R2_S3_ENDPOINT:?R2_S3_ENDPOINT is required}
+      - IMGPROXY_CONCURRENCY=2
       - IMGPROXY_MAX_SRC_RESOLUTION=50
       - IMGPROXY_TTL=31536000
       - IMGPROXY_PREFERRED_FORMATS=webp,avif
@@ -83,7 +83,8 @@ services:
     deploy:
       resources:
         limits:
-          memory: 256M
+          cpus: '2.0'
+          memory: 1G
     healthcheck:
       test: ["CMD", "imgproxy", "health"]
       interval: 30s
