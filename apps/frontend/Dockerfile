@@ -27,6 +27,10 @@ COPY . .
 
 ENV NEXT_TELEMETRY_DISABLED=1
 
+# Next.js embeds public variables in the browser bundle during `next build`.
+ARG NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+
 WORKDIR /app/apps/frontend
 RUN npm run build
 
