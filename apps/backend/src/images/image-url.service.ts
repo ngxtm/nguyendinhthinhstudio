@@ -10,13 +10,17 @@ export class ImageUrlService {
   private readonly r2BuckName: string;
 
   constructor(private readonly config: ConfigService) {
-    const imgproxyKey = this.config.get<string>('IMGPROXY_KEY');
-    const imgproxySalt = this.config.get<string>('IMGPROXY_SALT');
+    const imgproxyKey = this.config.getOrThrow<string>('IMGPROXY_KEY');
+    const imgproxySalt = this.config.getOrThrow<string>('IMGPROXY_SALT');
 
     this.keyBuffer = Buffer.from(imgproxyKey, 'hex');
     this.saltBuffer = Buffer.from(imgproxySalt, 'hex');
-    this.imgproxyBaseUrl = this.config.get<string>('IMGPROXY_BASE_URL');
-    this.r2BuckName = this.config.get<string>('CLOUDFLARE_R2_BUCKET_NAME');
+    this.imgproxyBaseUrl = this.config
+      .getOrThrow<string>('IMGPROXY_BASE_URL')
+      .replace(/\/$/, '');
+    this.r2BuckName = this.config.getOrThrow<string>(
+      'CLOUDFLARE_R2_BUCKET_NAME',
+    );
   }
 
   sign(path: string): string {
@@ -27,7 +31,9 @@ export class ImageUrlService {
   }
 
   getSignedUrl(objectKey: string, width: number, height: number): string {
-    const path = `/rs:fit:${width}:${height}/q:80/f:webp/s3://${this.r2BuckName}/${objectKey}`;
+    const sourceUrl = `s3://${this.r2BuckName}/${objectKey}`;
+    const encodedSource = Buffer.from(sourceUrl).toString('base64url');
+    const path = `/rs:fit:${width}:${height}/q:80/f:webp/${encodedSource}`;
     const signature = this.sign(path);
     return `${this.imgproxyBaseUrl}/${signature}${path}`;
   }
