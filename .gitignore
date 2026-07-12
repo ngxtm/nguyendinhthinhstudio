@@ -2,6 +2,9 @@
 .serena
 .scannerwork
 
+# Local Git worktrees
+.worktrees/
+
 # Cursor
 .cursor/
 
