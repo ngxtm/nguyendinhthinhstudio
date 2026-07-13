@@ -250,6 +250,86 @@ describe('ImagesService upload sessions', () => {
     expect(harness.rows.images).toEqual([]);
   });
 
+  it('rejects a finalizing session while its ten-minute lease is still active', async () => {
+    const harness = createHarness(
+      activeUpload({
+        status: 'finalizing',
+        sourceEtag: '"source-etag"',
+        finalizationStartedAt: new Date(NOW.getTime() - 9 * 60 * 1000),
+      }),
+    );
+
+    await expect(
+      harness.createService().confirmUpload({ uploadId: UPLOAD_ID } as any),
+    ).rejects.toThrow('Upload session is already being finalized');
+
+    expect(harness.storage.verifyObject).not.toHaveBeenCalled();
+    expect(harness.storage.promoteObject).not.toHaveBeenCalled();
+    expect(harness.prisma.imageUpload.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('reclaims a stale finalizing session when its temporary object ETag still matches', async () => {
+    const staleLeaseStartedAt = new Date(NOW.getTime() - 11 * 60 * 1000);
+    const harness = createHarness(
+      activeUpload({
+        status: 'finalizing',
+        sourceEtag: '"source-etag"',
+        finalizationStartedAt: staleLeaseStartedAt,
+      }),
+    );
+    harness.prisma.imageUpload.updateMany
+      .mockResolvedValueOnce({ count: 1 })
+      .mockResolvedValueOnce({ count: 1 });
+
+    await expect(
+      harness.createService().confirmUpload({ uploadId: UPLOAD_ID } as any),
+    ).resolves.toEqual(expect.objectContaining({ r2ObjectKey: FINAL_KEY }));
+
+    expect(harness.prisma.imageUpload.updateMany).toHaveBeenNthCalledWith(1, {
+      where: {
+        id: UPLOAD_ID,
+        status: 'finalizing',
+        sourceEtag: '"source-etag"',
+        finalizationStartedAt: {
+          lte: new Date(NOW.getTime() - 10 * 60 * 1000),
+        },
+      },
+      data: {
+        status: 'pending',
+        sourceEtag: null,
+        finalizationStartedAt: null,
+      },
+    });
+    expect(harness.storage.promoteObject).toHaveBeenCalledTimes(1);
+  });
+
+  it('fails a stale finalizing session when its temporary object ETag changed', async () => {
+    const harness = createHarness(
+      activeUpload({
+        status: 'finalizing',
+        sourceEtag: '"original-etag"',
+        finalizationStartedAt: new Date(NOW.getTime() - 11 * 60 * 1000),
+      }),
+    );
+    harness.storage.verifyObject.mockResolvedValueOnce('"replacement-etag"');
+
+    await expect(
+      harness.createService().confirmUpload({ uploadId: UPLOAD_ID } as any),
+    ).rejects.toThrow('Uploaded object ETag does not match finalizing lease');
+
+    expect(harness.prisma.imageUpload.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: UPLOAD_ID,
+        status: 'finalizing',
+        sourceEtag: '"original-etag"',
+      },
+      data: { status: 'failed' },
+    });
+    expect(harness.prisma.imageUpload.update).not.toHaveBeenCalled();
+    expect(harness.storage.promoteObject).not.toHaveBeenCalled();
+    expect(harness.prisma.image.create).not.toHaveBeenCalled();
+  });
+
   it('rejects a missing temporary object and marks the persisted session failed', async () => {
     const harness = createHarness();
     harness.storage.verifyObject.mockRejectedValueOnce(

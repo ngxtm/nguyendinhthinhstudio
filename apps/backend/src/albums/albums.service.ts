@@ -8,6 +8,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../images/storage.service';
 import { UploadCleanupService } from '../images/upload-cleanup.service';
+import { runSerializableWithRetry } from '../prisma/serializable-retry';
 import {
   Album as PrismaAlbum,
   Category as PrismaCategory,
@@ -457,68 +458,79 @@ export class AlbumsService {
    * Delete album and all its images
    */
   async remove(id: string) {
-    const album = await this.prisma.album.findUnique({
-      where: { id },
-      include: {
-        images: {
-          where: { r2ObjectKey: { not: null } },
-        },
-      },
-    });
-
-    if (!album) {
-      throw new NotFoundException('Album not found');
-    }
-
     const lock = await (this.prisma as any).album.updateMany({
       where: { id, deleteStatus: 'active' },
       data: { deleteStatus: 'deleting', deleteStartedAt: new Date() },
     });
-    if (lock.count === 0 && (album as any).deleteStatus !== 'deleting')
-      throw new ConflictException('Album deletion is already in progress');
-    await this.uploadCleanup.cleanupExpired(id);
-    const activeUploads = await (this.prisma as any).imageUpload.count({
-      where: {
-        albumId: id,
-        status: { in: ['pending', 'finalizing'] },
-        expiresAt: { gt: new Date() },
-      },
-    });
-    if (activeUploads > 0)
-      throw new ConflictException(
-        'Album is locked for deletion; retry after active uploads finish or expire',
-      );
-    await this.prisma.$transaction(async (tx: any) => {
-      for (const image of album.images) {
-        if (!image.r2ObjectKey) continue;
-        const provider = image.r2ObjectKey.startsWith('albums/')
-          ? 'r2'
-          : 'cloudflare_legacy';
-        await tx.imageObjectDeletion.upsert({
-          where: {
-            provider_objectKey: { provider, objectKey: image.r2ObjectKey },
-          },
-          create: {
-            imageId: image.id,
-            provider,
-            objectKey: image.r2ObjectKey,
-            status: provider === 'r2' ? 'pending' : 'deferred',
-          },
-          update: {},
-        });
-      }
-      await tx.imageUpload.deleteMany({
-        where: { albumId: id, status: { in: ['consumed', 'failed'] } },
+    if (lock.count === 0) {
+      const persisted = await this.prisma.album.findUnique({
+        where: { id },
+        select: { deleteStatus: true },
       });
-      await tx.album.delete({ where: { id } });
-    });
+      if (!persisted) throw new NotFoundException('Album not found');
+      if ((persisted as any).deleteStatus !== 'deleting') {
+        throw new ConflictException('Album deletion is already in progress');
+      }
+    }
+    await this.uploadCleanup.cleanupExpired(id);
+    const imagesDeleted = await runSerializableWithRetry(() =>
+      this.prisma.$transaction(
+        async (tx: any) => {
+          const album = await tx.album.findUnique({
+            where: { id },
+            include: {
+              images: { where: { r2ObjectKey: { not: null } } },
+            },
+          });
+          if (!album) throw new NotFoundException('Album not found');
 
-    this.logger.log(
-      `Album deleted: ${id} (${album.images.length} images removed)`,
+          const activeUploads = await tx.imageUpload.count({
+            where: {
+              albumId: id,
+              status: { in: ['pending', 'finalizing'] },
+            },
+          });
+          if (activeUploads > 0) {
+            throw new ConflictException(
+              'Album is locked for deletion; retry after active uploads finish or expire',
+            );
+          }
+
+          for (const image of album.images) {
+            if (!image.r2ObjectKey) continue;
+            const provider = image.r2ObjectKey.startsWith('albums/')
+              ? 'r2'
+              : 'cloudflare_legacy';
+            await tx.imageObjectDeletion.upsert({
+              where: {
+                provider_objectKey: {
+                  provider,
+                  objectKey: image.r2ObjectKey,
+                },
+              },
+              create: {
+                imageId: image.id,
+                provider,
+                objectKey: image.r2ObjectKey,
+                status: provider === 'r2' ? 'pending' : 'deferred',
+              },
+              update: {},
+            });
+          }
+          await tx.imageUpload.deleteMany({
+            where: { albumId: id, status: { in: ['consumed', 'failed'] } },
+          });
+          await tx.album.delete({ where: { id } });
+          return album.images.length;
+        },
+        { isolationLevel: 'Serializable' as any },
+      ),
     );
+
+    this.logger.log(`Album deleted: ${id} (${imagesDeleted} images removed)`);
     return {
       message: 'Album deleted successfully',
-      imagesDeleted: album.images.length,
+      imagesDeleted,
     };
   }
 
