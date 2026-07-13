@@ -54,8 +54,8 @@ describe('image confirmation concurrency (PostgreSQL)', () => {
       );
 
     // This repository starts its migration history after the initial schema.
-    // Build the existing pre-Phase-4/5 schema, remove the Phase-4/5 structures,
-    // then apply the committed Phase-4/5 migrations exactly as production does.
+    // Build the current schema, remove rollout-only structures, then replay the
+    // committed rollout migrations exactly as production does.
     await runPrisma([
       'db',
       'push',
@@ -65,6 +65,9 @@ describe('image confirmation concurrency (PostgreSQL)', () => {
       schemaPath,
     ]);
     const baselineClient = new PrismaClient({ datasourceUrl: databaseUrl });
+    await baselineClient.$executeRawUnsafe(
+      'DROP TABLE "CloudflareStaticAssetMigration"',
+    );
     await baselineClient.$executeRawUnsafe(
       'DROP TABLE "ImageStorageMigration"',
     );
