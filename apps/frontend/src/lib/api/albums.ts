@@ -34,7 +34,7 @@ export interface Image {
   id: string;
   albumId?: string;
   filename: string;
-  cloudflareImageId?: string;
+  r2ObjectKey?: string;
   thumbnailUrl: string;
   smallUrl: string;
   mediumUrl: string;

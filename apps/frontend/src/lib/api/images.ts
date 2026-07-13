@@ -22,7 +22,7 @@ export interface UploadRequestDto {
 /**
  * Upload workflow với accurate progress tracking:
  * 1. Request presigned URL từ backend (0-10%)
- * 2. Upload file trực tiếp lên Cloudflare (10-90%)
+ * 2. Upload file trực tiếp lên object storage (10-90%)
  * 3. Gọi backend để confirm và lưu vào DB (90-100%)
  */
 export async function uploadImage(
@@ -50,21 +50,19 @@ export async function uploadImage(
 
     onProgress?.(10); // URL received
 
-    // Step 2: Upload to Cloudflare (10-90%)
-    await uploadFile(uploadUrl, file, (cloudflareProgress) => {
-      // Map Cloudflare progress (0-100%) to our range (10-90%)
-      const mappedProgress = 10 + (cloudflareProgress * 0.8);
+    // Step 2: Upload to object storage (10-90%)
+    await uploadFile(uploadUrl, file, (uploadProgress) => {
+      // Map storage upload progress (0-100%) to our range (10-90%)
+      const mappedProgress = 10 + uploadProgress * 0.8;
       onProgress?.(mappedProgress);
     });
 
-    onProgress?.(90); // Upload to Cloudflare complete
+    onProgress?.(90); // Object storage upload complete
 
     // Step 3: Confirm upload to backend (90-100%)
     await apiClient('/images/confirm-upload', {
       method: 'POST',
-      body: JSON.stringify({
-        uploadId: uploadId,
-      }),
+      body: JSON.stringify({ uploadId }),
     });
 
     onProgress?.(100); // Fully complete

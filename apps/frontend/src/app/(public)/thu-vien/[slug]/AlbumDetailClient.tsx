@@ -71,18 +71,6 @@ export default function AlbumDetailClient({ album, relatedAlbums }: Props) {
     })
   }, [album.images])
 
-  // Helper function to get high-quality image URL using flexible variants
-  const getHighQualityUrl = (imageUrl: string) => {
-    const match = imageUrl.match(/imagedelivery\.net\/[^/]+\/([^/]+)\//)
-    if (match && match[1]) {
-      const imageId = match[1]
-      const hash = process.env.NEXT_PUBLIC_CLOUDFLARE_IMAGES_HASH
-      // Use xlarge variant with max width for ultra high quality
-      return `https://imagedelivery.net/${hash}/${imageId}/xlarge?width=3840&quality=80&format=auto`
-    }
-    return imageUrl
-  }
-
   // Initialize PhotoSwipe
   useEffect(() => {
     if (!album.images || album.images.length === 0) return
@@ -267,7 +255,12 @@ export default function AlbumDetailClient({ album, relatedAlbums }: Props) {
                   columnClassName="pl-4 md:pl-6 bg-clip-padding"
                 >
                   {album.images.map((image, index) => {
-                    const highQualityUrl = getHighQualityUrl(image.xlargeUrl)
+                    const highQualityUrl =
+                      image.xlargeUrl ||
+                      image.largeUrl ||
+                      image.mediumUrl ||
+                      image.smallUrl ||
+                      image.thumbnailUrl
                     // Use real dimensions from state (loaded from image) or fallback to DB values
                     const dimensions = imageDimensions[image.id] || {
                       width: image.width || 3840,

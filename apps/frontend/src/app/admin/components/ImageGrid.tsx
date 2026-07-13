@@ -13,22 +13,6 @@ import { toast } from 'sonner';
 import { usePhotoSwipe } from '@/lib/photoswipe';
 import 'photoswipe/style.css';
 
-const CLOUDFLARE_HASH = process.env.NEXT_PUBLIC_CLOUDFLARE_IMAGES_HASH;
-
-function getHighQualityUrl(imageUrl?: string | null) {
-  if (!imageUrl) {
-    return null;
-  }
-
-  const match = imageUrl.match(/imagedelivery\.net\/[^/]+\/([^/]+)\//);
-  if (match && match[1] && CLOUDFLARE_HASH) {
-    const imageId = match[1];
-    return `https://imagedelivery.net/${CLOUDFLARE_HASH}/${imageId}/xlarge?width=3840&quality=80&format=auto`;
-  }
-
-  return imageUrl;
-}
-
 interface Props {
   images: Image[];
   coverImageId?: string;
@@ -292,6 +276,12 @@ function AlbumImageTile({
   const touchStartX = useRef<number | null>(null);
   const touchStartY = useRef<number | null>(null);
   const [isActionPending, setIsActionPending] = useState(false);
+  const lightboxUrl =
+    image.xlargeUrl ||
+    image.largeUrl ||
+    image.mediumUrl ||
+    image.smallUrl ||
+    image.thumbnailUrl;
 
   const resetTouch = () => {
     touchStartX.current = null;
@@ -386,8 +376,8 @@ function AlbumImageTile({
     >
       <div className="relative" style={{ animation: `fadeInUp 0.6s ease-out ${index * 0.04}s both` }}>
         <a
-          href={getHighQualityUrl(image.xlargeUrl || image.largeUrl) || image.largeUrl || image.mediumUrl || image.smallUrl || image.thumbnailUrl}
-          data-pswp-src={getHighQualityUrl(image.xlargeUrl || image.largeUrl) || image.largeUrl || image.mediumUrl || image.smallUrl || image.thumbnailUrl}
+          href={lightboxUrl}
+          data-pswp-src={lightboxUrl}
           data-pswp-width={dimensions.width}
           data-pswp-height={dimensions.height}
           className="block"
