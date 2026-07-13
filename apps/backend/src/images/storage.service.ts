@@ -1,10 +1,12 @@
 import {
+  CopyObjectCommand,
   DeleteObjectCommand,
+  HeadObjectCommand,
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'crypto';
 
@@ -27,15 +29,28 @@ export class StorageService {
     this.bucketname = config.get<string>('CLOUDFLARE_R2_BUCKET_NAME');
   }
 
-  async getPresignedUploadUrl(
-    albumId: string,
-    filename: string,
-    contentType: string,
-    uploadId: string,
-    filesize: number,
-  ): Promise<{ uploadUrl: string; objectKey: string }> {
-    const objectKey = `albums/${albumId}/${randomUUID()}-${filename}`;
+  private safeFilename(filename: string): string {
+    const basename = filename.replace(/\\/g, '/').split('/').pop() ?? '';
+    const sanitized = basename.replace(/[\x00-\x1F\x7F]/g, '').trim();
+    if (!sanitized || sanitized.includes('/')) {
+      throw new BadRequestException('Invalid filename');
+    }
+    return sanitized;
+  }
 
+  createUploadObjectKey(uploadId: string, filename: string): string {
+    return `uploads/${uploadId}/${this.safeFilename(filename)}`;
+  }
+
+  createFinalObjectKey(albumId: string, filename: string): string {
+    return `albums/${albumId}/${randomUUID()}-${this.safeFilename(filename)}`;
+  }
+
+  async getPresignedUploadUrl(
+    objectKey: string,
+    contentType: string,
+    filesize: number,
+  ): Promise<string> {
     const putObjectCommand = new PutObjectCommand({
       Bucket: this.bucketname,
       Key: objectKey,
@@ -46,7 +61,7 @@ export class StorageService {
     const uploadUrl = await getSignedUrl(this.s3, putObjectCommand, {
       expiresIn: 3600,
     });
-    return { uploadUrl, objectKey };
+    return uploadUrl;
   }
 
   async deleteObject(objectKey: string): Promise<void> {
@@ -62,5 +77,47 @@ export class StorageService {
       this.logger.error(`Failed to delete object: ${objectKey}`, error);
       throw error;
     }
+  }
+
+  async verifyObject(
+    objectKey: string,
+    expected: { contentType: string; fileSize: number },
+  ): Promise<string> {
+    const result = await this.s3.send(
+      new HeadObjectCommand({ Bucket: this.bucketname, Key: objectKey }),
+    );
+    if (result.ContentLength !== expected.fileSize) {
+      throw new BadRequestException('Uploaded object size does not match');
+    }
+    if (result.ContentType !== expected.contentType) {
+      throw new BadRequestException(
+        'Uploaded object content type does not match',
+      );
+    }
+    if (!result.ETag?.trim()) {
+      throw new BadRequestException('Uploaded object ETag is missing');
+    }
+    return result.ETag;
+  }
+
+  async promoteObject(
+    uploadObjectKey: string,
+    finalObjectKey: string,
+    sourceEtag: string,
+    expected: { contentType: string; fileSize: number },
+  ): Promise<void> {
+    const copySource = encodeURIComponent(
+      `${this.bucketname}/${uploadObjectKey}`,
+    ).replace(/%2F/g, '/');
+    await this.s3.send(
+      new CopyObjectCommand({
+        Bucket: this.bucketname,
+        Key: finalObjectKey,
+        CopySource: copySource,
+        CopySourceIfMatch: sourceEtag,
+        MetadataDirective: 'COPY',
+      }),
+    );
+    await this.verifyObject(finalObjectKey, expected);
   }
 }

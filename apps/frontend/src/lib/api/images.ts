@@ -60,11 +60,10 @@ export async function uploadImage(
     onProgress?.(90); // Upload to Cloudflare complete
 
     // Step 3: Confirm upload to backend (90-100%)
-    await apiClient('/images/webhook', {
+    await apiClient('/images/confirm-upload', {
       method: 'POST',
       body: JSON.stringify({
         uploadId: uploadId,
-        cloudflareImageId: uploadId,
       }),
     });
 

@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../images/storage.service';
+import { UploadCleanupService } from '../images/upload-cleanup.service';
 import {
   Album as PrismaAlbum,
   Category as PrismaCategory,
@@ -44,6 +45,7 @@ export class AlbumsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
+    private readonly uploadCleanup: UploadCleanupService,
   ) {}
 
   /**
@@ -83,7 +85,9 @@ export class AlbumsService {
     // Create album
     const { tagSlugs, categoryIds, ...albumData } = createAlbumDto;
 
-    const sanitizedAlbumData = this.sanitizeAlbumPayload(albumData) as typeof albumData;
+    const sanitizedAlbumData = this.sanitizeAlbumPayload(
+      albumData,
+    ) as typeof albumData;
 
     const categoryAssignments =
       await this.buildCategoryAssignments(categoryIds);
@@ -138,16 +142,8 @@ export class AlbumsService {
    * Find albums with filtering and pagination
    */
   async findAll(query: QueryAlbumsDto) {
-    const {
-      status,
-      category,
-      tag,
-      isFeatured,
-      limit,
-      cursor,
-      sortBy,
-      search,
-    } = query;
+    const { status, category, tag, isFeatured, limit, cursor, sortBy, search } =
+      query;
 
     const filters: Prisma.AlbumWhereInput[] = [];
 
@@ -226,8 +222,8 @@ export class AlbumsService {
       filters.length === 0
         ? undefined
         : filters.length === 1
-        ? filters[0]
-        : { AND: filters };
+          ? filters[0]
+          : { AND: filters };
 
     const limitValue = Math.min(Math.max(limit ?? 20, 1), 50);
 
@@ -407,7 +403,9 @@ export class AlbumsService {
 
     const { tagSlugs, categoryIds, ...albumData } = updateAlbumDto;
 
-    const sanitizedAlbumData = this.sanitizeAlbumPayload(albumData) as typeof albumData;
+    const sanitizedAlbumData = this.sanitizeAlbumPayload(
+      albumData,
+    ) as typeof albumData;
 
     let categoryOperations: any = undefined;
     if (categoryIds !== undefined) {
@@ -472,31 +470,47 @@ export class AlbumsService {
       throw new NotFoundException('Album not found');
     }
 
-    if (album.images.length > 0) {
-      this.logger.log(
-        `Deleting ${album.images.length} images from R2 for album ${id}`,
+    const lock = await (this.prisma as any).album.updateMany({
+      where: { id, deleteStatus: 'active' },
+      data: { deleteStatus: 'deleting', deleteStartedAt: new Date() },
+    });
+    if (lock.count === 0 && (album as any).deleteStatus !== 'deleting')
+      throw new ConflictException('Album deletion is already in progress');
+    await this.uploadCleanup.cleanupExpired(id);
+    const activeUploads = await (this.prisma as any).imageUpload.count({
+      where: {
+        albumId: id,
+        status: { in: ['pending', 'finalizing'] },
+        expiresAt: { gt: new Date() },
+      },
+    });
+    if (activeUploads > 0)
+      throw new ConflictException(
+        'Album is locked for deletion; retry after active uploads finish or expire',
       );
-
-      const deletePromises = album.images.map(async (image) => {
-        if (image.r2ObjectKey) {
-          try {
-            await this.storage.deleteObject(image.r2ObjectKey);
-            this.logger.log(`Deleted R2 object: ${image.r2ObjectKey}`);
-          } catch (error) {
-            this.logger.error(
-              `Failed to delete R2 object ${image.r2ObjectKey}: ${error}`,
-            );
-            // Continue even if object deletion fails
-          }
-        }
+    await this.prisma.$transaction(async (tx: any) => {
+      for (const image of album.images) {
+        if (!image.r2ObjectKey) continue;
+        const provider = image.r2ObjectKey.startsWith('albums/')
+          ? 'r2'
+          : 'cloudflare_legacy';
+        await tx.imageObjectDeletion.upsert({
+          where: {
+            provider_objectKey: { provider, objectKey: image.r2ObjectKey },
+          },
+          create: {
+            imageId: image.id,
+            provider,
+            objectKey: image.r2ObjectKey,
+            status: provider === 'r2' ? 'pending' : 'deferred',
+          },
+          update: {},
+        });
+      }
+      await tx.imageUpload.deleteMany({
+        where: { albumId: id, status: { in: ['consumed', 'failed'] } },
       });
-
-      await Promise.all(deletePromises);
-    }
-
-    // Step 2: Delete album (images will be cascade deleted from database)
-    await this.prisma.album.delete({
-      where: { id },
+      await tx.album.delete({ where: { id } });
     });
 
     this.logger.log(
@@ -613,10 +627,12 @@ export class AlbumsService {
   ): Partial<CreateAlbumDto | UpdateAlbumDto> {
     const sanitized: Record<string, any> = { ...data };
 
-    const optionalStrings: Array<keyof Pick<
-      CreateAlbumDto,
-      'description' | 'metaTitle' | 'metaDescription' | 'googleDriveLink'
-    >> = ['description', 'metaTitle', 'metaDescription', 'googleDriveLink'];
+    const optionalStrings: Array<
+      keyof Pick<
+        CreateAlbumDto,
+        'description' | 'metaTitle' | 'metaDescription' | 'googleDriveLink'
+      >
+    > = ['description', 'metaTitle', 'metaDescription', 'googleDriveLink'];
 
     optionalStrings.forEach((field) => {
       if (field in sanitized) {
@@ -739,17 +755,18 @@ export class AlbumsService {
   }
 
   async getDashboardStats() {
-    const [totalAlbums, publishedAlbums, draftAlbums, aggregates] = await Promise.all([
-      this.prisma.album.count(),
-      this.prisma.album.count({ where: { status: 'published' } }),
-      this.prisma.album.count({ where: { status: 'draft' } }),
-      this.prisma.album.aggregate({
-        _sum: {
-          imageCount: true,
-          viewCount: true,
-        },
-      }),
-    ]);
+    const [totalAlbums, publishedAlbums, draftAlbums, aggregates] =
+      await Promise.all([
+        this.prisma.album.count(),
+        this.prisma.album.count({ where: { status: 'published' } }),
+        this.prisma.album.count({ where: { status: 'draft' } }),
+        this.prisma.album.aggregate({
+          _sum: {
+            imageCount: true,
+            viewCount: true,
+          },
+        }),
+      ]);
 
     return {
       totalAlbums,

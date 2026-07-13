@@ -24,8 +24,10 @@ RUN npx nest build
 # Replace path aliases with relative paths (critical for runtime)
 RUN npx tsc-alias -p tsconfig.build.json
 
-# Verify build output
-RUN ls -la dist/src/ && test -f dist/src/main.js
+# Verify API and scheduled-job entrypoints are available in the runtime image.
+RUN test -f dist/src/main.js && \
+    test -f dist/scripts/cleanup-expired-image-uploads.js && \
+    test -f dist/scripts/process-image-deletions.js
 
 # Stage 2: Production
 FROM base AS runner
