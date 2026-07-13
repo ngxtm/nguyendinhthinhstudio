@@ -179,15 +179,18 @@ Expected: `healthy`.
 ## Migration failure
 
 Do not run `prisma migrate dev`, `prisma db push`, append `|| true`, or edit an
-already-applied migration. Read the failed migration log first, then inspect
-status from a backend image/container that contains the same release:
+already-applied migration. Read the failed migration log first. Then use the
+failed container's Compose labels to run status with the same migration image,
+project, configuration, and environment:
 
 ```sh
-docker exec "$BID" sh -c '
-cd /app &&
-./node_modules/.bin/prisma migrate status \
+PROJECT=$(docker inspect -f '{{ index .Config.Labels "com.docker.compose.project" }}' "$MID")
+WORKDIR=$(docker inspect -f '{{ index .Config.Labels "com.docker.compose.project.working_dir" }}' "$MID")
+CONFIG=$(docker inspect -f '{{ index .Config.Labels "com.docker.compose.project.config_files" }}' "$MID")
+cd "$WORKDIR"
+docker compose -p "$PROJECT" -f "$CONFIG" run --rm backend-migrate \
+  /app/node_modules/.bin/prisma migrate status \
   --schema /app/prisma/schema.prisma
-'
 ```
 
 Use `prisma migrate resolve` only after confirming whether the SQL completed and
