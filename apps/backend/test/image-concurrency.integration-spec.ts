@@ -20,6 +20,12 @@ type UploadFixture = {
   finalObjectKey: string;
 };
 
+type MigrationJournalFixture = {
+  imageId: string;
+  legacyCloudflareImageId: string;
+  targetR2ObjectKey: string;
+};
+
 describe('image confirmation concurrency (PostgreSQL)', () => {
   let container: StartedPostgreSqlContainer;
   let prisma: PrismaClient;
@@ -48,8 +54,8 @@ describe('image confirmation concurrency (PostgreSQL)', () => {
       );
 
     // This repository starts its migration history after the initial schema.
-    // Build the existing pre-Phase-4 schema, remove the Phase-4 structures,
-    // then apply the committed Phase-4 migrations exactly as production does.
+    // Build the existing pre-Phase-4/5 schema, remove the Phase-4/5 structures,
+    // then apply the committed Phase-4/5 migrations exactly as production does.
     await runPrisma([
       'db',
       'push',
@@ -59,6 +65,9 @@ describe('image confirmation concurrency (PostgreSQL)', () => {
       schemaPath,
     ]);
     const baselineClient = new PrismaClient({ datasourceUrl: databaseUrl });
+    await baselineClient.$executeRawUnsafe(
+      'DROP TABLE "ImageStorageMigration"',
+    );
     await baselineClient.$executeRawUnsafe('DROP TABLE "ImageObjectDeletion"');
     await baselineClient.$executeRawUnsafe('DROP TABLE "ImageUpload"');
     await baselineClient.$executeRawUnsafe(
@@ -93,6 +102,7 @@ describe('image confirmation concurrency (PostgreSQL)', () => {
 
   afterEach(async () => {
     if (!prisma) return;
+    await prisma.$executeRawUnsafe('DELETE FROM "ImageStorageMigration"');
     await prisma.imageUpload.deleteMany();
     await prisma.image.deleteMany();
     await prisma.album.deleteMany();
@@ -143,6 +153,24 @@ describe('image confirmation concurrency (PostgreSQL)', () => {
       },
     });
     return { id, uploadObjectKey, finalObjectKey };
+  }
+
+  async function createMigrationJournal(
+    overrides: Partial<MigrationJournalFixture> = {},
+  ): Promise<MigrationJournalFixture> {
+    const row = {
+      imageId: randomUUID(),
+      legacyCloudflareImageId: `legacy-${randomUUID()}`,
+      targetR2ObjectKey: `migration/${randomUUID()}.jpg`,
+      ...overrides,
+    };
+    await prisma.$executeRawUnsafe(
+      'INSERT INTO "ImageStorageMigration" ("imageId", "legacyCloudflareImageId", "targetR2ObjectKey", "updatedAt") VALUES ($1, $2, $3, CURRENT_TIMESTAMP)',
+      row.imageId,
+      row.legacyCloudflareImageId,
+      row.targetR2ObjectKey,
+    );
+    return row;
   }
 
   function createService() {
@@ -245,5 +273,65 @@ describe('image confirmation concurrency (PostgreSQL)', () => {
     await expect(
       prisma.imageUpload.findUnique({ where: { id: upload.id } }),
     ).resolves.toEqual(expect.objectContaining({ albumId: album.id }));
+  });
+
+  describe('ImageStorageMigration journal', () => {
+    it('defaults status to pending', async () => {
+      const row = await createMigrationJournal();
+
+      const stored = await prisma.$queryRawUnsafe<Array<{ status: string }>>(
+        'SELECT "status" FROM "ImageStorageMigration" WHERE "imageId" = $1',
+        row.imageId,
+      );
+
+      expect(stored).toEqual([{ status: 'pending' }]);
+    });
+
+    it('enforces unique legacy Cloudflare ids and target R2 object keys', async () => {
+      const first = await createMigrationJournal();
+
+      await expect(
+        createMigrationJournal({
+          legacyCloudflareImageId: first.legacyCloudflareImageId,
+        }),
+      ).rejects.toMatchObject({ code: 'P2010' });
+      await expect(
+        createMigrationJournal({
+          targetR2ObjectKey: first.targetR2ObjectKey,
+        }),
+      ).rejects.toMatchObject({ code: 'P2010' });
+    });
+
+    it('accepts a nonexistent imageId and survives deletion of a later Image with that id', async () => {
+      const imageId = randomUUID();
+      const journal = await createMigrationJournal({ imageId });
+      const beforeImageExists = await prisma.$queryRawUnsafe<
+        Array<{ imageId: string }>
+      >(
+        'SELECT "imageId" FROM "ImageStorageMigration" WHERE "imageId" = $1',
+        imageId,
+      );
+      expect(beforeImageExists).toEqual([{ imageId }]);
+
+      const album = await createAlbumWithImages(0);
+      await prisma.image.create({
+        data: {
+          id: imageId,
+          albumId: album.id,
+          filename: 'migration-source.jpg',
+          r2ObjectKey: `albums/${album.id}/migration-source.jpg`,
+          uploadStatus: 'completed',
+        },
+      });
+      await prisma.image.delete({ where: { id: imageId } });
+
+      const afterImageDeletion = await prisma.$queryRawUnsafe<
+        Array<MigrationJournalFixture>
+      >(
+        'SELECT "imageId", "legacyCloudflareImageId", "targetR2ObjectKey" FROM "ImageStorageMigration" WHERE "imageId" = $1',
+        imageId,
+      );
+      expect(afterImageDeletion).toEqual([journal]);
+    });
   });
 });

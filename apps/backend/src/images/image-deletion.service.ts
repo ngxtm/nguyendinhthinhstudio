@@ -10,7 +10,7 @@ export class ImageDeletionService {
   ) {}
 
   async processPending(limit = 100) {
-    const rows = await (this.prisma as any).imageObjectDeletion.findMany({
+    const rows = await this.prisma.imageObjectDeletion.findMany({
       where: { provider: 'r2', status: 'pending' },
       orderBy: { createdAt: 'asc' },
       take: limit,
@@ -20,9 +20,30 @@ export class ImageDeletionService {
     for (const row of rows) {
       try {
         await this.storage.deleteObject(row.objectKey);
-        await (this.prisma as any).imageObjectDeletion.update({
-          where: { id: row.id },
-          data: { status: 'deleted', deletedAt: new Date() },
+        const deletedAt = new Date();
+        await this.prisma.$transaction(async (transaction) => {
+          await transaction.imageObjectDeletion.update({
+            where: { id: row.id },
+            data: { status: 'deleted', deletedAt },
+          });
+          if (!row.imageId) return;
+
+          const image = await transaction.image.findUnique({
+            where: { id: row.imageId },
+          });
+          if (image) return;
+
+          await transaction.imageStorageMigration.updateMany({
+            where: {
+              imageId: row.imageId,
+              targetR2ObjectKey: row.objectKey,
+              status: 'failed',
+            },
+            data: {
+              status: 'skipped_deleted',
+              error: null,
+            },
+          });
         });
         deleted++;
       } catch (error) {
@@ -30,7 +51,7 @@ export class ImageDeletionService {
           error instanceof Error
             ? error.message.slice(0, 500)
             : 'Object deletion failed';
-        await (this.prisma as any).imageObjectDeletion.update({
+        await this.prisma.imageObjectDeletion.update({
           where: { id: row.id },
           data: {
             status: 'pending',
