@@ -1,3 +1,7 @@
+x-backend-build: &backend-build
+  context: .
+  dockerfile: apps/backend/Dockerfile
+
 services:
   frontend:
     build:
@@ -23,10 +27,26 @@ services:
     networks:
       - dokploy-network
 
+  backend-migrate:
+    build: *backend-build
+    command:
+      - /app/node_modules/.bin/prisma
+      - migrate
+      - deploy
+      - --schema
+      - /app/prisma/schema.prisma
+    restart: "no"
+    environment:
+      - DATABASE_URL=${DATABASE_URL:?DATABASE_URL is required}
+      - DIRECT_URL=${DIRECT_URL:?DIRECT_URL is required}
+    networks:
+      - dokploy-network
+
   backend:
-    build:
-      context: .
-      dockerfile: apps/backend/Dockerfile
+    build: *backend-build
+    depends_on:
+      backend-migrate:
+        condition: service_completed_successfully
     restart: unless-stopped
     expose:
       - "3000"
