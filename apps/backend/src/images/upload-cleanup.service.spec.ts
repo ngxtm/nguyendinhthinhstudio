@@ -7,6 +7,7 @@ const SEVEN_DAYS_MS = 7 * 24 * ONE_HOUR_MS;
 function createHarness(
   options: {
     expired?: Array<Record<string, unknown>>;
+    staleFinalizing?: Array<Record<string, unknown>>;
     consumed?: Array<Record<string, unknown>>;
     referencedFinalObjects?: number;
   } = {},
@@ -16,6 +17,7 @@ function createHarness(
       findMany: jest
         .fn()
         .mockResolvedValueOnce(options.expired ?? [])
+        .mockResolvedValueOnce(options.staleFinalizing ?? [])
         .mockResolvedValueOnce(options.consumed ?? []),
       deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
     },
@@ -65,16 +67,15 @@ describe('UploadCleanupService', () => {
     const graceCutoff = new Date(NOW.getTime() - ONE_HOUR_MS);
     expect(prisma.imageUpload.findMany).toHaveBeenNthCalledWith(1, {
       where: {
-        OR: [
-          {
-            status: { in: ['pending', 'failed'] },
-            expiresAt: { lt: graceCutoff },
-          },
-          {
-            status: 'finalizing',
-            finalizationStartedAt: { lt: graceCutoff },
-          },
-        ],
+        status: { in: ['pending', 'failed'] },
+        expiresAt: { lt: graceCutoff },
+      },
+      take: 100,
+    });
+    expect(prisma.imageUpload.findMany).toHaveBeenNthCalledWith(2, {
+      where: {
+        status: 'finalizing',
+        finalizationStartedAt: { lt: graceCutoff },
       },
       take: 100,
     });
@@ -103,16 +104,16 @@ describe('UploadCleanupService', () => {
     expect(prisma.imageUpload.findMany).toHaveBeenNthCalledWith(1, {
       where: {
         albumId: 'album-1',
-        OR: [
-          {
-            status: { in: ['pending', 'failed'] },
-            expiresAt: { lt: graceCutoff },
-          },
-          {
-            status: 'finalizing',
-            finalizationStartedAt: { lt: graceCutoff },
-          },
-        ],
+        status: { in: ['pending', 'failed'] },
+        expiresAt: { lt: graceCutoff },
+      },
+      take: 100,
+    });
+    expect(prisma.imageUpload.findMany).toHaveBeenNthCalledWith(2, {
+      where: {
+        albumId: 'album-1',
+        status: 'finalizing',
+        finalizationStartedAt: { lt: graceCutoff },
       },
       take: 100,
     });
@@ -127,7 +128,7 @@ describe('UploadCleanupService', () => {
       uploadObjectKey: 'uploads/u-finalizing/a.jpg',
       finalObjectKey: 'albums/a/finalizing.jpg',
     };
-    const { prisma, service } = createHarness({ expired: [session] });
+    const { prisma, service } = createHarness({ staleFinalizing: [session] });
 
     await service.cleanupExpired();
 
@@ -203,7 +204,7 @@ describe('UploadCleanupService', () => {
     await service.cleanupExpired();
 
     const consumedCutoff = new Date(NOW.getTime() - SEVEN_DAYS_MS);
-    expect(prisma.imageUpload.findMany).toHaveBeenNthCalledWith(2, {
+    expect(prisma.imageUpload.findMany).toHaveBeenNthCalledWith(3, {
       where: {
         status: 'consumed',
         consumedAt: { lt: consumedCutoff },
@@ -232,6 +233,8 @@ describe('UploadCleanupService', () => {
     prisma.imageUpload.findMany
       .mockReset()
       .mockResolvedValueOnce([session])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([]);

@@ -317,11 +317,15 @@ describe('ImagesService upload sessions', () => {
       harness.createService().confirmUpload({ uploadId: UPLOAD_ID } as any),
     ).rejects.toThrow('Uploaded object ETag does not match finalizing lease');
 
-    expect(harness.prisma.imageUpload.update).toHaveBeenCalledWith({
-      where: { id: UPLOAD_ID },
+    expect(harness.prisma.imageUpload.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: UPLOAD_ID,
+        status: 'finalizing',
+        sourceEtag: '"original-etag"',
+      },
       data: { status: 'failed' },
     });
-    expect(harness.prisma.imageUpload.updateMany).not.toHaveBeenCalled();
+    expect(harness.prisma.imageUpload.update).not.toHaveBeenCalled();
     expect(harness.storage.promoteObject).not.toHaveBeenCalled();
     expect(harness.prisma.image.create).not.toHaveBeenCalled();
   });

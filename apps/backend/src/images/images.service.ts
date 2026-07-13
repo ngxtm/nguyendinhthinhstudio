@@ -134,8 +134,12 @@ export class ImagesService {
     }
     if (session.status === 'finalizing') {
       if (!session.sourceEtag || session.sourceEtag !== sourceEtag) {
-        await imageUpload.update({
-          where: { id: session.id },
+        await imageUpload.updateMany({
+          where: {
+            id: session.id,
+            status: 'finalizing',
+            sourceEtag: session.sourceEtag,
+          },
           data: { status: 'failed' },
         });
         throw new BadRequestException(

@@ -33,16 +33,16 @@ export class UploadCleanupService {
     const expired = await (this.prisma as any).imageUpload.findMany({
       where: {
         ...scope,
-        OR: [
-          {
-            status: { in: ['pending', 'failed'] },
-            expiresAt: { lt: graceCutoff },
-          },
-          {
-            status: 'finalizing',
-            finalizationStartedAt: { lt: graceCutoff },
-          },
-        ],
+        status: { in: ['pending', 'failed'] },
+        expiresAt: { lt: graceCutoff },
+      },
+      take: 100,
+    });
+    const staleFinalizing = await (this.prisma as any).imageUpload.findMany({
+      where: {
+        ...scope,
+        status: 'finalizing',
+        finalizationStartedAt: { lt: graceCutoff },
       },
       take: 100,
     });
@@ -57,7 +57,7 @@ export class UploadCleanupService {
     let objectsDeleted = 0;
     let sessionsDeleted = 0;
     let failed = 0;
-    for (const session of expired) {
+    for (const session of [...expired, ...staleFinalizing]) {
       try {
         if (await this.deleteObjectIfPresent(session.uploadObjectKey)) {
           objectsDeleted++;
@@ -101,7 +101,7 @@ export class UploadCleanupService {
       }
     }
     return {
-      scanned: expired.length + consumed.length,
+      scanned: expired.length + staleFinalizing.length + consumed.length,
       objectsDeleted,
       sessionsDeleted,
       failed,
