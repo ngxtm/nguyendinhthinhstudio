@@ -193,6 +193,7 @@ command.txt
 
 
 apps/**/.env*
+!apps/backend/.env.migration.example
 /generated/prisma
 
 
