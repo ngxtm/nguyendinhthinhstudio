@@ -157,17 +157,35 @@ export async function runCloudflareR2Migration(
   if (options.mode === 'dry-run') {
     return summary;
   }
-  if (!dependencies.migrateOne) {
+  const migrateOne = dependencies.migrateOne;
+  if (!migrateOne) {
     throw new MigrationExecutionUnavailableError();
   }
 
-  for (const image of eligible) {
-    try {
-      const outcome = await dependencies.migrateOne(image);
-      summary[outcome] += 1;
-    } catch {
-      summary.failed += 1;
+  let cursor = 0;
+  let fatalConflict: ImageStorageMigrationConflictError | undefined;
+  const workerCount = Math.min(options.concurrency, eligible.length);
+  const workers = Array.from({ length: workerCount }, async () => {
+    while (!fatalConflict) {
+      const image = eligible[cursor++];
+      if (!image) return;
+
+      try {
+        const outcome = await migrateOne(image);
+        summary[outcome] += 1;
+      } catch (error) {
+        summary.failed += 1;
+        if (error instanceof ImageStorageMigrationConflictError) {
+          fatalConflict ??= error;
+          return;
+        }
+      }
     }
+  });
+
+  await Promise.all(workers);
+  if (fatalConflict) {
+    throw fatalConflict;
   }
   return summary;
 }
@@ -878,6 +896,19 @@ async function cleanupChangedImage(
   throw conflict;
 }
 
+async function removeMigrationTemporaryDirectory(
+  directory: string,
+  suppressFailure: boolean,
+): Promise<void> {
+  try {
+    await rm(directory, { recursive: true, force: true });
+  } catch (error) {
+    if (!suppressFailure) {
+      throw error;
+    }
+  }
+}
+
 export async function migrateOneImage(
   image: MigrationImage & { r2ObjectKey: string },
   dependencies: OneImageMigrationDependencies,
@@ -908,6 +939,7 @@ export async function migrateOneImage(
     join(dependencies.tempRoot ?? tmpdir(), 'cloudflare-r2-'),
   );
   const targetPath = join(directory, 'source');
+  let hasPrimaryFailure = false;
 
   try {
     const original = await downloadCloudflareOriginal(
@@ -999,9 +1031,10 @@ export async function migrateOneImage(
     journal.verifiedAt = (dependencies.now ?? (() => new Date()))();
     return 'migrated';
   } catch (error) {
+    hasPrimaryFailure = true;
     await recordMigrationFailure(journal, error, dependencies);
     throw sanitizedMigrationFailure(error, dependencies.readToken);
   } finally {
-    await rm(directory, { recursive: true, force: true });
+    await removeMigrationTemporaryDirectory(directory, hasPrimaryFailure);
   }
 }

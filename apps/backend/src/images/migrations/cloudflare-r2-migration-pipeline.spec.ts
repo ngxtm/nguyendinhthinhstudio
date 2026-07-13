@@ -5,6 +5,7 @@ import {
   PutObjectCommand,
 } from '@aws-sdk/client-s3';
 import { createHash } from 'node:crypto';
+import fsPromises from 'node:fs/promises';
 import { mkdtemp, readdir, rm } from 'node:fs/promises';
 import { Readable } from 'node:stream';
 import { tmpdir } from 'node:os';
@@ -295,6 +296,7 @@ describe('one-image Cloudflare to R2 migration pipeline', () => {
   });
 
   afterEach(async () => {
+    jest.restoreAllMocks();
     await rm(tempRoot, { recursive: true, force: true });
   });
 
@@ -528,6 +530,35 @@ describe('one-image Cloudflare to R2 migration pipeline', () => {
       }),
     );
     expect(database.images.get(image.id)?.r2ObjectKey).toBe(image.r2ObjectKey);
+  });
+
+  it('preserves a fatal conflict when temporary cleanup also fails', async () => {
+    if (!image.r2ObjectKey) throw new Error('Fixture requires a legacy ID');
+    const database = new InMemoryMigrationDatabase(image);
+    const r2 = new InMemoryR2(database.events);
+    database.journals.set(image.id, {
+      imageId: image.id,
+      legacyCloudflareImageId: image.r2ObjectKey,
+      targetR2ObjectKey: 'albums/stored-target/conflict.jpg',
+      status: 'uploaded',
+      sourceSize: source.length,
+      targetSize: null,
+      sourceSha256: 'different-source-sha256',
+      targetSha256: null,
+      error: null,
+      verifiedAt: null,
+      cloudflareDeletedAt: null,
+    });
+    jest
+      .spyOn(fsPromises, 'rm')
+      .mockRejectedValueOnce(new Error('temporary cleanup failed'));
+
+    await expect(
+      migrateOneImage(
+        image as ImageRow & { r2ObjectKey: string },
+        dependencies(database, r2),
+      ),
+    ).rejects.toBeInstanceOf(ImageStorageMigrationConflictError);
   });
 
   it('keeps the legacy DB key when imgproxy verification fails', async () => {
