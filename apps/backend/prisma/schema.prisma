@@ -61,9 +61,12 @@ model Album {
   // Stats
   viewCount  Int @default(0)
   imageCount Int @default(0)
+  deleteStatus    String    @default("active")
+  deleteStartedAt DateTime?
 
   // Relations
   images      Image[]        @relation("AlbumImages")
+  imageUploads ImageUpload[]
   tags        AlbumTag[]
   bookings    Booking[]
   categories  AlbumCategory[]
@@ -73,6 +76,7 @@ model Album {
 
   @@index([status, publishedAt(sort: Desc)])
   @@index([isFeatured, featuredOrder])
+  @@index([deleteStatus])
 }
 
 model AlbumCategory {
@@ -127,6 +131,43 @@ model Image {
   
   @@index([albumId, orderIndex])
   @@index([uploadStatus])
+}
+
+model ImageUpload {
+  id                    String   @id @default(uuid())
+  albumId               String
+  uploadObjectKey       String   @unique
+  finalObjectKey        String   @unique
+  filename              String
+  contentType           String
+  fileSize              Int
+  status                String   @default("pending") // pending | finalizing | consumed | failed
+  sourceEtag            String?
+  finalizationStartedAt DateTime?
+  expiresAt             DateTime
+  consumedAt            DateTime?
+  createdAt             DateTime @default(now())
+
+  album Album @relation(fields: [albumId], references: [id], onDelete: Restrict)
+
+  @@index([albumId, status])
+  @@index([expiresAt, status])
+}
+
+model ImageObjectDeletion {
+  id        String   @id @default(uuid())
+  imageId   String?
+  provider  String
+  objectKey String
+  status    String   @default("pending")
+  attempts  Int      @default(0)
+  lastError String?
+  deletedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([provider, objectKey])
+  @@index([status, createdAt])
 }
 
 // ============ TAGS ============

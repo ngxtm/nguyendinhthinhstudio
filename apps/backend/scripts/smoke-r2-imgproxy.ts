@@ -1,4 +1,8 @@
-import { DeleteObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import {
+  DeleteObjectCommand,
+  PutObjectCommand,
+  S3Client,
+} from '@aws-sdk/client-s3';
 import { ConfigService } from '@nestjs/config';
 import { ImageUrlService } from '../src/images/image-url.service';
 import { validateEnv } from '../src/config/env.validation';
@@ -52,10 +56,14 @@ function requireResponse(
   response: Awaited<ReturnType<typeof fetchVariant>>,
 ): void {
   if (response.status !== 200) {
-    throw new Error(`${label} imgproxy request returned HTTP ${response.status}`);
+    throw new Error(
+      `${label} imgproxy request returned HTTP ${response.status}`,
+    );
   }
   if (response.contentType !== 'image/webp') {
-    throw new Error(`${label} response content-type must be image/webp, got ${response.contentType}`);
+    throw new Error(
+      `${label} response content-type must be image/webp, got ${response.contentType}`,
+    );
   }
   if (response.bodyLength === 0) {
     throw new Error(`${label} response body is empty`);
@@ -86,14 +94,22 @@ async function main(): Promise<void> {
     requireResponse('Second', second);
 
     if (second.cacheStatus !== 'HIT') {
-      throw new Error(`Second request must be a Cloudflare cache HIT, got ${second.cacheStatus}`);
+      throw new Error(
+        `Second request must be a Cloudflare cache HIT, got ${second.cacheStatus}`,
+      );
     }
     if (!second.cacheControl?.includes('max-age=31536000')) {
-      throw new Error(`Second response cache-control must include max-age=31536000, got ${second.cacheControl}`);
+      throw new Error(
+        `Second response cache-control must include max-age=31536000, got ${second.cacheControl}`,
+      );
     }
 
-    console.log(`First request: HTTP ${first.status}, ${first.bodyLength} bytes`);
-    console.log(`Second request: HTTP ${second.status}, ${second.bodyLength} bytes, CF-Cache-Status: ${second.cacheStatus}`);
+    console.log(
+      `First request: HTTP ${first.status}, ${first.bodyLength} bytes`,
+    );
+    console.log(
+      `Second request: HTTP ${second.status}, ${second.bodyLength} bytes, CF-Cache-Status: ${second.cacheStatus}`,
+    );
   } finally {
     await r2.send(new DeleteObjectCommand({ Bucket: bucket, Key: objectKey }));
   }

@@ -1,5 +1,19 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  UseGuards,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { ImagesService } from './images.service';
 import { UploadRequestDto } from './dto/upload-request.dto';
 import { UploadConfirmDto } from './dto/upload-confirm.dto';
@@ -17,19 +31,25 @@ export class ImagesController {
   constructor(private readonly imagesService: ImagesService) {}
 
   @Post('upload-url')
-  @Public() // TODO: Remove this in production - only for development
+  @Roles('admin')
   @ApiOperation({ summary: 'Get presigned upload URL (Admin only)' })
-  @ApiResponse({ status: 200, description: 'Upload URL generated successfully' })
-  @ApiResponse({ status: 400, description: 'Invalid request or album limit reached' })
+  @ApiResponse({
+    status: 200,
+    description: 'Upload URL generated successfully',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid request or album limit reached',
+  })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 404, description: 'Album not found' })
   getUploadUrl(@Body() uploadRequestDto: UploadRequestDto) {
     return this.imagesService.getUploadUrl(uploadRequestDto);
   }
 
-  @Post('webhook')
-  @Public()
-  @ApiOperation({ summary: 'Cloudflare webhook for upload confirmation' })
+  @Post('confirm-upload')
+  @Roles('admin')
+  @ApiOperation({ summary: 'Confirm direct image upload (Admin only)' })
   @ApiResponse({ status: 200, description: 'Upload confirmed successfully' })
   @ApiResponse({ status: 400, description: 'Invalid webhook payload' })
   confirmUpload(@Body() uploadConfirmDto: UploadConfirmDto) {
@@ -46,7 +66,7 @@ export class ImagesController {
   }
 
   @Patch(':id')
-  @Public() // TODO: Remove this in production - only for development
+  @Roles('admin')
   @ApiOperation({ summary: 'Update image metadata (Admin only)' })
   @ApiResponse({ status: 200, description: 'Image updated successfully' })
   @ApiResponse({ status: 404, description: 'Image not found' })
@@ -55,7 +75,7 @@ export class ImagesController {
   }
 
   @Delete(':id')
-  @Public() // TODO: Remove this in production - only for development
+  @Roles('admin')
   @ApiOperation({ summary: 'Delete image (Admin only)' })
   @ApiResponse({ status: 200, description: 'Image deleted successfully' })
   @ApiResponse({ status: 404, description: 'Image not found' })
@@ -64,13 +84,15 @@ export class ImagesController {
   }
 
   @Patch('album/:albumId/reorder')
-  @Public() // TODO: Remove this in production - only for development
+  @Roles('admin')
   @ApiOperation({ summary: 'Reorder images in album (Admin only)' })
   @ApiResponse({ status: 200, description: 'Images reordered successfully' })
   @ApiResponse({ status: 400, description: 'Invalid image IDs' })
   @ApiResponse({ status: 404, description: 'Album not found' })
-  reorder(@Param('albumId') albumId: string, @Body() reorderDto: ReorderImagesDto) {
+  reorder(
+    @Param('albumId') albumId: string,
+    @Body() reorderDto: ReorderImagesDto,
+  ) {
     return this.imagesService.reorder(albumId, reorderDto);
   }
 }
-

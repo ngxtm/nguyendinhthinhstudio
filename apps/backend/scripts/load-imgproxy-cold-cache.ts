@@ -1,4 +1,8 @@
-import { DeleteObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import {
+  DeleteObjectCommand,
+  PutObjectCommand,
+  S3Client,
+} from '@aws-sdk/client-s3';
 import { ConfigService } from '@nestjs/config';
 import { execFile, spawn } from 'child_process';
 import { mkdir, readFile, rename } from 'fs/promises';
@@ -53,7 +57,8 @@ function parseArguments(args: string[]): Arguments {
   }
 
   const container = values.get('container') ?? 'imgproxy';
-  const evidence = values.get('evidence') ?? 'artifacts/imgproxy-cold-cache.json';
+  const evidence =
+    values.get('evidence') ?? 'artifacts/imgproxy-cold-cache.json';
   const source = values.get('source') ?? process.env.IMGPROXY_LOAD_SOURCE_PATH;
 
   return { container, evidence, source };
@@ -76,7 +81,10 @@ function pngChunk(type: string, data: Buffer): Buffer {
   chunk.writeUInt32BE(data.length, 0);
   typeBuffer.copy(chunk, 4);
   data.copy(chunk, 8);
-  chunk.writeUInt32BE(crc32(Buffer.concat([typeBuffer, data])), data.length + 8);
+  chunk.writeUInt32BE(
+    crc32(Buffer.concat([typeBuffer, data])),
+    data.length + 8,
+  );
   return chunk;
 }
 
@@ -129,10 +137,22 @@ function contentTypeFor(filename: string): string {
   return contentType;
 }
 
-async function inspectContainer(container: string): Promise<{ state: ContainerState; restartCount: number }> {
+async function inspectContainer(
+  container: string,
+): Promise<{ state: ContainerState; restartCount: number }> {
   const [stateResult, restartResult] = await Promise.all([
-    execFileAsync('docker', ['inspect', container, '--format', '{{json .State}}']),
-    execFileAsync('docker', ['inspect', container, '--format', '{{.RestartCount}}']),
+    execFileAsync('docker', [
+      'inspect',
+      container,
+      '--format',
+      '{{json .State}}',
+    ]),
+    execFileAsync('docker', [
+      'inspect',
+      container,
+      '--format',
+      '{{.RestartCount}}',
+    ]),
   ]);
 
   return {
@@ -147,9 +167,13 @@ function startTelemetry(container: string): {
   stop: () => Promise<void>;
 } {
   const samples: MemorySample[] = [];
-  const telemetry = spawn('docker', ['stats', container, '--format', '{{json .}}'], {
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
+  const telemetry = spawn(
+    'docker',
+    ['stats', container, '--format', '{{json .}}'],
+    {
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
+  );
   let output = '';
   let firstSampleResolve: (() => void) | undefined;
   let firstSampleReject: ((reason: Error) => void) | undefined;
@@ -186,7 +210,11 @@ function startTelemetry(container: string): {
   telemetry.once('error', (error) => firstSampleReject?.(error));
   telemetry.once('exit', (code) => {
     if (samples.length === 0) {
-      firstSampleReject?.(new Error(`docker stats exited before returning telemetry (code ${code})`));
+      firstSampleReject?.(
+        new Error(
+          `docker stats exited before returning telemetry (code ${code})`,
+        ),
+      );
     }
   });
 
@@ -196,7 +224,13 @@ function startTelemetry(container: string): {
       Promise.race([
         firstSample,
         new Promise<void>((_, rejectPromise) => {
-          setTimeout(() => rejectPromise(new Error('Timed out waiting for docker stats telemetry')), 15_000);
+          setTimeout(
+            () =>
+              rejectPromise(
+                new Error('Timed out waiting for docker stats telemetry'),
+              ),
+            15_000,
+          );
         }),
       ]),
     stop: () =>
@@ -211,7 +245,10 @@ function startTelemetry(container: string): {
   };
 }
 
-async function runConcurrent<T>(items: T[], work: (item: T) => Promise<void>): Promise<void> {
+async function runConcurrent<T>(
+  items: T[],
+  work: (item: T) => Promise<void>,
+): Promise<void> {
   let cursor = 0;
   const workers = Array.from({ length: requestConcurrency }, async () => {
     while (cursor < items.length) {
@@ -234,7 +271,9 @@ async function writeEvidence(path: string, evidence: object): Promise<void> {
   const target = resolve(path);
   await mkdir(dirname(target), { recursive: true });
   const temporary = `${target}.tmp-${process.pid}-${Date.now()}`;
-  await import('fs/promises').then(({ writeFile }) => writeFile(temporary, `${JSON.stringify(evidence, null, 2)}\n`));
+  await import('fs/promises').then(({ writeFile }) =>
+    writeFile(temporary, `${JSON.stringify(evidence, null, 2)}\n`),
+  );
   await rename(temporary, target);
 }
 
@@ -284,11 +323,18 @@ async function main(): Promise<void> {
       const response = await fetch(imageUrl.getSignedUrl(key, 1920, 1920));
       const body = await response.arrayBuffer();
       timings.push(performance.now() - started);
-      statusCounts[String(response.status)] = (statusCounts[String(response.status)] ?? 0) + 1;
+      statusCounts[String(response.status)] =
+        (statusCounts[String(response.status)] ?? 0) + 1;
       bodySizes.push(body.byteLength);
 
-      if (response.status !== 200 || response.headers.get('content-type') !== 'image/webp' || body.byteLength === 0) {
-        throw new Error(`imgproxy request for ${key} failed with HTTP ${response.status}, ${response.headers.get('content-type')}, ${body.byteLength} bytes`);
+      if (
+        response.status !== 200 ||
+        response.headers.get('content-type') !== 'image/webp' ||
+        body.byteLength === 0
+      ) {
+        throw new Error(
+          `imgproxy request for ${key} failed with HTTP ${response.status}, ${response.headers.get('content-type')}, ${body.byteLength} bytes`,
+        );
       }
     });
   } catch (error) {
@@ -297,12 +343,15 @@ async function main(): Promise<void> {
     await telemetry.stop();
     after = await inspectContainer(args.container);
     await Promise.allSettled(
-      objectKeys.map((key) => r2.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }))),
+      objectKeys.map((key) =>
+        r2.send(new DeleteObjectCommand({ Bucket: bucket, Key: key })),
+      ),
     );
   }
 
   const peakMemorySample = telemetry.samples.reduce<MemorySample | undefined>(
-    (peak, sample) => !peak || sample.memoryPercent > peak.memoryPercent ? sample : peak,
+    (peak, sample) =>
+      !peak || sample.memoryPercent > peak.memoryPercent ? sample : peak,
     undefined,
   );
   const peakMemoryPercent = peakMemorySample?.memoryPercent ?? null;
@@ -323,7 +372,10 @@ async function main(): Promise<void> {
       return memoryParts[memoryParts.length - 1]?.trim();
     })(),
     restartCount: { before: before.restartCount, after: after!.restartCount },
-    oomKilled: { before: before.state.OOMKilled, after: after!.state.OOMKilled },
+    oomKilled: {
+      before: before.state.OOMKilled,
+      after: after!.state.OOMKilled,
+    },
     containerRunning: after!.state.Running,
   };
   await writeEvidence(args.evidence, evidence);
@@ -338,10 +390,17 @@ async function main(): Promise<void> {
     !after!.state.Running ||
     after!.restartCount !== before.restartCount
   ) {
-    throw requestError ?? new Error(`Cold-cache imgproxy load test failed; inspect ${args.evidence}`);
+    throw (
+      requestError ??
+      new Error(
+        `Cold-cache imgproxy load test failed; inspect ${args.evidence}`,
+      )
+    );
   }
 
-  console.log(`Cold-cache load test passed: p50=${evidence.p50Ms!.toFixed(1)}ms, p95=${evidence.p95Ms!.toFixed(1)}ms, peak memory=${peakMemoryPercent.toFixed(2)}%`);
+  console.log(
+    `Cold-cache load test passed: p50=${evidence.p50Ms!.toFixed(1)}ms, p95=${evidence.p95Ms!.toFixed(1)}ms, peak memory=${peakMemoryPercent.toFixed(2)}%`,
+  );
 }
 
 main().catch((error: unknown) => {

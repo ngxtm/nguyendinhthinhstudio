@@ -3,6 +3,7 @@ import {
   Logger,
   NotFoundException,
   BadRequestException,
+  ConflictException,
 } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
@@ -13,12 +14,9 @@ import { UploadConfirmDto } from './dto/upload-confirm.dto';
 import { UpdateImageDto } from './dto/update-image.dto';
 import { ReorderImagesDto } from './dto/reorder-images.dto';
 
-type PendingUpload = UploadRequestDto & { objectKey: string };
-
 @Injectable()
 export class ImagesService {
   private readonly logger = new Logger(ImagesService.name);
-  private readonly uploadRequests = new Map<string, PendingUpload>();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -39,6 +37,12 @@ export class ImagesService {
     if (!album) {
       throw new NotFoundException('Album not found');
     }
+    if (
+      (album as any).deleteStatus !== undefined &&
+      (album as any).deleteStatus !== 'active'
+    ) {
+      throw new ConflictException('Album is locked for deletion');
+    }
 
     // Check if album already has 50 images (limit)
     if (album._count.images >= 50) {
@@ -48,28 +52,44 @@ export class ImagesService {
     }
 
     const uploadId = randomUUID();
-    const { uploadUrl, objectKey } = await this.storage.getPresignedUploadUrl(
+    const uploadObjectKey = this.storage.createUploadObjectKey(
+      uploadId,
+      uploadRequest.filename,
+    );
+    const finalObjectKey = this.storage.createFinalObjectKey(
       uploadRequest.albumId,
       uploadRequest.filename,
-      uploadRequest.contentType,
-      uploadId,
-      uploadRequest.fileSize,
     );
-
-    this.uploadRequests.set(uploadId, { ...uploadRequest, objectKey });
-
-    // Clean up after 15 minutes (URL expires)
-    setTimeout(
-      () => {
-        this.uploadRequests.delete(uploadId);
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+    const imageUpload = (this.prisma as any).imageUpload;
+    await imageUpload.create({
+      data: {
+        id: uploadId,
+        ...uploadRequest,
+        uploadObjectKey,
+        finalObjectKey,
+        status: 'pending',
+        expiresAt,
       },
-      15 * 60 * 1000,
-    );
+    });
+    let uploadUrl: string;
+    try {
+      uploadUrl = await this.storage.getPresignedUploadUrl(
+        uploadObjectKey,
+        uploadRequest.contentType,
+        uploadRequest.fileSize,
+      );
+    } catch (error) {
+      await imageUpload.deleteMany?.({
+        where: { id: uploadId, status: 'pending' },
+      });
+      throw error;
+    }
 
     return {
       uploadUrl,
       uploadId,
-      expiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+      expiresAt: expiresAt.toISOString(),
     };
   }
 
@@ -77,57 +97,106 @@ export class ImagesService {
    * Confirm image upload after R2 direct upload
    */
   async confirmUpload(confirmDto: UploadConfirmDto) {
-    const uploadRequest = this.uploadRequests.get(confirmDto.uploadId);
-
-    if (!uploadRequest) {
-      this.logger.warn(
-        `Upload request not found for ID: ${confirmDto.uploadId}`,
-      );
-      // Don't throw error, just log - webhook might come after cleanup
-    }
-
-    const albumId = uploadRequest?.albumId;
-
-    if (!albumId) {
-      throw new BadRequestException('Album ID not found in upload request');
-    }
-
-    const variantUrls = this.imageUrl.getVariantUrls(uploadRequest.objectKey);
-
-    // Get next order index (start from 1, not 0)
-    const lastImage = await this.prisma.image.findFirst({
-      where: { albumId },
-      orderBy: { orderIndex: 'desc' },
-      select: { orderIndex: true },
+    const imageUpload = (this.prisma as any).imageUpload;
+    const session = await imageUpload.findUnique({
+      where: { id: confirmDto.uploadId },
     });
-
-    const orderIndex = (lastImage?.orderIndex ?? 0) + 1;
-
-    // Create image record
-    const image = await this.prisma.image.create({
-      data: {
-        albumId,
-        filename: uploadRequest?.filename || 'uploaded-image',
-        r2ObjectKey: uploadRequest.objectKey,
-        uploadStatus: 'completed',
-        thumbnailUrl: variantUrls.thumbnailUrl,
-        smallUrl: variantUrls.smallUrl,
-        mediumUrl: variantUrls.mediumUrl,
-        largeUrl: variantUrls.largeUrl,
-        xlargeUrl: variantUrls.xlargeUrl,
-        orderIndex,
-        fileSizeKb: Math.round(uploadRequest.fileSize / 1024),
+    if (!session) throw new NotFoundException('Upload session not found');
+    if (session.status === 'consumed')
+      throw new BadRequestException('Upload session has already been consumed');
+    if (session.status === 'failed')
+      throw new BadRequestException('Upload session has failed');
+    if (session.expiresAt < new Date())
+      throw new BadRequestException('Upload session has expired');
+    let sourceEtag: string;
+    try {
+      sourceEtag = await this.storage.verifyObject(session.uploadObjectKey, {
+        contentType: session.contentType,
+        fileSize: session.fileSize,
+      });
+    } catch (error) {
+      await imageUpload.update({
+        where: { id: session.id },
+        data: { status: 'failed' },
+      });
+      throw error;
+    }
+    const reservation = await this.prisma.$transaction(
+      async (tx: any) => {
+        const [images, finalizing] = await Promise.all([
+          tx.image.count({ where: { albumId: session.albumId } }),
+          tx.imageUpload.count({
+            where: { albumId: session.albumId, status: 'finalizing' },
+          }),
+        ]);
+        if (images + finalizing >= 50)
+          throw new BadRequestException(
+            'Album already has maximum number of images (50)',
+          );
+        const claimed = await tx.imageUpload.updateMany({
+          where: { id: session.id, status: 'pending' },
+          data: {
+            status: 'finalizing',
+            sourceEtag,
+            finalizationStartedAt: new Date(),
+          },
+        });
+        if (claimed.count !== 1)
+          throw new ConflictException(
+            'Upload session is already being finalized',
+          );
       },
-    });
-
-    // Update album image count
-    await this.prisma.album.update({
-      where: { id: albumId },
-      data: { imageCount: { increment: 1 } },
-    });
-
-    // Clean up upload request
-    this.uploadRequests.delete(confirmDto.uploadId);
+      { isolationLevel: 'Serializable' as any },
+    );
+    void reservation;
+    try {
+      await this.storage.promoteObject(
+        session.uploadObjectKey,
+        session.finalObjectKey,
+        sourceEtag,
+        { contentType: session.contentType, fileSize: session.fileSize },
+      );
+    } catch (error) {
+      await imageUpload.update({
+        where: { id: session.id },
+        data: { status: 'failed' },
+      });
+      throw error;
+    }
+    const variantUrls = this.imageUrl.getVariantUrls(session.finalObjectKey);
+    const image = await this.prisma.$transaction(
+      async (tx: any) => {
+        const lastImage = await tx.image.findFirst({
+          where: { albumId: session.albumId },
+          orderBy: { orderIndex: 'desc' },
+          select: { orderIndex: true },
+        });
+        const created = await tx.image.create({
+          data: {
+            albumId: session.albumId,
+            filename: session.filename,
+            r2ObjectKey: session.finalObjectKey,
+            uploadStatus: 'completed',
+            ...variantUrls,
+            orderIndex: (lastImage?.orderIndex ?? 0) + 1,
+            fileSizeKb: Math.round(session.fileSize / 1024),
+          },
+        });
+        await tx.album.update({
+          where: { id: session.albumId },
+          data: { imageCount: { increment: 1 } },
+        });
+        await tx.imageUpload.update({
+          where: { id: session.id },
+          data: { status: 'consumed', consumedAt: new Date() },
+        });
+        return created;
+      },
+      { isolationLevel: 'Serializable' as any },
+    );
+    await this.storage
+      .deleteObject(session.uploadObjectKey)
+      .catch(() => undefined);
 
     this.logger.log(`Image uploaded successfully: ${image.id}`);
 
@@ -186,24 +255,40 @@ export class ImagesService {
       throw new NotFoundException('Image not found');
     }
 
-    if (image.r2ObjectKey) {
-      try {
-        await this.storage.deleteObject(image.r2ObjectKey);
-      } catch (error) {
-        this.logger.error(`Failed to delete image from R2: ${error}`);
-        // Continue with DB deletion even if object deletion fails
+    await this.prisma.$transaction(async (tx: any) => {
+      if (image.r2ObjectKey) {
+        await tx.imageObjectDeletion.upsert({
+          where: {
+            provider_objectKey: {
+              provider: image.r2ObjectKey.startsWith('albums/')
+                ? 'r2'
+                : 'cloudflare_legacy',
+              objectKey: image.r2ObjectKey,
+            },
+          },
+          create: {
+            imageId: image.id,
+            provider: image.r2ObjectKey.startsWith('albums/')
+              ? 'r2'
+              : 'cloudflare_legacy',
+            objectKey: image.r2ObjectKey,
+            status: image.r2ObjectKey.startsWith('albums/')
+              ? 'pending'
+              : 'deferred',
+          },
+          update: {},
+        });
       }
-    }
-
-    // Delete from database
-    await this.prisma.image.delete({
-      where: { id },
-    });
-
-    // Update album image count
-    await this.prisma.album.update({
-      where: { id: image.albumId },
-      data: { imageCount: { decrement: 1 } },
+      if (image.album?.coverImageId === image.id)
+        await tx.album.update({
+          where: { id: image.albumId },
+          data: { coverImageId: null },
+        });
+      await tx.image.delete({ where: { id } });
+      await tx.album.update({
+        where: { id: image.albumId },
+        data: { imageCount: { decrement: 1 } },
+      });
     });
 
     return { message: 'Image deleted successfully' };
