@@ -13,6 +13,9 @@ import { UploadRequestDto } from './dto/upload-request.dto';
 import { UploadConfirmDto } from './dto/upload-confirm.dto';
 import { UpdateImageDto } from './dto/update-image.dto';
 import { ReorderImagesDto } from './dto/reorder-images.dto';
+import { runSerializableWithRetry } from '../prisma/serializable-retry';
+
+const FINALIZATION_LEASE_MS = 10 * 60 * 1000;
 
 @Injectable()
 export class ImagesService {
@@ -108,6 +111,14 @@ export class ImagesService {
       throw new BadRequestException('Upload session has failed');
     if (session.expiresAt < new Date())
       throw new BadRequestException('Upload session has expired');
+    const leaseCutoff = new Date(Date.now() - FINALIZATION_LEASE_MS);
+    if (
+      session.status === 'finalizing' &&
+      (!session.finalizationStartedAt ||
+        session.finalizationStartedAt > leaseCutoff)
+    ) {
+      throw new ConflictException('Upload session is already being finalized');
+    }
     let sourceEtag: string;
     try {
       sourceEtag = await this.storage.verifyObject(session.uploadObjectKey, {
@@ -121,34 +132,64 @@ export class ImagesService {
       });
       throw error;
     }
-    const reservation = await this.prisma.$transaction(
-      async (tx: any) => {
-        const [images, finalizing] = await Promise.all([
-          tx.image.count({ where: { albumId: session.albumId } }),
-          tx.imageUpload.count({
-            where: { albumId: session.albumId, status: 'finalizing' },
-          }),
-        ]);
-        if (images + finalizing >= 50)
-          throw new BadRequestException(
-            'Album already has maximum number of images (50)',
-          );
-        const claimed = await tx.imageUpload.updateMany({
-          where: { id: session.id, status: 'pending' },
-          data: {
-            status: 'finalizing',
-            sourceEtag,
-            finalizationStartedAt: new Date(),
-          },
+    if (session.status === 'finalizing') {
+      if (!session.sourceEtag || session.sourceEtag !== sourceEtag) {
+        await imageUpload.update({
+          where: { id: session.id },
+          data: { status: 'failed' },
         });
-        if (claimed.count !== 1)
-          throw new ConflictException(
-            'Upload session is already being finalized',
-          );
-      },
-      { isolationLevel: 'Serializable' as any },
+        throw new BadRequestException(
+          'Uploaded object ETag does not match finalizing lease',
+        );
+      }
+      const reclaimed = await imageUpload.updateMany({
+        where: {
+          id: session.id,
+          status: 'finalizing',
+          sourceEtag: session.sourceEtag,
+          finalizationStartedAt: { lte: leaseCutoff },
+        },
+        data: {
+          status: 'pending',
+          sourceEtag: null,
+          finalizationStartedAt: null,
+        },
+      });
+      if (reclaimed.count !== 1) {
+        throw new ConflictException(
+          'Upload session is already being finalized',
+        );
+      }
+    }
+    await runSerializableWithRetry(() =>
+      this.prisma.$transaction(
+        async (tx: any) => {
+          const [images, finalizing] = await Promise.all([
+            tx.image.count({ where: { albumId: session.albumId } }),
+            tx.imageUpload.count({
+              where: { albumId: session.albumId, status: 'finalizing' },
+            }),
+          ]);
+          if (images + finalizing >= 50)
+            throw new BadRequestException(
+              'Album already has maximum number of images (50)',
+            );
+          const claimed = await tx.imageUpload.updateMany({
+            where: { id: session.id, status: 'pending' },
+            data: {
+              status: 'finalizing',
+              sourceEtag,
+              finalizationStartedAt: new Date(),
+            },
+          });
+          if (claimed.count !== 1)
+            throw new ConflictException(
+              'Upload session is already being finalized',
+            );
+        },
+        { isolationLevel: 'Serializable' as any },
+      ),
     );
-    void reservation;
     try {
       await this.storage.promoteObject(
         session.uploadObjectKey,
@@ -164,35 +205,37 @@ export class ImagesService {
       throw error;
     }
     const variantUrls = this.imageUrl.getVariantUrls(session.finalObjectKey);
-    const image = await this.prisma.$transaction(
-      async (tx: any) => {
-        const lastImage = await tx.image.findFirst({
-          where: { albumId: session.albumId },
-          orderBy: { orderIndex: 'desc' },
-          select: { orderIndex: true },
-        });
-        const created = await tx.image.create({
-          data: {
-            albumId: session.albumId,
-            filename: session.filename,
-            r2ObjectKey: session.finalObjectKey,
-            uploadStatus: 'completed',
-            ...variantUrls,
-            orderIndex: (lastImage?.orderIndex ?? 0) + 1,
-            fileSizeKb: Math.round(session.fileSize / 1024),
-          },
-        });
-        await tx.album.update({
-          where: { id: session.albumId },
-          data: { imageCount: { increment: 1 } },
-        });
-        await tx.imageUpload.update({
-          where: { id: session.id },
-          data: { status: 'consumed', consumedAt: new Date() },
-        });
-        return created;
-      },
-      { isolationLevel: 'Serializable' as any },
+    const image = await runSerializableWithRetry(() =>
+      this.prisma.$transaction(
+        async (tx: any) => {
+          const lastImage = await tx.image.findFirst({
+            where: { albumId: session.albumId },
+            orderBy: { orderIndex: 'desc' },
+            select: { orderIndex: true },
+          });
+          const created = await tx.image.create({
+            data: {
+              albumId: session.albumId,
+              filename: session.filename,
+              r2ObjectKey: session.finalObjectKey,
+              uploadStatus: 'completed',
+              ...variantUrls,
+              orderIndex: (lastImage?.orderIndex ?? 0) + 1,
+              fileSizeKb: Math.round(session.fileSize / 1024),
+            },
+          });
+          await tx.album.update({
+            where: { id: session.albumId },
+            data: { imageCount: { increment: 1 } },
+          });
+          await tx.imageUpload.update({
+            where: { id: session.id },
+            data: { status: 'consumed', consumedAt: new Date() },
+          });
+          return created;
+        },
+        { isolationLevel: 'Serializable' as any },
+      ),
     );
     await this.storage
       .deleteObject(session.uploadObjectKey)
