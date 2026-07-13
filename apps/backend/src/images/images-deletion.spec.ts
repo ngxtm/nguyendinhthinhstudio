@@ -1,6 +1,10 @@
 import { ConflictException } from '@nestjs/common';
 import { ImagesService } from './images.service';
 
+const imagePresenter = {
+  presentImage: jest.fn((image: unknown) => image),
+};
+
 describe('ImagesService deletion guard and queue', () => {
   it('rejects a new presigned upload when its album is deleting', async () => {
     const prisma: any = {
@@ -14,7 +18,12 @@ describe('ImagesService deletion guard and queue', () => {
           }),
       },
     };
-    const service = new ImagesService(prisma, {} as any, {} as any);
+    const service = new ImagesService(
+      prisma,
+      {} as any,
+      {} as any,
+      imagePresenter as any,
+    );
 
     await expect(
       service.getUploadUrl({
@@ -48,7 +57,12 @@ describe('ImagesService deletion guard and queue', () => {
       ),
     };
     const storage: any = { deleteObject: jest.fn() };
-    const service = new ImagesService(prisma, storage, {} as any);
+    const service = new ImagesService(
+      prisma,
+      storage,
+      {} as any,
+      imagePresenter as any,
+    );
 
     await service.remove('image-1');
 

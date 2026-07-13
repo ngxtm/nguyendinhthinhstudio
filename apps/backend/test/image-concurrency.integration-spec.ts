@@ -188,7 +188,15 @@ describe('image confirmation concurrency (PostgreSQL)', () => {
         xlargeUrl: `https://img.test/xlarge/${objectKey}`,
       })),
     };
-    return new ImagesService(prisma as any, storage as any, imageUrl as any);
+    const imagePresenter = {
+      presentImage: jest.fn((image: unknown) => image),
+    };
+    return new ImagesService(
+      prisma as any,
+      storage as any,
+      imageUrl as any,
+      imagePresenter as any,
+    );
   }
 
   it('allows exactly one confirm at 49 images and persists exactly 50 images', async () => {

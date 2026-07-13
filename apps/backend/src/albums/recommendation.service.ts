@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { ImagePresenterService } from '../images/image-presenter.service';
 
 interface AlbumScore {
   album: any;
@@ -13,7 +14,10 @@ export class RecommendationService {
   private readonly CACHE_TTL = 10 * 60 * 1000; // 10 minutes
   private readonly MIN_SCORE_THRESHOLD = 40;
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly imagePresenter: ImagePresenterService,
+  ) {}
 
   /**
    * Get related albums using smart recommendation algorithm with MMR
@@ -90,7 +94,9 @@ export class RecommendationService {
       title: album.title,
       slug: album.slug,
       category: album.category,
-      coverImage: album.coverImage,
+      coverImage: album.coverImage
+        ? this.imagePresenter.presentImage(album.coverImage)
+        : album.coverImage,
       viewCount: album.viewCount,
       imageCount: album.imageCount,
       tags: album.tags.map((at: any) => ({
