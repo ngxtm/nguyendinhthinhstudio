@@ -23,7 +23,13 @@ export function isLegacyObjectKey(value: unknown): value is string {
 
 export function sanitizeFilename(filename: string): string {
   const basename = filename.replace(/\\/g, '/').split('/').pop() ?? '';
-  const sanitized = basename.replace(/[\x00-\x1f\x7f]/g, '').trim();
+  const sanitized = Array.from(basename)
+    .filter((character) => {
+      const code = character.charCodeAt(0);
+      return code > 0x1f && code !== 0x7f;
+    })
+    .join('')
+    .trim();
   return sanitized || 'image';
 }
 
@@ -472,6 +478,14 @@ export interface ImageStorageMigrationPipelineImages {
 }
 
 export interface MigrationImageObjectDeletionQueue {
+  findUnique(args: {
+    where: {
+      provider_objectKey: {
+        provider: 'r2';
+        objectKey: string;
+      };
+    };
+  }): Promise<{ status: string } | null>;
   upsert(args: {
     where: {
       provider_objectKey: {
@@ -483,11 +497,13 @@ export interface MigrationImageObjectDeletionQueue {
       imageId: string;
       provider: 'r2';
       objectKey: string;
-      status: 'pending';
+      status: 'pending' | 'deleted';
+      deletedAt: Date | null;
+      lastError: null;
     };
     update: {
-      status: 'pending';
-      deletedAt: null;
+      status: 'pending' | 'deleted';
+      deletedAt: Date | null;
       lastError: null;
     };
   }): Promise<unknown>;
@@ -780,7 +796,7 @@ async function recordMigrationFailure(
   },
   error: unknown,
   dependencies: OneImageMigrationDependencies,
-): Promise<void> {
+): Promise<boolean> {
   const message = sanitizedMigrationError(error, dependencies.readToken);
   try {
     if (journal.status === 'pending' || journal.status === 'uploaded') {
@@ -795,18 +811,39 @@ async function recordMigrationFailure(
       );
       journal.status = 'failed';
       journal.error = message;
-      return;
+      return true;
     }
     if (journal.status === 'failed') {
-      await dependencies.database.imageStorageMigration.updateMany({
-        where: { imageId: journal.imageId, status: 'failed' },
-        data: { status: 'failed', error: message },
-      });
+      const result =
+        await dependencies.database.imageStorageMigration.updateMany({
+          where: { imageId: journal.imageId, status: 'failed' },
+          data: { status: 'failed', error: message },
+        });
+      if (result.count !== 1) return false;
       journal.error = message;
     }
+    return true;
   } catch {
-    // Preserve the original migration failure; a stale journal is reconciled
-    // by the operator instead of hiding the source error.
+    return false;
+  }
+}
+
+async function assertTargetCleanupSettled(
+  targetR2ObjectKey: string,
+  queue: MigrationImageObjectDeletionQueue,
+): Promise<void> {
+  const cleanup = await queue.findUnique({
+    where: {
+      provider_objectKey: {
+        provider: 'r2',
+        objectKey: targetR2ObjectKey,
+      },
+    },
+  });
+  if (cleanup && cleanup.status !== 'deleted') {
+    throw new ImageStorageMigrationConflictError(
+      'Target cleanup is still pending',
+    );
   }
 }
 
@@ -827,10 +864,41 @@ async function queueTargetCleanup(
       provider: 'r2',
       objectKey: targetR2ObjectKey,
       status: 'pending',
+      deletedAt: null,
+      lastError: null,
     },
     update: {
       status: 'pending',
       deletedAt: null,
+      lastError: null,
+    },
+  });
+}
+
+async function completeTargetCleanup(
+  imageId: string,
+  targetR2ObjectKey: string,
+  queue: MigrationImageObjectDeletionQueue,
+  deletedAt: Date,
+): Promise<void> {
+  await queue.upsert({
+    where: {
+      provider_objectKey: {
+        provider: 'r2',
+        objectKey: targetR2ObjectKey,
+      },
+    },
+    create: {
+      imageId,
+      provider: 'r2',
+      objectKey: targetR2ObjectKey,
+      status: 'deleted',
+      deletedAt,
+      lastError: null,
+    },
+    update: {
+      status: 'deleted',
+      deletedAt,
       lastError: null,
     },
   });
@@ -848,11 +916,18 @@ async function cleanupChangedImage(
     conflict,
     dependencies.readToken,
   );
+  const cleanupPendingMessage =
+    'Target cleanup remains pending after Image deletion';
   const current = await dependencies.database.$transaction(
     async (transaction) => {
       const persisted = await transaction.image.findUnique({
         where: { id: image.id },
       });
+      if (persisted?.r2ObjectKey === journal.targetR2ObjectKey) {
+        throw new ImageStorageMigrationConflictError(
+          'Image reached the verified target during cleanup reconciliation',
+        );
+      }
       await queueTargetCleanup(
         image.id,
         journal.targetR2ObjectKey,
@@ -863,21 +938,18 @@ async function cleanupChangedImage(
         {
           imageId: image.id,
           from: journal.status,
-          to: persisted ? 'failed' : 'skipped_deleted',
-          data: { error: persisted ? conflictMessage : null },
+          to: 'failed',
+          data: {
+            error: persisted ? conflictMessage : cleanupPendingMessage,
+          },
         },
       );
       return persisted;
     },
   );
 
-  if (current) {
-    journal.status = 'failed';
-    journal.error = conflictMessage;
-  } else {
-    journal.status = 'skipped_deleted';
-    journal.error = null;
-  }
+  journal.status = 'failed';
+  journal.error = current ? conflictMessage : cleanupPendingMessage;
 
   try {
     await dependencies.r2.send(
@@ -886,11 +958,35 @@ async function cleanupChangedImage(
         Key: journal.targetR2ObjectKey,
       }),
     );
+    await dependencies.database.$transaction(async (transaction) => {
+      await completeTargetCleanup(
+        image.id,
+        journal.targetR2ObjectKey,
+        transaction.imageObjectDeletion,
+        (dependencies.now ?? (() => new Date()))(),
+      );
+      if (!current) {
+        await transitionImageStorageMigrationStatus(
+          transaction.imageStorageMigration,
+          {
+            imageId: image.id,
+            from: 'failed',
+            to: 'skipped_deleted',
+            data: { error: null },
+          },
+        );
+      }
+    });
   } catch {
-    // The durable ImageObjectDeletion row remains pending for the retry worker.
+    if (current) {
+      throw conflict;
+    }
+    throw new Error(cleanupPendingMessage);
   }
 
   if (!current) {
+    journal.status = 'skipped_deleted';
+    journal.error = null;
     return 'skipped';
   }
   throw conflict;
@@ -922,6 +1018,10 @@ export async function migrateOneImage(
   const journal = await getOrCreateMigrationJournal(
     image,
     dependencies.database,
+  );
+  await assertTargetCleanupSettled(
+    journal.targetR2ObjectKey,
+    dependencies.database.imageObjectDeletion,
   );
   if (journal.status === 'skipped_deleted') {
     return 'skipped';
@@ -1015,7 +1115,12 @@ export async function migrateOneImage(
           data: { r2ObjectKey: journal.targetR2ObjectKey },
         });
         if (updated.count !== 1) {
-          throw new ImageChangedDuringMigrationError();
+          const current = await transaction.image.findUnique({
+            where: { id: image.id },
+          });
+          if (current?.r2ObjectKey !== journal.targetR2ObjectKey) {
+            throw new ImageChangedDuringMigrationError();
+          }
         }
       });
     } catch (error) {
@@ -1032,8 +1137,18 @@ export async function migrateOneImage(
     return 'migrated';
   } catch (error) {
     hasPrimaryFailure = true;
-    await recordMigrationFailure(journal, error, dependencies);
-    throw sanitizedMigrationFailure(error, dependencies.readToken);
+    const failure = sanitizedMigrationFailure(error, dependencies.readToken);
+    const checkpointed = await recordMigrationFailure(
+      journal,
+      error,
+      dependencies,
+    );
+    if (!checkpointed) {
+      throw new ImageStorageMigrationConflictError(
+        `${failure.message}; Migration failure checkpoint could not be persisted`,
+      );
+    }
+    throw failure;
   } finally {
     await removeMigrationTemporaryDirectory(directory, hasPrimaryFailure);
   }

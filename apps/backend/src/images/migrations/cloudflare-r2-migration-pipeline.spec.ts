@@ -71,6 +71,14 @@ type ImageObjectDeletionRow = {
 };
 
 type ImageObjectDeletionDelegate = {
+  findUnique(args: {
+    where: {
+      provider_objectKey: {
+        provider: 'r2';
+        objectKey: string;
+      };
+    };
+  }): Promise<ImageObjectDeletionRow | null>;
   upsert(args: {
     where: {
       provider_objectKey: {
@@ -82,11 +90,13 @@ type ImageObjectDeletionDelegate = {
       imageId: string;
       provider: 'r2';
       objectKey: string;
-      status: 'pending';
+      status: 'pending' | 'deleted';
+      deletedAt: Date | null;
+      lastError: null;
     };
     update: {
-      status: 'pending';
-      deletedAt: null;
+      status: 'pending' | 'deleted';
+      deletedAt: Date | null;
       lastError: null;
     };
   }): Promise<ImageObjectDeletionRow>;
@@ -99,6 +109,7 @@ class InMemoryMigrationDatabase {
   readonly queuedDeletions = new Map<string, ImageObjectDeletionRow>();
   externalImageChangeOnUpdate: string | null | undefined;
   journalUpdateFailure?: Error;
+  journalUpdateFailures: Error[] = [];
   private pendingExternalImageChange: string | null | undefined;
 
   readonly imageStorageMigration: JournalDelegate = {
@@ -115,6 +126,13 @@ class InMemoryMigrationDatabase {
   };
 
   readonly imageObjectDeletion: ImageObjectDeletionDelegate = {
+    findUnique: async ({ where }) => {
+      const identity = where.provider_objectKey;
+      const row = this.queuedDeletions.get(
+        `${identity.provider}:${identity.objectKey}`,
+      );
+      return row ? { ...row } : null;
+    },
     upsert: async ({ where, create, update }) => {
       this.events.push('cleanup-queued');
       const identity = where.provider_objectKey;
@@ -152,6 +170,10 @@ class InMemoryMigrationDatabase {
       return { ...row };
     };
     this.imageStorageMigration.updateMany = async ({ where, data }) => {
+      const queuedFailure = this.journalUpdateFailures.shift();
+      if (queuedFailure) {
+        throw queuedFailure;
+      }
       if (this.journalUpdateFailure) {
         const error = this.journalUpdateFailure;
         this.journalUpdateFailure = undefined;
@@ -471,6 +493,33 @@ describe('one-image Cloudflare to R2 migration pipeline', () => {
     await expect(readdir(tempRoot)).resolves.toEqual([]);
   });
 
+  it('halts with a typed conflict when a post-upload failure cannot be checkpointed', async () => {
+    if (!image.r2ObjectKey) throw new Error('Fixture requires a legacy ID');
+    const database = new InMemoryMigrationDatabase(image);
+    database.journalUpdateFailures.push(
+      new Error('uploaded checkpoint unavailable'),
+      new Error('failed checkpoint unavailable'),
+    );
+    const r2 = new InMemoryR2(database.events);
+
+    await expect(
+      migrateOneImage(
+        image as ImageRow & { r2ObjectKey: string },
+        dependencies(database, r2),
+      ),
+    ).rejects.toEqual(
+      expect.objectContaining({
+        name: 'ImageStorageMigrationConflictError',
+        message: expect.stringContaining(
+          'Migration failure checkpoint could not be persisted',
+        ),
+      }),
+    );
+
+    expect(r2.body).toEqual(source);
+    expect(database.journals.get(image.id)?.status).toBe('pending');
+  });
+
   it('rejects equal-length R2 bytes with a different SHA-256', async () => {
     if (!image.r2ObjectKey) throw new Error('Fixture requires a legacy ID');
     const database = new InMemoryMigrationDatabase(image);
@@ -616,6 +665,26 @@ describe('one-image Cloudflare to R2 migration pipeline', () => {
     expect(database.journals.get(image.id)?.status).toBe('verified');
   });
 
+  it('accepts a concurrent writer that already committed the verified target', async () => {
+    if (!image.r2ObjectKey) throw new Error('Fixture requires a legacy ID');
+    const database = new InMemoryMigrationDatabase(image);
+    const targetKey = buildR2ObjectKey(image);
+    database.externalImageChangeOnUpdate = targetKey;
+    const r2 = new InMemoryR2(database.events);
+
+    await expect(
+      migrateOneImage(
+        image as ImageRow & { r2ObjectKey: string },
+        dependencies(database, r2),
+      ),
+    ).resolves.toBe('migrated');
+
+    expect(database.images.get(image.id)?.r2ObjectKey).toBe(targetKey);
+    expect(database.journals.get(image.id)?.status).toBe('verified');
+    expect(database.queuedDeletions.size).toBe(0);
+    expect(r2.deletedKeys).toEqual([]);
+  });
+
   it('deletes the target and checkpoints skipped_deleted after a concurrent Image deletion', async () => {
     if (!image.r2ObjectKey) throw new Error('Fixture requires a legacy ID');
     const database = new InMemoryMigrationDatabase(image);
@@ -673,10 +742,10 @@ describe('one-image Cloudflare to R2 migration pipeline', () => {
         image as ImageRow & { r2ObjectKey: string },
         dependencies(database, r2),
       ),
-    ).resolves.toBe('skipped');
+    ).rejects.toThrow('Target cleanup remains pending after Image deletion');
 
     expect(database.images.has(image.id)).toBe(false);
-    expect(database.journals.get(image.id)?.status).toBe('skipped_deleted');
+    expect(database.journals.get(image.id)?.status).toBe('failed');
     expect(database.queuedDeletions.get(`r2:${targetKey}`)).toEqual({
       imageId: image.id,
       provider: 'r2',
@@ -712,6 +781,37 @@ describe('one-image Cloudflare to R2 migration pipeline', () => {
     expect(database.events.slice(-2)).toEqual(['cleanup-queued', 'r2-delete']);
   });
 
+  it('does not re-upload while deterministic target cleanup is pending', async () => {
+    if (!image.r2ObjectKey) throw new Error('Fixture requires a legacy ID');
+    const database = new InMemoryMigrationDatabase(image);
+    database.externalImageChangeOnUpdate = 'albums/other-writer/image.jpg';
+    const r2 = new InMemoryR2(database.events);
+    r2.deleteError = new Error('R2 deletion unavailable');
+
+    await expect(
+      migrateOneImage(
+        image as ImageRow & { r2ObjectKey: string },
+        dependencies(database, r2),
+      ),
+    ).rejects.toBeInstanceOf(ImageStorageMigrationConflictError);
+    expect(database.events.filter((event) => event === 'r2-put')).toHaveLength(
+      1,
+    );
+
+    database.externalImageChangeOnUpdate = undefined;
+    r2.deleteError = undefined;
+
+    await expect(
+      migrateOneImage(
+        image as ImageRow & { r2ObjectKey: string },
+        dependencies(database, r2),
+      ),
+    ).rejects.toThrow('Target cleanup is still pending');
+    expect(database.events.filter((event) => event === 'r2-put')).toHaveLength(
+      1,
+    );
+  });
+
   it('marks a changed existing Image as failed and removes this run target', async () => {
     if (!image.r2ObjectKey) throw new Error('Fixture requires a legacy ID');
     const database = new InMemoryMigrationDatabase(image);
@@ -730,6 +830,13 @@ describe('one-image Cloudflare to R2 migration pipeline', () => {
     expect(database.images.get(image.id)?.r2ObjectKey).toBe(competingKey);
     expect(database.journals.get(image.id)?.status).toBe('failed');
     expect(r2.deletedKeys).toEqual([targetKey]);
+    expect(database.queuedDeletions.get(`r2:${targetKey}`)).toEqual(
+      expect.objectContaining({
+        status: 'deleted',
+        deletedAt: expect.any(Date),
+        lastError: null,
+      }),
+    );
   });
 
   it('redacts the read token from both persisted and surfaced failures', async () => {
