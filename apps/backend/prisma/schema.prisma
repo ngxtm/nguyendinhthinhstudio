@@ -188,6 +188,18 @@ model ImageStorageMigration {
   @@index([status, updatedAt])
 }
 
+model CloudflareStaticAssetMigration {
+  legacyCloudflareImageId String   @id
+  localPath               String   @unique
+  sourceSha256            String
+  targetSha256            String
+  targetBytes             Int
+  deployedVerifiedAt      DateTime?
+  cloudflareDeletedAt     DateTime?
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+}
+
 // ============ TAGS ============
 
 model Tag {

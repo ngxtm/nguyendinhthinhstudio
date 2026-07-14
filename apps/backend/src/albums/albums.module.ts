@@ -5,18 +5,12 @@ import { AlbumsController } from './albums.controller';
 import { RecommendationService } from './recommendation.service';
 import { PrismaModule } from '../prisma/prisma.module';
 import { AuthModule } from '../auth/auth.module';
-import { StorageService } from '../images/storage.service';
-import { UploadCleanupService } from '../images/upload-cleanup.service';
+import { ImagesModule } from '../images/images.module';
 
 @Module({
-  imports: [PrismaModule, AuthModule, ConfigModule],
+  imports: [PrismaModule, AuthModule, ConfigModule, ImagesModule],
   controllers: [AlbumsController],
-  providers: [
-    AlbumsService,
-    RecommendationService,
-    StorageService,
-    UploadCleanupService,
-  ],
+  providers: [AlbumsService, RecommendationService],
   exports: [AlbumsService, RecommendationService],
 })
 export class AlbumsModule {}

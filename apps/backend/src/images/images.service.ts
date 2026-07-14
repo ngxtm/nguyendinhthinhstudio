@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { ImagePresenterService } from './image-presenter.service';
 import { ImageUrlService } from './image-url.service';
 import { StorageService } from './storage.service';
 import { UploadRequestDto } from './dto/upload-request.dto';
@@ -25,6 +26,7 @@ export class ImagesService {
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
     private readonly imageUrl: ImageUrlService,
+    private readonly imagePresenter: ImagePresenterService,
   ) {}
 
   /**
@@ -262,13 +264,15 @@ export class ImagesService {
       throw new NotFoundException('Album not found');
     }
 
-    return this.prisma.image.findMany({
+    const images = await this.prisma.image.findMany({
       where: {
         albumId,
         uploadStatus: 'completed',
       },
       orderBy: { orderIndex: 'asc' },
     });
+
+    return images.map((image) => this.imagePresenter.presentImage(image));
   }
 
   /**

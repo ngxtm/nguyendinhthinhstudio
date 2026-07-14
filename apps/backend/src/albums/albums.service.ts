@@ -6,6 +6,7 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { ImagePresenterService } from '../images/image-presenter.service';
 import { StorageService } from '../images/storage.service';
 import { UploadCleanupService } from '../images/upload-cleanup.service';
 import { runSerializableWithRetry } from '../prisma/serializable-retry';
@@ -47,6 +48,7 @@ export class AlbumsService {
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
     private readonly uploadCleanup: UploadCleanupService,
+    private readonly imagePresenter: ImagePresenterService,
   ) {}
 
   /**
@@ -812,10 +814,29 @@ export class AlbumsService {
       categories[0] ??
       null;
 
+    const presentedImageRelations = {
+      ...(Object.prototype.hasOwnProperty.call(album, 'coverImage')
+        ? {
+            coverImage: album.coverImage
+              ? this.imagePresenter.presentImage(album.coverImage)
+              : album.coverImage,
+          }
+        : {}),
+      ...(Object.prototype.hasOwnProperty.call(album, 'images')
+        ? {
+            images: Array.isArray(album.images)
+              ? album.images.map((image) =>
+                  this.imagePresenter.presentImage(image),
+                )
+              : album.images,
+          }
+        : {}),
+    };
     const { categories: _categories, ...rest } = album;
 
     return {
       ...rest,
+      ...presentedImageRelations,
       primaryCategory,
       categories,
       category: primaryCategory,

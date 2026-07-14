@@ -8,6 +8,97 @@ const lateConfirmedImage = {
   r2ObjectKey: 'albums/a/late-confirm.jpg',
 };
 
+const NOW = new Date('2026-07-12T12:00:00.000Z');
+
+function imageRecord(id: string) {
+  return {
+    id,
+    albumId: ALBUM_ID,
+    filename: `${id}.jpg`,
+    r2ObjectKey: `albums/${ALBUM_ID}/${id}.jpg`,
+    uploadStatus: 'completed',
+    thumbnailUrl: `stored://${id}/thumbnail`,
+    smallUrl: `stored://${id}/small`,
+    mediumUrl: `stored://${id}/medium`,
+    largeUrl: `stored://${id}/large`,
+    xlargeUrl: `stored://${id}/xlarge`,
+    altText: id,
+    orderIndex: 1,
+    width: 2400,
+    height: 1600,
+    fileSizeKb: 512,
+    createdAt: NOW,
+  };
+}
+
+function albumRecord(overrides: Record<string, unknown> = {}) {
+  return {
+    id: ALBUM_ID,
+    title: 'Wedding album',
+    slug: 'wedding-album',
+    description: null,
+    shootDate: null,
+    coverImageId: null,
+    status: 'draft',
+    publishedAt: null,
+    scheduledPublishAt: null,
+    isFeatured: false,
+    featuredOrder: null,
+    googleDriveLink: null,
+    metaTitle: null,
+    metaDescription: null,
+    viewCount: 0,
+    imageCount: 0,
+    deleteStatus: 'active',
+    deleteStartedAt: null,
+    createdAt: NOW,
+    updatedAt: NOW,
+    categories: [],
+    tags: [],
+    ...overrides,
+  };
+}
+
+function createPresentationHarness() {
+  const prisma: any = {
+    album: {
+      findUnique: jest.fn(),
+      findMany: jest.fn().mockResolvedValue([]),
+      create: jest.fn(),
+      update: jest.fn(),
+      findFirst: jest.fn().mockResolvedValue(null),
+    },
+    image: {
+      findUnique: jest.fn(),
+    },
+    tag: {
+      findMany: jest.fn().mockResolvedValue([]),
+    },
+    category: {
+      findMany: jest.fn().mockResolvedValue([]),
+      findUnique: jest.fn(),
+    },
+  };
+  const imagePresenter = {
+    presentImage: jest.fn((image: Record<string, unknown>) => ({
+      ...image,
+      thumbnailUrl: `presented://${String(image.id)}`,
+    })),
+  };
+  const uploadCleanup = { cleanupExpired: jest.fn().mockResolvedValue({}) };
+
+  return {
+    prisma,
+    imagePresenter,
+    service: new (AlbumsService as any)(
+      prisma,
+      {} as any,
+      uploadCleanup,
+      imagePresenter,
+    ) as AlbumsService,
+  };
+}
+
 function createHarness(
   options: {
     activeUploads?: number;
@@ -61,7 +152,12 @@ function createHarness(
     tx,
     uploadCleanup,
     queuedObjects,
-    service: new AlbumsService(prisma, {} as any, uploadCleanup as any),
+    service: new (AlbumsService as any)(
+      prisma,
+      {} as any,
+      uploadCleanup as any,
+      { presentImage: jest.fn() },
+    ) as AlbumsService,
   };
 }
 
@@ -158,5 +254,148 @@ describe('AlbumsService durable deletion', () => {
       select: { deleteStatus: true },
     });
     expect(tx.album.delete).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('AlbumsService image presentation', () => {
+  it('presents a nested cover and every gallery image without mutating query rows', () => {
+    const { imagePresenter, service } = createPresentationHarness();
+    const coverImage = imageRecord('cover');
+    const images = [imageRecord('image-1'), imageRecord('image-2')];
+    const album = albumRecord({ coverImage, images });
+    const snapshot = {
+      coverImage: { ...coverImage },
+      images: images.map((image) => ({ ...image })),
+    };
+
+    const result = service.presentAlbum(album as any);
+
+    expect(result.coverImage.thumbnailUrl).toBe('presented://cover');
+    expect(result.images.map((image: any) => image.thumbnailUrl)).toEqual([
+      'presented://image-1',
+      'presented://image-2',
+    ]);
+    expect(imagePresenter.presentImage).toHaveBeenCalledTimes(3);
+    expect({ coverImage, images }).toEqual(snapshot);
+  });
+
+  it('does not add image relations to an object that did not query them', () => {
+    const { imagePresenter, service } = createPresentationHarness();
+
+    const result = service.presentAlbum(albumRecord() as any);
+
+    expect(result).not.toHaveProperty('coverImage');
+    expect(result).not.toHaveProperty('images');
+    expect(imagePresenter.presentImage).not.toHaveBeenCalled();
+  });
+
+  it('presents the cover returned by create', async () => {
+    const { prisma, imagePresenter, service } = createPresentationHarness();
+    const coverImage = imageRecord('create-cover');
+    prisma.album.findUnique.mockResolvedValueOnce(null);
+    prisma.album.create.mockResolvedValueOnce(
+      albumRecord({ coverImageId: coverImage.id, coverImage }),
+    );
+
+    const result = await service.create({
+      title: 'Wedding album',
+      status: 'draft',
+    } as any);
+
+    expect(result.coverImage.thumbnailUrl).toBe('presented://create-cover');
+    expect(imagePresenter.presentImage).toHaveBeenCalledWith(coverImage);
+  });
+
+  it('presents every cover returned by findAll', async () => {
+    const { prisma, imagePresenter, service } = createPresentationHarness();
+    const firstCover = imageRecord('list-cover-1');
+    const secondCover = imageRecord('list-cover-2');
+    prisma.album.findMany.mockResolvedValueOnce([
+      albumRecord({ id: 'album-1', coverImage: firstCover }),
+      albumRecord({ id: 'album-2', coverImage: secondCover }),
+    ]);
+
+    const result = await service.findAll({} as any);
+
+    expect(result.data.map((album: any) => album.coverImage.thumbnailUrl)).toEqual([
+      'presented://list-cover-1',
+      'presented://list-cover-2',
+    ]);
+    expect(imagePresenter.presentImage).toHaveBeenCalledTimes(2);
+  });
+
+  it('presents the cover and gallery returned by findBySlug', async () => {
+    const { prisma, imagePresenter, service } = createPresentationHarness();
+    const coverImage = imageRecord('detail-cover');
+    const images = [imageRecord('detail-1'), imageRecord('detail-2')];
+    prisma.album.findUnique.mockResolvedValueOnce(
+      albumRecord({ coverImage, images }),
+    );
+
+    const result = await service.findBySlug('wedding-album', true);
+
+    expect(result.coverImage.thumbnailUrl).toBe('presented://detail-cover');
+    expect(result.images.map((image: any) => image.thumbnailUrl)).toEqual([
+      'presented://detail-1',
+      'presented://detail-2',
+    ]);
+    expect(imagePresenter.presentImage).toHaveBeenCalledTimes(3);
+  });
+
+  it('presents the cover returned by update', async () => {
+    const { prisma, imagePresenter, service } = createPresentationHarness();
+    const coverImage = imageRecord('update-cover');
+    prisma.album.findUnique.mockResolvedValueOnce(albumRecord());
+    prisma.album.update.mockResolvedValueOnce(
+      albumRecord({ coverImageId: coverImage.id, coverImage }),
+    );
+
+    const result = await service.update(ALBUM_ID, {
+      title: 'Updated album',
+    } as any);
+
+    expect(result.coverImage.thumbnailUrl).toBe('presented://update-cover');
+    expect(imagePresenter.presentImage).toHaveBeenCalledWith(coverImage);
+  });
+
+  it('presents the cover and gallery returned by setCover', async () => {
+    const { prisma, imagePresenter, service } = createPresentationHarness();
+    const coverImage = imageRecord('set-cover');
+    const images = [coverImage, imageRecord('set-cover-gallery')];
+    prisma.album.findUnique.mockResolvedValueOnce(albumRecord());
+    prisma.image.findUnique.mockResolvedValueOnce(coverImage);
+    prisma.album.update.mockResolvedValueOnce(
+      albumRecord({ coverImageId: coverImage.id, coverImage, images }),
+    );
+
+    const result = await service.setCover(ALBUM_ID, {
+      imageId: coverImage.id,
+    });
+
+    expect(result.coverImage.thumbnailUrl).toBe('presented://set-cover');
+    expect(result.images.map((image: any) => image.thumbnailUrl)).toEqual([
+      'presented://set-cover',
+      'presented://set-cover-gallery',
+    ]);
+    expect(imagePresenter.presentImage).toHaveBeenCalledTimes(3);
+  });
+
+  it('presents the cover returned by toggleFeatured', async () => {
+    const { prisma, imagePresenter, service } = createPresentationHarness();
+    const coverImage = imageRecord('featured-cover');
+    prisma.album.findUnique.mockResolvedValueOnce(albumRecord());
+    prisma.album.update.mockResolvedValueOnce(
+      albumRecord({
+        coverImageId: coverImage.id,
+        coverImage,
+        isFeatured: true,
+        featuredOrder: 1,
+      }),
+    );
+
+    const result = await service.toggleFeatured(ALBUM_ID);
+
+    expect(result.coverImage.thumbnailUrl).toBe('presented://featured-cover');
+    expect(imagePresenter.presentImage).toHaveBeenCalledWith(coverImage);
   });
 });

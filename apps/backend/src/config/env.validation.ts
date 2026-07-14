@@ -1,5 +1,7 @@
 type Environment = Record<string, unknown>;
 
+const imageDeliveryModes = new Set(['legacy', 'imgproxy', 'auto']);
+
 const requiredVariables = [
   'CLOUDFLARE_R2_BUCKET_NAME',
   'R2_ACCESS_KEY_ID',
@@ -26,6 +28,27 @@ function validateHex(value: string, variable: string): void {
   }
 }
 
+function validateImageDeliveryMode(
+  env: Environment,
+  production: boolean,
+): void {
+  const value = env.IMAGE_DELIVERY_MODE;
+
+  if (value === undefined || value === null) {
+    if (production) {
+      throw new Error('IMAGE_DELIVERY_MODE is required');
+    }
+
+    return;
+  }
+
+  if (typeof value !== 'string' || !imageDeliveryModes.has(value)) {
+    throw new Error(
+      'IMAGE_DELIVERY_MODE must be one of: legacy, imgproxy, auto',
+    );
+  }
+}
+
 function validateUrl(value: string, variable: string, production: boolean): void {
   let url: URL;
 
@@ -46,6 +69,7 @@ export function validateEnv(env: Environment): Environment {
   ) as Record<(typeof requiredVariables)[number], string>;
   const production = env.NODE_ENV === 'production';
 
+  validateImageDeliveryMode(env, production);
   validateHex(values.IMGPROXY_KEY, 'IMGPROXY_KEY');
   validateHex(values.IMGPROXY_SALT, 'IMGPROXY_SALT');
   validateUrl(values.R2_S3_ENDPOINT, 'R2_S3_ENDPOINT', production);

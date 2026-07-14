@@ -48,6 +48,28 @@ const activeUpload = (overrides: Partial<UploadRow> = {}): UploadRow => ({
   ...overrides,
 });
 
+describe('ImagesService read presentation', () => {
+  it('presents every image returned for an album without mutating query rows', async () => {
+    const harness = createHarness();
+    const rows = [
+      { id: 'image-1', thumbnailUrl: 'stored://one' },
+      { id: 'image-2', thumbnailUrl: 'stored://two' },
+    ];
+    harness.prisma.image.findMany.mockResolvedValueOnce(rows);
+
+    await expect(harness.createService().findByAlbum(ALBUM_ID)).resolves.toEqual([
+      { id: 'image-1', thumbnailUrl: 'presented://image-1' },
+      { id: 'image-2', thumbnailUrl: 'presented://image-2' },
+    ]);
+
+    expect(harness.imagePresenter.presentImage).toHaveBeenCalledTimes(2);
+    expect(rows).toEqual([
+      { id: 'image-1', thumbnailUrl: 'stored://one' },
+      { id: 'image-2', thumbnailUrl: 'stored://two' },
+    ]);
+  });
+});
+
 function createHarness(session = activeUpload()) {
   const rows = {
     images: [] as Array<Record<string, unknown>>,
@@ -83,6 +105,7 @@ function createHarness(session = activeUpload()) {
     },
     image: {
       count: jest.fn().mockResolvedValue(0),
+      findMany: jest.fn().mockResolvedValue([]),
       findFirst: jest.fn().mockResolvedValue({ orderIndex: 0 }),
       create: jest.fn().mockImplementation(async ({ data }: any) => {
         const image = { id: `image-${rows.images.length + 1}`, ...data };
@@ -121,13 +144,21 @@ function createHarness(session = activeUpload()) {
       xlargeUrl: 'https://img.example.test/xlarge',
     }),
   };
+  const imagePresenter: any = {
+    presentImage: jest.fn((image: Record<string, unknown>) => ({
+      ...image,
+      thumbnailUrl: `presented://${String(image.id)}`,
+    })),
+  };
 
   return {
     rows,
     prisma,
     storage,
     imageUrl,
-    createService: () => new ImagesService(prisma, storage, imageUrl),
+    imagePresenter,
+    createService: () =>
+      new (ImagesService as any)(prisma, storage, imageUrl, imagePresenter),
   };
 }
 

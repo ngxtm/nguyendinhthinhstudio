@@ -65,6 +65,7 @@ services:
       - IMGPROXY_KEY=${IMGPROXY_KEY:?IMGPROXY_KEY is required}
       - IMGPROXY_SALT=${IMGPROXY_SALT:?IMGPROXY_SALT is required}
       - IMGPROXY_BASE_URL=${IMGPROXY_BASE_URL:?IMGPROXY_BASE_URL is required}
+      - IMAGE_DELIVERY_MODE=${IMAGE_DELIVERY_MODE}
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:?ALLOWED_ORIGINS is required}
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/health"]
