@@ -1,0 +1,82 @@
+[
+  {
+    "legacyCloudflareImageId": "09389f8a-bd47-409d-f057-c456f492da00",
+    "localPath": "public/images/home/hero-01.webp",
+    "sourceSha256": "928849b5984963fbd35eedb998c91b48eb2946e9f0d1df371cc282b9bb9ce876",
+    "targetSha256": "bfff97af60666f06f27b968dae6c081a9662a76fc097100286893b41cc375fee",
+    "targetBytes": 2499402,
+    "downloadedAt": "2026-07-14T09:42:49.644Z"
+  },
+  {
+    "legacyCloudflareImageId": "be5b07b5-3a85-48f7-af0c-8e8a778b7f00",
+    "localPath": "public/images/home/hero-02.webp",
+    "sourceSha256": "ef23994621b61c59f35f0e57a2205aeb1818a9e4f0797f7f002121f275dc6e3a",
+    "targetSha256": "b9c7d82d6b28d871448ca3bd1c56d30c785c54993321e00b850957c25495cd80",
+    "targetBytes": 583844,
+    "downloadedAt": "2026-07-14T09:42:49.644Z"
+  },
+  {
+    "legacyCloudflareImageId": "444f1148-63fd-43f6-111f-7503dfc40700",
+    "localPath": "public/images/home/hero-03.webp",
+    "sourceSha256": "d50884a6c82ee0b2ad4eb4a8388065d762776eaa17870392a31d4b34049a8d29",
+    "targetSha256": "60e3172b62f48ea54bd33721720128cfa7dce668ce5dd7a2a57904d209556da0",
+    "targetBytes": 1961898,
+    "downloadedAt": "2026-07-14T09:42:49.644Z"
+  },
+  {
+    "legacyCloudflareImageId": "1d54a960-726a-41af-a31a-778f8ff87900",
+    "localPath": "public/images/home/hero-04.webp",
+    "sourceSha256": "e84c9b430826f67257506d1aab4abfcd5b46cab12c72f7ac99ab907f85487cff",
+    "targetSha256": "e0661f5dcaa7e1199350af1e9c874391a43e5560654a70affee594149ba975d1",
+    "targetBytes": 2066024,
+    "downloadedAt": "2026-07-14T09:42:49.644Z"
+  },
+  {
+    "legacyCloudflareImageId": "b1799cea-19c8-478a-fd08-cbb64b633f00",
+    "localPath": "public/images/home/collection-01.webp",
+    "sourceSha256": "3c096d815c619333d87082c85e40942c658670be4becd7a91e6c6b5c0c4a6d7f",
+    "targetSha256": "ab26d7fece9ad04ab66fe8bc825e8f18c3afa01c353b3f009396df275aa1e4af",
+    "targetBytes": 5785846,
+    "downloadedAt": "2026-07-14T09:42:49.644Z"
+  },
+  {
+    "legacyCloudflareImageId": "b33f71fd-e65c-42dc-f50b-ceb2dfc51400",
+    "localPath": "public/images/home/collection-02.webp",
+    "sourceSha256": "3c4f2a35215d4525ba393f73d1b93fd519d1c2fae06f05da099cea206e9346fc",
+    "targetSha256": "0d314a9f41a9f69880aebf37774a710a2ca424f642b2773c59c8721716e4b2d5",
+    "targetBytes": 4466894,
+    "downloadedAt": "2026-07-14T09:42:49.644Z"
+  },
+  {
+    "legacyCloudflareImageId": "4b41393a-7fbe-4c33-2cfe-4aea40447500",
+    "localPath": "public/images/home/collection-03.webp",
+    "sourceSha256": "07ee74b96b691b7b580952b88ae0b282b395cc6c084fdcc740f2a0dc3a44dd26",
+    "targetSha256": "8b646ff202740b372841f1f718984908cab368723bda27387246ff9026b3cd7f",
+    "targetBytes": 1687922,
+    "downloadedAt": "2026-07-14T09:42:49.644Z"
+  },
+  {
+    "legacyCloudflareImageId": "a9b39412-e44b-4bf9-f101-8838a8096000",
+    "localPath": "public/images/home/collection-04.webp",
+    "sourceSha256": "9fccce290bf665baca54bb4221b39a0f27ed02f3a4999b86e3a78c3e8f2cf699",
+    "targetSha256": "bfb52aa6df19fee3b1d272de31bf8e949d98f9ae053cf2482c16772886d0e696",
+    "targetBytes": 6630510,
+    "downloadedAt": "2026-07-14T09:42:49.644Z"
+  },
+  {
+    "legacyCloudflareImageId": "098f40e8-2e7a-4bac-a4e9-1c75dcdbfe00",
+    "localPath": "public/images/home/collection-05.webp",
+    "sourceSha256": "feb7252612a13b3e3b51e870339669278d2aa5be550b21700e4e3651c7afe9ed",
+    "targetSha256": "cb35e9d5ff2d4884205335f2bf42173b079b109f0572ba51e9bd1a37e24b1e89",
+    "targetBytes": 8742594,
+    "downloadedAt": "2026-07-14T09:42:49.644Z"
+  },
+  {
+    "legacyCloudflareImageId": "9d7c5ca4-9072-4a45-3d46-c907d4b74b00",
+    "localPath": "public/images/home/collection-06.webp",
+    "sourceSha256": "dc5831310ffccf07e45e6ffec8c6f50907ba4b104700fd78c10381490da60545",
+    "targetSha256": "65abed06fb3fb061c7535e3ec04a304169148190d84103da2b343ed4b1ae84c7",
+    "targetBytes": 1678114,
+    "downloadedAt": "2026-07-14T09:42:49.644Z"
+  }
+]
