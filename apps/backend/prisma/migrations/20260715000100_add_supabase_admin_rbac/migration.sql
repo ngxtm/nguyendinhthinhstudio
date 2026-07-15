@@ -1,3 +1,5 @@
+BEGIN;
+
 -- Supabase admin RBAC.
 -- Verification: psql "$DIRECT_URL" -v ON_ERROR_STOP=1 -f apps/backend/test/supabase-rbac.sql
 -- The contract test requires a disposable Supabase-compatible database because it
@@ -16,9 +18,22 @@ $$;
 -- postgres role, and supautils rejects clauses that mention reserved
 -- SUPERUSER/BYPASSRLS attributes. CREATE ROLE above already establishes them.
 
-CREATE TYPE public.app_role AS ENUM ('admin');
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_catalog.pg_type AS type
+    JOIN pg_catalog.pg_namespace AS namespace
+      ON namespace.oid = type.typnamespace
+    WHERE namespace.nspname = 'public'
+      AND type.typname = 'app_role'
+  ) THEN
+    CREATE TYPE public.app_role AS ENUM ('admin');
+  END IF;
+END
+$$;
 
-CREATE TABLE public.user_roles (
+CREATE TABLE IF NOT EXISTS public.user_roles (
   user_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   role public.app_role NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now()
@@ -32,6 +47,7 @@ GRANT USAGE ON SCHEMA public TO auth_hook_user_role_reader;
 GRANT USAGE ON TYPE public.app_role TO auth_hook_user_role_reader;
 GRANT SELECT (user_id, role) ON TABLE public.user_roles TO auth_hook_user_role_reader;
 
+DROP POLICY IF EXISTS auth_hook_subject_role_lookup ON public.user_roles;
 CREATE POLICY auth_hook_subject_role_lookup
   ON public.user_roles
   FOR SELECT
@@ -40,22 +56,41 @@ CREATE POLICY auth_hook_subject_role_lookup
     user_id = NULLIF(current_setting('auth_hooks.subject_id', true), '')::uuid
   );
 
+-- PostgreSQL requires the migration role to be able to SET ROLE to a new
+-- object owner. Keep that SET ROLE capability temporary and transactional.
+DO $$
+BEGIN
+  EXECUTE pg_catalog.format(
+    'GRANT auth_hook_user_role_reader TO %I',
+    session_user
+  );
+END
+$$;
+
 CREATE SCHEMA auth_hooks AUTHORIZATION auth_hook_user_role_reader;
 REVOKE ALL ON SCHEMA auth_hooks FROM PUBLIC, anon, authenticated;
 DO $$
 DECLARE
-  schema_name text;
+  unexpected_schema text;
 BEGIN
-  FOR schema_name IN
-    SELECT nspname
-    FROM pg_catalog.pg_namespace
-    WHERE nspname <> 'auth_hooks'
-  LOOP
-    EXECUTE pg_catalog.format(
-      'REVOKE CREATE ON SCHEMA %I FROM auth_hook_user_role_reader',
-      schema_name
-    );
-  END LOOP;
+  SELECT namespace.nspname
+  INTO unexpected_schema
+  FROM pg_catalog.pg_namespace AS namespace
+  WHERE namespace.nspname <> 'auth_hooks'
+    AND pg_catalog.has_schema_privilege(
+      'auth_hook_user_role_reader',
+      namespace.oid,
+      'CREATE'
+    )
+  ORDER BY namespace.nspname
+  LIMIT 1;
+
+  IF unexpected_schema IS NOT NULL THEN
+    RAISE EXCEPTION
+      'auth_hook_user_role_reader unexpectedly has CREATE on schema %',
+      unexpected_schema
+      USING ERRCODE = '42501';
+  END IF;
 END
 $$;
 REVOKE CREATE ON SCHEMA auth_hooks FROM supabase_auth_admin;
@@ -161,5 +196,17 @@ BEFORE UPDATE OR DELETE ON public.admin_audit_events
 FOR EACH ROW
 EXECUTE FUNCTION public.reject_admin_audit_event_mutation();
 
-ALTER DEFAULT PRIVILEGES IN SCHEMA auth_hooks REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC;
+ALTER DEFAULT PRIVILEGES FOR ROLE auth_hook_user_role_reader IN SCHEMA auth_hooks
+  REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC;
+
+DO $$
+BEGIN
+  EXECUTE pg_catalog.format(
+    'REVOKE auth_hook_user_role_reader FROM %I',
+    session_user
+  );
+END
+$$;
+
+COMMIT;

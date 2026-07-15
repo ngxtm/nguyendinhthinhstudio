@@ -70,6 +70,8 @@ SELECT pg_temp.assert_true(
     SELECT 1
     FROM pg_catalog.pg_namespace
     WHERE nspname <> 'auth_hooks'
+      AND nspname NOT LIKE 'pg_temp_%'
+      AND nspname NOT LIKE 'pg_toast_temp_%'
       AND has_schema_privilege('auth_hook_user_role_reader', oid, 'CREATE')
   ),
   'hook owner may create objects only in auth_hooks'
@@ -108,7 +110,22 @@ SELECT pg_temp.assert_true(
 );
 
 SELECT pg_temp.assert_true(
-  NOT has_function_privilege('PUBLIC', 'auth_hooks.custom_access_token_hook(jsonb)', 'EXECUTE')
+  NOT EXISTS (
+    SELECT 1
+    FROM pg_catalog.pg_proc AS function
+    JOIN pg_catalog.pg_namespace AS namespace
+      ON namespace.oid = function.pronamespace
+    CROSS JOIN LATERAL pg_catalog.aclexplode(
+      COALESCE(
+        function.proacl,
+        pg_catalog.acldefault('f', function.proowner)
+      )
+    ) AS privilege
+    WHERE namespace.nspname = 'auth_hooks'
+      AND function.proname = 'custom_access_token_hook'
+      AND privilege.grantee = 0
+      AND privilege.privilege_type = 'EXECUTE'
+  )
   AND NOT has_function_privilege('anon', 'auth_hooks.custom_access_token_hook(jsonb)', 'EXECUTE')
   AND NOT has_function_privilege('authenticated', 'auth_hooks.custom_access_token_hook(jsonb)', 'EXECUTE')
   AND NOT has_function_privilege('auth_hook_user_role_reader', 'auth_hooks.custom_access_token_hook(jsonb)', 'EXECUTE')
@@ -151,8 +168,8 @@ SELECT pg_temp.assert_true(
     SELECT 1 FROM information_schema.columns
     WHERE table_schema = 'public' AND table_name = 'admin_audit_events'
     GROUP BY table_schema, table_name
-    HAVING array_agg(column_name ORDER BY column_name) @>
-      ARRAY['action','correlation_id','created_at','metadata','operator_user_id','outcome','target_user_id']::name[]
+    HAVING array_agg(column_name::text ORDER BY column_name) @>
+      ARRAY['action','correlation_id','created_at','metadata','operator_user_id','outcome','target_user_id']::text[]
   ),
   'audit table must expose required operator/target/action/outcome/correlation/timestamp/metadata columns'
 );
@@ -208,7 +225,7 @@ SET LOCAL ROLE auth_hook_user_role_reader;
 SELECT pg_temp.assert_true(
   (SELECT count(*) = 1 FROM public.user_roles)
   AND (
-    SELECT user_id = (SELECT id FROM rbac_subjects ORDER BY email LIMIT 1)
+    SELECT user_id = current_setting('auth_hooks.subject_id')::uuid
     FROM public.user_roles
   ),
   'hook-owner RLS must expose only the configured subject'
