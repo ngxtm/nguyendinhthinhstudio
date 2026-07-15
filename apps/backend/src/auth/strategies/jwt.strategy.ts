@@ -1,43 +1,59 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
-import { ExtractJwt, Strategy } from 'passport-jwt';
-import { ConfigService } from '@nestjs/config';
+import passport from 'passport';
+import type { Request } from 'express';
+import { JWT_VERIFIER, JwtVerifier } from '../jwt-verifier.provider';
+
+const PassportBaseStrategy =
+  passport.Strategy as unknown as new () => passport.Strategy;
 
 export interface JwtPayload {
-  sub: string; // user id
+  sub: string;
   email?: string;
   role?: string;
-  aud: string;
+  user_role?: string;
+  aud: string | string[];
   exp: number;
 }
 
 @Injectable()
-export class JwtStrategy extends PassportStrategy(Strategy) {
-  constructor(private configService: ConfigService) {
-    const secret = configService.get<string>('SUPABASE_JWT_SECRET') || 'temporary-test-secret-key-change-in-production';
-    
-    super({
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-      secretOrKey: secret,
-      ignoreExpiration: false,
-    });
-    
-    if (!configService.get<string>('SUPABASE_JWT_SECRET')) {
-      console.warn('⚠️  WARNING: Using temporary JWT secret. Set SUPABASE_JWT_SECRET in .env for production!');
-    }
+export class JwtStrategy extends PassportStrategy(PassportBaseStrategy, 'jwt') {
+  constructor(
+    @Inject(JWT_VERIFIER)
+    private readonly verifier: JwtVerifier,
+  ) {
+    super();
   }
 
-  async validate(payload: JwtPayload) {
-    if (!payload.sub) {
-      throw new UnauthorizedException('Invalid token payload');
+  validate(user: unknown): unknown {
+    return user;
+  }
+
+  authenticate(request: Request): void {
+    const callbacks = this as unknown as {
+      success: (user: unknown) => void;
+      fail: (challenge: unknown, status?: number) => void;
+    };
+    const authorization = request.headers.authorization;
+    const match =
+      typeof authorization === 'string'
+        ? /^Bearer ([^\s]+)$/i.exec(authorization)
+        : null;
+
+    if (!match) {
+      callbacks.fail(new UnauthorizedException('Missing bearer token'), 401);
+      return;
     }
 
-    // Return user info to be attached to request object
-    return {
-      userId: payload.sub,
-      email: payload.email,
-      role: payload.role || 'user',
-    };
+    this.verifier.verify(match[1]).then(
+      (user) => callbacks.success(user),
+      (error: unknown) =>
+        callbacks.fail(
+          error instanceof UnauthorizedException
+            ? error
+            : new UnauthorizedException('Invalid bearer token'),
+          401,
+        ),
+    );
   }
 }
-

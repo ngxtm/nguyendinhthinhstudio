@@ -58,6 +58,12 @@ function executeEnvironment(): NodeJS.ProcessEnv {
     IMGPROXY_KEY: '0011',
     IMGPROXY_SALT: '2233',
     IMGPROXY_BASE_URL: 'https://img.example.test',
+    SUPABASE_URL: 'https://project-ref.supabase.co',
+    SUPABASE_JWT_ISSUER: 'https://project-ref.supabase.co/auth/v1',
+    SUPABASE_JWT_AUDIENCE: 'authenticated',
+    SUPABASE_JWKS_URL: 'https://project-ref.supabase.co/auth/v1/.well-known/jwks.json',
+    SUPABASE_JWT_ALGORITHMS: 'ES256,RS256',
+    SUPABASE_JWT_MODE: 'asymmetric',
   };
 }
 
