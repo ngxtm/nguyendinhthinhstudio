@@ -248,3 +248,23 @@ Khong commit admin storage state, production credentials hoac evidence co sensit
 - Representative repeated image request returns Cloudflare cache HIT.
 - Rollback drill pass.
 - Seven-day observation window hoan tat.
+
+## Operator acceptance — 2026-07-16
+
+**Decision:** GO cho Phase 7 theo pham vi rut gon duoc operator chap nhan.
+
+Operator xac nhan:
+
+- Anh production da duoc chuyen sang R2.
+- Website dang delivery anh qua imgproxy va hien thi binh thuong.
+- Upload anh tu admin hoat dong binh thuong.
+- Automated build/test, Docker Node 24 runtime, health endpoints, Cloudflare cache HIT va imgproxy cold-cache resource gate da pass.
+
+Cac acceptance criteria sau duoc operator chu dong mien bo trong lan rollout nay:
+
+- DB-backed audit toan bo completed Image rows.
+- Live staging restart/confirm/delete/race drill day du.
+- Rollback drill day du.
+- Observation window cung 7 ngay.
+
+Day la operator acceptance, khong phai bang chung rang moi acceptance criterion goc da duoc thuc thi. Cloudflare originals, legacy URL data va kha nang rollback phai tiep tuc duoc giu truoc khi thuc hien destructive cleanup trong Phase 8. Truoc khi xoa Cloudflare originals, drop legacy URL columns hoac huy Cloudflare Images, operator phai xac nhan backup/rollback phu hop hoac chap nhan ro rang rui ro mat duong khoi phuc.
