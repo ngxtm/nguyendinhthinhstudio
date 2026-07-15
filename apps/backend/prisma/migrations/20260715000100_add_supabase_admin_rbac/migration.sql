@@ -12,7 +12,9 @@ BEGIN
 END
 $$;
 
-ALTER ROLE auth_hook_user_role_reader NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS;
+-- Do not modify role attributes here. Managed Supabase exposes a constrained
+-- postgres role, and supautils rejects clauses that mention reserved
+-- SUPERUSER/BYPASSRLS attributes. CREATE ROLE above already establishes them.
 
 CREATE TYPE public.app_role AS ENUM ('admin');
 
