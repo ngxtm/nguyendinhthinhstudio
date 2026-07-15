@@ -20,7 +20,8 @@ import {
 import { Toaster } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { getBrowserSupabase } from '@/lib/auth/supabase';
-import { getAccessTokenRole } from '@/lib/auth/session';
+import { getAccessTokenRole, signOutAndReturnToAdminLogin } from '@/lib/auth/session';
+import { AdminAccessDenied } from './access-denied';
 
 const NAV_ITEMS = [
   { href: '/admin', label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
@@ -35,6 +36,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [authState, setAuthState] = useState<'checking' | 'admin' | 'denied'>('checking');
+  const [signingOut, setSigningOut] = useState(false);
 
   useEffect(() => {
     if (pathname === '/admin/login') return;
@@ -56,9 +58,18 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const closeSidebar = () => setSidebarOpen(false);
 
+  const handleSignOut = async () => {
+    setSigningOut(true);
+    try {
+      await signOutAndReturnToAdminLogin(getBrowserSupabase(), router);
+    } finally {
+      setSigningOut(false);
+    }
+  };
+
   if (pathname === '/admin/login') return <>{children}</>;
   if (authState === 'checking') return <div className="flex min-h-screen items-center justify-center">Đang kiểm tra phiên đăng nhập…</div>;
-  if (authState === 'denied') return <div className="flex min-h-screen items-center justify-center">Bạn không có quyền truy cập khu vực quản trị.</div>;
+  if (authState === 'denied') return <AdminAccessDenied onSignOut={handleSignOut} signingOut={signingOut} />;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -114,7 +125,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </nav>
 
           <div className="mt-auto border-t border-gray-200 px-6 py-4 space-y-3">
-            <button type="button" className="block text-sm font-medium text-gray-600 hover:text-gray-900" onClick={async () => { await getBrowserSupabase().auth.signOut(); router.replace('/admin/login'); }}>Đăng xuất</button>
+            <button
+              type="button"
+              disabled={signingOut}
+              className="block text-sm font-medium text-gray-600 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-50"
+              onClick={handleSignOut}
+            >
+              {signingOut ? 'Đang đăng xuất…' : 'Đăng xuất'}
+            </button>
             <Link
               href="/"
               className="text-sm font-medium text-gray-600 transition-colors hover:text-gray-900"

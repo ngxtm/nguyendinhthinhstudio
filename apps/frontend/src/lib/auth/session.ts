@@ -22,6 +22,14 @@ export async function signInAdmin(client: SupabaseClient, email: string, passwor
   return client.auth.signInWithPassword({ email: email.trim(), password });
 }
 
+export async function signOutAndReturnToAdminLogin(
+  client: { auth: { signOut: () => Promise<unknown> } },
+  router: { replace: (href: string) => void },
+) {
+  await client.auth.signOut();
+  router.replace('/admin/login');
+}
+
 export async function getAdminUser(client: SupabaseClient): Promise<User | null> {
   const { data } = await client.auth.getUser();
   return data.user;
