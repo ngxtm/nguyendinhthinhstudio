@@ -11,6 +11,7 @@ import { AuthModule } from './auth/auth.module';
 import { AlbumsModule } from './albums/albums.module';
 import { ImagesModule } from './images/images.module';
 import { validateEnv } from './config/env.validation';
+import { AuditService } from './audit/audit.service';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { validateEnv } from './config/env.validation';
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
     },
+    AuditService,
   ],
 })
 export class AppModule {}

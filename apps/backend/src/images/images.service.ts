@@ -257,7 +257,7 @@ export class ImagesService {
    */
   async findByAlbum(albumId: string) {
     const album = await this.prisma.album.findUnique({
-      where: { id: albumId },
+      where: { id: albumId, status: 'published', deleteStatus: 'active' },
     });
 
     if (!album) {
@@ -272,7 +272,11 @@ export class ImagesService {
       orderBy: { orderIndex: 'asc' },
     });
 
-    return images.map((image) => this.imagePresenter.presentImage(image));
+    return images.map((image) => {
+      const presented: any = this.imagePresenter.presentImage(image);
+      const { albumId: _albumId, r2ObjectKey, uploadStatus, fileSizeKb, createdAt, ...safe } = presented;
+      return safe;
+    });
   }
 
   /**

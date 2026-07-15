@@ -21,7 +21,7 @@ export class AlbumsController {
   ) {}
 
   @Post()
-  @Public() // TODO: Remove this in production - only for development
+  @Roles('admin')
   @ApiOperation({ summary: 'Create new album (Admin only)' })
   @ApiResponse({ status: 201, description: 'Album created successfully' })
   @ApiResponse({ status: 400, description: 'Invalid request data' })
@@ -40,7 +40,7 @@ export class AlbumsController {
   }
 
   @Get('dashboard/stats')
-  @Public()
+  @Roles('admin')
   @ApiOperation({ summary: 'Get aggregated dashboard statistics' })
   @ApiResponse({ status: 200, description: 'Dashboard stats retrieved successfully' })
   getDashboardStats() {
@@ -54,10 +54,17 @@ export class AlbumsController {
   @ApiResponse({ status: 404, description: 'Album not found' })
   findOne(
     @Param('slug') slug: string,
-    @Query('skipViewIncrement') skipViewIncrement?: string,
   ) {
-    return this.albumsService.findBySlug(slug, skipViewIncrement === 'true');
+    return this.albumsService.findBySlug(slug);
   }
+
+  @Get('admin')
+  @Roles('admin')
+  findAdminAll(@Query() query: QueryAlbumsDto) { return this.albumsService.findAdminAll(query); }
+
+  @Get('admin/:id')
+  @Roles('admin')
+  findAdminById(@Param('id') id: string) { return this.albumsService.findAdminById(id); }
 
   @Get(':slug/related')
   @Public()
@@ -68,7 +75,7 @@ export class AlbumsController {
   }
 
   @Patch(':id')
-  @Public() // TODO: Remove this in production - only for development
+  @Roles('admin')
   @ApiOperation({ summary: 'Update album (Admin only)' })
   @ApiResponse({ status: 200, description: 'Album updated successfully' })
   @ApiResponse({ status: 404, description: 'Album not found' })
@@ -78,7 +85,7 @@ export class AlbumsController {
   }
 
   @Delete(':id')
-  @Public() // TODO: Remove this in production - only for development
+  @Roles('admin')
   @ApiOperation({ summary: 'Delete album (Admin only)' })
   @ApiResponse({ status: 200, description: 'Album deleted successfully' })
   @ApiResponse({ status: 404, description: 'Album not found' })
@@ -87,7 +94,7 @@ export class AlbumsController {
   }
 
   @Patch(':id/cover')
-  @Public() // TODO: Remove this in production - only for development
+  @Roles('admin')
   @ApiOperation({ summary: 'Set album cover image (Admin only)' })
   @ApiResponse({ status: 200, description: 'Cover image set successfully' })
   @ApiResponse({ status: 404, description: 'Album or image not found' })
@@ -97,7 +104,7 @@ export class AlbumsController {
   }
 
   @Patch(':id/publish')
-  @Public() // TODO: Remove this in production - only for development
+  @Roles('admin')
   @ApiOperation({ summary: 'Publish album (Admin only)' })
   @ApiResponse({ status: 200, description: 'Album published successfully' })
   @ApiResponse({ status: 404, description: 'Album not found' })
@@ -106,7 +113,7 @@ export class AlbumsController {
   }
 
   @Patch(':id/feature')
-  @Public() // TODO: Remove this in production - only for development
+  @Roles('admin')
   @ApiOperation({ summary: 'Toggle featured status (Admin only)' })
   @ApiResponse({ status: 200, description: 'Featured status toggled successfully' })
   @ApiResponse({ status: 404, description: 'Album not found' })

@@ -148,11 +148,12 @@ export class AlbumsService {
     const { status, category, tag, isFeatured, limit, cursor, sortBy, search } =
       query;
 
-    const filters: Prisma.AlbumWhereInput[] = [];
-
-    if (status && status !== 'all') {
-      filters.push({ status });
+    if (status && status !== 'published') {
+      throw new BadRequestException('Public album status must be published');
     }
+    const filters: Prisma.AlbumWhereInput[] = [{ status: 'published' }, { deleteStatus: 'active' }];
+
+    
 
     if (category) {
       filters.push({
@@ -300,7 +301,7 @@ export class AlbumsService {
    */
   async findBySlug(slug: string, skipViewIncrement = false) {
     const album = await this.prisma.album.findUnique({
-      where: { slug },
+      where: { slug, status: 'published', deleteStatus: 'active' },
       include: {
         tags: {
           include: {
@@ -339,7 +340,24 @@ export class AlbumsService {
         });
     }
 
-    return this.presentAlbum(album);
+    return this.presentPublicAlbum(album);
+  }
+
+  async findAdminById(id: string) {
+    const album = await this.prisma.album.findUnique({ where: { id }, include: { tags: { include: { tag: true } }, categories: { include: { category: true } }, coverImage: true, images: true } });
+    if (!album) throw new NotFoundException('Album not found');
+    return this.presentAlbum(album as any);
+  }
+
+  async findAdminAll(query: QueryAlbumsDto = {} as any) {
+    const albums = await this.prisma.album.findMany({ where: query.status && query.status !== 'all' ? { status: query.status } : undefined, include: { tags: { include: { tag: true } }, categories: { include: { category: true } }, coverImage: true, _count: { select: { images: true } } }, take: Math.min(Math.max(query.limit ?? 20, 1), 50) });
+    return { data: albums.map((a: any) => this.presentAlbum(a)), pagination: { hasMore: false, nextCursor: null, limit: query.limit ?? 20 } };
+  }
+
+  private presentPublicAlbum(album: any) {
+    const presented = this.presentAlbum(album);
+    const { googleDriveLink, scheduledPublishAt, deleteStatus, deleteStartedAt, metaTitle, metaDescription, ...safe } = presented as any;
+    return { ...safe, metaTitle: album.metaTitle ?? null, metaDescription: album.metaDescription ?? null };
   }
 
   /**
