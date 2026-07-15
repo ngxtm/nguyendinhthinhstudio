@@ -43,7 +43,7 @@ export default function CategoriesPage() {
   async function loadCategories() {
     try {
       setLoading(true)
-      const data = await getCategories()
+      const data = await getCategories(true)
       setCategories(data)
     } catch (error) {
       console.error('Failed to load categories:', error)

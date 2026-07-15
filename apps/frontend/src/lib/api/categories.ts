@@ -2,7 +2,7 @@
  * Categories API Service
  */
 
-import { apiClient } from './client';
+import { apiClient, adminApiClient } from './client';
 
 export interface Category {
   id: string;
@@ -35,8 +35,8 @@ export interface UpdateCategoryDto {
 /**
  * Get all categories
  */
-export async function getCategories(): Promise<Category[]> {
-  return apiClient<Category[]>('/categories');
+export async function getCategories(admin = false): Promise<Category[]> {
+  return (admin ? adminApiClient : apiClient)<Category[]>('/categories');
 }
 
 /**
@@ -50,7 +50,7 @@ export async function getCategory(id: string): Promise<Category> {
  * Create new category (Admin only)
  */
 export async function createCategory(data: CreateCategoryDto): Promise<Category> {
-  return apiClient<Category>('/categories', {
+  return adminApiClient<Category>('/categories', {
     method: 'POST',
     body: JSON.stringify(data),
   });
@@ -63,7 +63,7 @@ export async function updateCategory(
   id: string,
   data: UpdateCategoryDto
 ): Promise<Category> {
-  return apiClient<Category>(`/categories/${id}`, {
+  return adminApiClient<Category>(`/categories/${id}`, {
     method: 'PATCH',
     body: JSON.stringify(data),
   });
@@ -73,7 +73,7 @@ export async function updateCategory(
  * Delete category (Admin only)
  */
 export async function deleteCategory(id: string): Promise<void> {
-  return apiClient<void>(`/categories/${id}`, {
+  return adminApiClient<void>(`/categories/${id}`, {
     method: 'DELETE',
   });
 }
@@ -86,7 +86,7 @@ export async function checkCategoryUsage(id: string): Promise<{
   albumCount: number;
   albums: Array<{ id: string; title: string; slug: string }>;
 }> {
-  return apiClient(`/categories/${id}/usage`);
+  return adminApiClient(`/categories/${id}/usage`);
 }
 
 /**
@@ -95,7 +95,7 @@ export async function checkCategoryUsage(id: string): Promise<{
 export async function bulkRemoveCategoryFromAlbums(categoryId: string): Promise<{
   removed: number;
 }> {
-  return apiClient(`/categories/${categoryId}/bulk-remove`, {
+  return adminApiClient(`/categories/${categoryId}/bulk-remove`, {
     method: 'POST',
   });
 }

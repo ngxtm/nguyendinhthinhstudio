@@ -5,7 +5,7 @@
  * Responsive layout với sidebar ẩn/hiện trên mobile
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -18,6 +18,9 @@ import {
   X,
 } from 'lucide-react';
 import { Toaster } from 'sonner';
+import { useRouter } from 'next/navigation';
+import { getBrowserSupabase } from '@/lib/auth/supabase';
+import { getAccessTokenRole } from '@/lib/auth/session';
 
 const NAV_ITEMS = [
   { href: '/admin', label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
@@ -29,11 +32,33 @@ const NAV_ITEMS = [
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [authState, setAuthState] = useState<'checking' | 'admin' | 'denied'>('checking');
+
+  useEffect(() => {
+    if (pathname === '/admin/login') return;
+    const client = getBrowserSupabase();
+    client.auth.getSession().then(({ data }) => {
+      const token = data.session?.access_token;
+      const role = getAccessTokenRole(token);
+      if (role === 'admin') setAuthState('admin');
+      else if (data.session) setAuthState('denied');
+      else router.replace('/admin/login?next=' + encodeURIComponent(pathname || '/admin'));
+    });
+    const { data: listener } = client.auth.onAuthStateChange((_event, session) => {
+      if (!session) router.replace('/admin/login?next=' + encodeURIComponent(pathname || '/admin'));
+    });
+    return () => listener.subscription.unsubscribe();
+  }, [pathname, router]);
 
   const activePath = useMemo(() => pathname ?? '/admin', [pathname]);
 
   const closeSidebar = () => setSidebarOpen(false);
+
+  if (pathname === '/admin/login') return <>{children}</>;
+  if (authState === 'checking') return <div className="flex min-h-screen items-center justify-center">Đang kiểm tra phiên đăng nhập…</div>;
+  if (authState === 'denied') return <div className="flex min-h-screen items-center justify-center">Bạn không có quyền truy cập khu vực quản trị.</div>;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -88,7 +113,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             })}
           </nav>
 
-          <div className="mt-auto border-t border-gray-200 px-6 py-4">
+          <div className="mt-auto border-t border-gray-200 px-6 py-4 space-y-3">
+            <button type="button" className="block text-sm font-medium text-gray-600 hover:text-gray-900" onClick={async () => { await getBrowserSupabase().auth.signOut(); router.replace('/admin/login'); }}>Đăng xuất</button>
             <Link
               href="/"
               className="text-sm font-medium text-gray-600 transition-colors hover:text-gray-900"

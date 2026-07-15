@@ -2,7 +2,7 @@
  * Tags API Service
  */
 
-import { apiClient } from './client';
+import { apiClient, adminApiClient } from './client';
 import type { Tag, Album } from './albums';
 import { normalizeAlbumTags, normalizeAlbumCategories } from './albums';
 
@@ -21,8 +21,8 @@ export interface UpdateTagDto {
 /**
  * Get all tags
  */
-export async function getTags(): Promise<Tag[]> {
-  return apiClient<Tag[]>('/tags');
+export async function getTags(admin = false): Promise<Tag[]> {
+  return (admin ? adminApiClient : apiClient)<Tag[]>('/tags');
 }
 
 /**
@@ -36,7 +36,7 @@ export async function getTag(id: string): Promise<Tag> {
  * Create new tag (Admin only)
  */
 export async function createTag(data: CreateTagDto): Promise<Tag> {
-  return apiClient<Tag>('/tags', {
+  return adminApiClient<Tag>('/tags', {
     method: 'POST',
     body: JSON.stringify(data),
   });
@@ -46,7 +46,7 @@ export async function createTag(data: CreateTagDto): Promise<Tag> {
  * Update tag (Admin only)
  */
 export async function updateTag(id: string, data: UpdateTagDto): Promise<Tag> {
-  return apiClient<Tag>(`/tags/${id}`, {
+  return adminApiClient<Tag>(`/tags/${id}`, {
     method: 'PATCH',
     body: JSON.stringify(data),
   });
@@ -56,7 +56,7 @@ export async function updateTag(id: string, data: UpdateTagDto): Promise<Tag> {
  * Delete tag (Admin only)
  */
 export async function deleteTag(id: string): Promise<void> {
-  return apiClient<void>(`/tags/${id}`, {
+  return adminApiClient<void>(`/tags/${id}`, {
     method: 'DELETE',
   });
 }
@@ -69,7 +69,7 @@ export async function checkTagUsage(id: string): Promise<{
   albumCount: number;
   albums: Array<{ id: string; title: string; slug: string }>;
 }> {
-  return apiClient(`/tags/${id}/usage`);
+  return adminApiClient(`/tags/${id}/usage`);
 }
 
 /**
@@ -78,7 +78,7 @@ export async function checkTagUsage(id: string): Promise<{
 export async function bulkRemoveTagFromAlbums(tagId: string): Promise<{
   removed: number;
 }> {
-  return apiClient(`/tags/${tagId}/bulk-remove`, {
+  return adminApiClient(`/tags/${tagId}/bulk-remove`, {
     method: 'POST',
   });
 }

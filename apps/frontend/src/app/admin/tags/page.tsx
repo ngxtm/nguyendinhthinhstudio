@@ -42,7 +42,7 @@ export default function TagsPage() {
   async function loadTags() {
     try {
       setLoading(true)
-      const data = await getTags()
+      const data = await getTags(true)
       setTags(data)
     } catch (error) {
       console.error('Failed to load tags:', error)

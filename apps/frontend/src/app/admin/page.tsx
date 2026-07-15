@@ -28,7 +28,7 @@ export default function AdminDashboard() {
 
         const [statsResponse, recentResponse] = await Promise.all([
           getAlbumDashboardStats(),
-          listAlbums({ sortBy: 'newest', limit: 5 }, { signal })
+          listAlbums({ sortBy: 'newest', limit: 5 }, { signal, admin: true })
         ])
 
         // Only update state if not aborted

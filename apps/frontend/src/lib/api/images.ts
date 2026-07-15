@@ -3,7 +3,7 @@
  * Upload flow và image management
  */
 
-import { apiClient, uploadFile } from './client';
+import { apiClient, adminApiClient, uploadFile } from './client';
 import type { Image } from './albums';
 
 export interface UploadUrlResponse {
@@ -40,7 +40,7 @@ export async function uploadImage(
       contentType: file.type,
     };
 
-    const { uploadUrl, uploadId } = await apiClient<UploadUrlResponse>(
+    const { uploadUrl, uploadId } = await adminApiClient<UploadUrlResponse>(
       '/images/upload-url',
       {
         method: 'POST',
@@ -60,7 +60,7 @@ export async function uploadImage(
     onProgress?.(90); // Object storage upload complete
 
     // Step 3: Confirm upload to backend (90-100%)
-    await apiClient('/images/confirm-upload', {
+    await adminApiClient('/images/confirm-upload', {
       method: 'POST',
       body: JSON.stringify({ uploadId }),
     });
@@ -103,7 +103,7 @@ export async function updateImage(
   imageId: string,
   data: { altText?: string; filename?: string }
 ): Promise<Image> {
-  return apiClient<Image>(`/images/${imageId}`, {
+  return adminApiClient<Image>(`/images/${imageId}`, {
     method: 'PATCH',
     body: JSON.stringify(data),
   });
@@ -113,7 +113,7 @@ export async function updateImage(
  * Delete image (Admin only)
  */
 export async function deleteImage(imageId: string): Promise<void> {
-  return apiClient<void>(`/images/${imageId}`, {
+  return adminApiClient<void>(`/images/${imageId}`, {
     method: 'DELETE',
   });
 }
@@ -125,7 +125,7 @@ export async function reorderImages(
   albumId: string,
   imageIds: string[]
 ): Promise<void> {
-  return apiClient<void>(`/images/album/${albumId}/reorder`, {
+  return adminApiClient<void>(`/images/album/${albumId}/reorder`, {
     method: 'PATCH',
     body: JSON.stringify({ imageIds }),
   });

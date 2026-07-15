@@ -39,7 +39,7 @@ out/
 # Build outputs
 build/
 dist/
-lib/
+/lib/
 *.tsbuildinfo
 
 # Vercel

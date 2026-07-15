@@ -3,7 +3,7 @@
  * Tất cả các API calls cho albums
  */
 
-import { apiClient } from './client';
+import { apiClient, adminApiClient } from './client';
 
 export interface Album {
   id: string;
@@ -205,7 +205,7 @@ export function normalizeAlbumCategories(categories?: unknown[]): AlbumCategory[
  */
 export async function listAlbums(
   params?: QueryAlbumsParams,
-  options?: { signal?: AbortSignal }
+  options?: { signal?: AbortSignal; admin?: boolean }
 ): Promise<PaginatedResponse<Album>> {
   const searchParams = new URLSearchParams();
 
@@ -218,11 +218,11 @@ export async function listAlbums(
   }
 
   const query = searchParams.toString();
-  return apiClient<PaginatedResponse<Album>>(
-    `/albums${query ? `?${query}` : ''}`,
-    {
-      signal: options?.signal,
-    }
+  const client = options?.admin ? adminApiClient : apiClient;
+  const endpoint = options?.admin ? '/albums/admin' : '/albums';
+  return client<PaginatedResponse<Album>>(
+    `${endpoint}${query ? `?${query}` : ''}`,
+    { signal: options?.signal }
   );
 }
 
@@ -230,9 +230,10 @@ export async function listAlbums(
  * Get album by slug
  * @param skipViewIncrement - Skip incrementing view count (for metadata/admin requests)
  */
-export async function getAlbum(slug: string, skipViewIncrement = false): Promise<Album> {
-  const url = `/albums/${slug}${skipViewIncrement ? '?skipViewIncrement=true' : ''}`;
-  return apiClient<Album>(url);
+export async function getAlbum(slug: string, skipViewIncrement = false, admin = false): Promise<Album> {
+  const path = admin ? `/albums/admin/${slug}` : `/albums/${slug}`;
+  const url = `${path}${skipViewIncrement && !admin ? '?skipViewIncrement=true' : ''}`;
+  return (admin ? adminApiClient : apiClient)<Album>(url);
 }
 
 /**
@@ -243,14 +244,14 @@ export async function getRelatedAlbums(slug: string): Promise<Album[]> {
 }
 
 export async function getAlbumDashboardStats(): Promise<AlbumDashboardStats> {
-  return apiClient<AlbumDashboardStats>('/albums/dashboard/stats');
+  return adminApiClient<AlbumDashboardStats>('/albums/dashboard/stats');
 }
 
 /**
  * Create new album (Admin only)
  */
 export async function createAlbum(data: CreateAlbumDto): Promise<Album> {
-  return apiClient<Album>('/albums', {
+  return adminApiClient<Album>('/albums', {
     method: 'POST',
     body: JSON.stringify(data),
   });
@@ -263,7 +264,7 @@ export async function updateAlbum(
   id: string,
   data: UpdateAlbumDto
 ): Promise<Album> {
-  return apiClient<Album>(`/albums/${id}`, {
+  return adminApiClient<Album>(`/albums/${id}`, {
     method: 'PATCH',
     body: JSON.stringify(data),
   });
@@ -273,7 +274,7 @@ export async function updateAlbum(
  * Delete album (Admin only)
  */
 export async function deleteAlbum(id: string): Promise<void> {
-  return apiClient<void>(`/albums/${id}`, {
+  return adminApiClient<void>(`/albums/${id}`, {
     method: 'DELETE',
   });
 }
@@ -285,7 +286,7 @@ export async function setCoverImage(
   albumId: string,
   imageId: string
 ): Promise<Album> {
-  return apiClient<Album>(`/albums/${albumId}/cover`, {
+  return adminApiClient<Album>(`/albums/${albumId}/cover`, {
     method: 'PATCH',
     body: JSON.stringify({ imageId }),
   });
@@ -295,7 +296,7 @@ export async function setCoverImage(
  * Publish album (Admin only)
  */
 export async function publishAlbum(albumId: string): Promise<Album> {
-  return apiClient<Album>(`/albums/${albumId}/publish`, {
+  return adminApiClient<Album>(`/albums/${albumId}/publish`, {
     method: 'PATCH',
   });
 }
@@ -304,7 +305,7 @@ export async function publishAlbum(albumId: string): Promise<Album> {
  * Toggle featured status (Admin only)
  */
 export async function toggleFeatured(albumId: string): Promise<Album> {
-  return apiClient<Album>(`/albums/${albumId}/feature`, {
+  return adminApiClient<Album>(`/albums/${albumId}/feature`, {
     method: 'PATCH',
   });
 }
