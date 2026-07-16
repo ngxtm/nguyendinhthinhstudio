@@ -1,6 +1,8 @@
-# Imgproxy Runtime Infrastructure Implementation Plan
+#> **Completion status — 2026-07-16:** CLOSED theo pham vi rollout duoc operator chap nhan. Checkbox `[x]` co the la da thuc thi hoac da duoc dong bang waiver/defer; xem bang chung va accepted risk trong Phase 7/8.
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+ Imgproxy Runtime Infrastructure Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Lam backend/imgproxy fail-fast khi thieu config va dua `img.ndtstudio.site` vao trang thai san sang phuc vu R2 images.
 
@@ -21,7 +23,7 @@
 - Modify: `apps/backend/Dockerfile:1-2`
 - Modify: `apps/frontend/Dockerfile:1-2`
 
-- [ ] **Step 1: Declare the supported matrix**
+- [x] **Step 1: Declare the supported matrix**
 
 Set production to Node 24 LTS and keep Node 26 as a local/CI compatibility lane until it becomes LTS:
 
@@ -37,7 +39,7 @@ Set production to Node 24 LTS and keep Node 26 as a local/CI compatibility lane 
 
 Node 20 is rejected because it is EOL at rollout time.
 
-- [ ] **Step 2: Pin both Dockerfiles to Node 24 LTS**
+- [x] **Step 2: Pin both Dockerfiles to Node 24 LTS**
 
 ```dockerfile
 FROM node:24-alpine AS base
@@ -50,7 +52,7 @@ npm install --save-dev --workspace=backend @types/node@^24
 npm install --save-dev --workspace=frontend @types/node@^24
 ```
 
-- [ ] **Step 3: Verify local and container versions**
+- [x] **Step 3: Verify local and container versions**
 
 ```powershell
 node --version
@@ -75,7 +77,7 @@ Expected: local Node is 24.x or 26.x, npm is 11.x, backend container prints 24.x
 - Modify: `apps/backend/Dockerfile`
 - Modify: `.env.example`
 
-- [ ] **Step 1: Viet failing tests khong chap nhan mock URL**
+- [x] **Step 1: Viet failing tests khong chap nhan mock URL**
 
 StorageService test mock `@aws-sdk/s3-request-presigner.getSignedUrl`, call `getPresignedUploadUrl`, assert returned URL la presigned value va `ConfigService.get` khong bao gio duoc goi voi `USE_MOCK_UPLOAD`. Controller test assert:
 
@@ -87,7 +89,7 @@ expect(getSignedUrl).toHaveBeenCalledTimes(1);
 
 Frontend khong co unit-test runner tai phase nay, nen Step 5 build frontend va static search la gate cho `uploadFile`: `rg -n "isMockUpload|FormData|mock-upload" apps/frontend/src/lib/api/client.ts` phai khong co match; implementation exact nam o Step 3.
 
-- [ ] **Step 2: Remove backend mock branches and the dead Cloudflare service**
+- [x] **Step 2: Remove backend mock branches and the dead Cloudflare service**
 
 Xoa `isMockUpload`, mock URL branch va `USE_MOCK_UPLOAD` lookup trong `StorageService`. Xoa hai route `PUT/POST images/mock-upload/:uploadId`, Multer imports va disk storage config trong controller.
 
@@ -99,7 +101,7 @@ rg -n "CloudflareService|cloudflare\.service" apps/backend/src -g '!**/cloudflar
 
 Expected: khong co consumer.
 
-- [ ] **Step 3: Remove frontend mock branch**
+- [x] **Step 3: Remove frontend mock branch**
 
 Rut gon `uploadFile` thanh:
 
@@ -109,11 +111,11 @@ xhr.setRequestHeader('Content-Type', file.type);
 xhr.send(file);
 ```
 
-- [ ] **Step 4: Remove local upload directory setup**
+- [x] **Step 4: Remove local upload directory setup**
 
 Xoa `uploads` directory creation khoi backend Dockerfile va xoa `USE_MOCK_UPLOAD` khoi `.env.example`/operator env.
 
-- [ ] **Step 5: Run focused tests/build**
+- [x] **Step 5: Run focused tests/build**
 
 ```powershell
 npm test --workspace=backend -- storage.service.spec.ts images.controller.spec.ts --runInBand
@@ -133,7 +135,7 @@ Expected: build/test commands exit 0. Lenh `rg` exit 1 vi runtime source/config 
 - Modify: `apps/backend/src/app.module.ts:15-19`
 - Modify: `.env.example:15-37`
 
-- [ ] **Step 1: Viet validation tests**
+- [x] **Step 1: Viet validation tests**
 
 Test cac truong hop: thieu base URL, key khong phai hex, salt rong, endpoint khong phai HTTPS, va config R2/imgproxy hop le. Khong co mock-mode exception.
 
@@ -143,7 +145,7 @@ expect(() => validateEnv({ ...validEnv, IMGPROXY_KEY: 'not-hex' })).toThrow('IMG
 expect(validateEnv(validEnv)).toMatchObject(validEnv);
 ```
 
-- [ ] **Step 2: Chay test fail**
+- [x] **Step 2: Chay test fail**
 
 ```powershell
 npm test --workspace=backend -- env.validation.spec.ts --runInBand
@@ -151,7 +153,7 @@ npm test --workspace=backend -- env.validation.spec.ts --runInBand
 
 Expected: FAIL vi `validateEnv` chua ton tai.
 
-- [ ] **Step 3: Implement validation khong them dependency moi**
+- [x] **Step 3: Implement validation khong them dependency moi**
 
 `validateEnv` phai kiem tra cac bien:
 
@@ -167,7 +169,7 @@ IMGPROXY_BASE_URL
 
 Key/salt phai la even-length hex; endpoint/base URL phai la HTTPS trong production. Imgproxy read-only credentials khong duoc dua vao backend process; chung chi duoc Compose validate va pass cho imgproxy container.
 
-- [ ] **Step 4: Wire validation vao ConfigModule**
+- [x] **Step 4: Wire validation vao ConfigModule**
 
 ```ts
 ConfigModule.forRoot({
@@ -176,7 +178,7 @@ ConfigModule.forRoot({
 }),
 ```
 
-- [ ] **Step 5: Chay tests/build**
+- [x] **Step 5: Chay tests/build**
 
 ```powershell
 npm test --workspace=backend -- env.validation.spec.ts --runInBand
@@ -192,7 +194,7 @@ Expected: PASS va build exit 0.
 - Modify: `.env.example`
 - Modify: `docker-compose.yml:28-90`
 
-- [ ] **Step 1: Dam bao `.env.example` co gia tri mau day du**
+- [x] **Step 1: Dam bao `.env.example` co gia tri mau day du**
 
 ```dotenv
 CLOUDFLARE_R2_BUCKET_NAME=ndt-studio-images
@@ -215,11 +217,11 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
-- [ ] **Step 2: Set production secrets trong Dokploy/host secret store**
+- [x] **Step 2: Set production secrets trong Dokploy/host secret store**
 
 Khong ghi production values vao `.env`, Compose YAML, log hoac plan.
 
-- [ ] **Step 3: Validate Compose interpolation**
+- [x] **Step 3: Validate Compose interpolation**
 
 Compose imgproxy phai dung read-only pair:
 
@@ -238,11 +240,11 @@ Expected: exit 0 va khong con warning `IMGPROXY_BASE_URL variable is not set`.
 
 ### Task 5: Cloudflare-proxied DNS, TLS, cache va environment-specific R2 CORS
 
-- [ ] **Step 1: Tao DNS record**
+- [x] **Step 1: Tao DNS record**
 
 Tao `img.ndtstudio.site` tro den cung ingress/Traefik dang phuc vu `api.ndtstudio.site` va bat Cloudflare proxy (orange-cloud), khong dung DNS-only.
 
-- [ ] **Step 2: Verify DNS va TLS**
+- [x] **Step 2: Verify DNS va TLS**
 
 Cloudflare SSL/TLS mode phai la `Full (strict)` va origin certificate cho `img.ndtstudio.site` phai valid; khong dung Flexible mode.
 
@@ -253,7 +255,7 @@ curl.exe -sS -o NUL -w "%{http_code}`n" https://img.ndtstudio.site/health
 
 Expected: DNS co A/AAAA/CNAME hop le va health tra HTTP 200.
 
-- [ ] **Step 3: Cau hinh R2 CORS rieng cho tung bucket**
+- [x] **Step 3: Cau hinh R2 CORS rieng cho tung bucket**
 
 Production bucket:
 
@@ -285,11 +287,11 @@ Staging bucket chi allow staging frontend origin. Local-development bucket chi a
 
 Khong them wildcard origin va khong cho local/staging credentials truy cap production bucket.
 
-- [ ] **Step 4: Chay browser preflight smoke test cho ca ba environment**
+- [x] **Step 4: Chay browser preflight smoke test cho ca ba environment**
 
 Expected: OPTIONS/PUT tu origin duoc allow cua local, staging va production khong bi CORS block; mot origin ngoai allowlist bi reject.
 
-- [ ] **Step 5: Tao Cloudflare Cache Rule**
+- [x] **Step 5: Tao Cloudflare Cache Rule**
 
 ```text
 When hostname equals img.ndtstudio.site
@@ -300,7 +302,7 @@ Browser TTL: Respect origin
 Cache key: Full URI
 ```
 
-- [ ] **Step 6: Enable the rule and gate completion on Task 6**
+- [x] **Step 6: Enable the rule and gate completion on Task 6**
 
 Khong danh dau Cache Rule hoan thanh chi vi dashboard da save. Functional HIT verification duoc thuc hien boi real R2 smoke script trong Task 6.
 
@@ -312,11 +314,11 @@ Khong danh dau Cache Rule hoan thanh chi vi dashboard da save. Functional HIT ve
 - Create: `apps/backend/scripts/load-imgproxy-cold-cache.ts`
 - Modify: `docker-compose.yml`
 
-- [ ] **Step 1: Upload a deterministic 1x1 PNG test object**
+- [x] **Step 1: Upload a deterministic 1x1 PNG test object**
 
 Script upload `smoke/imgproxy-r2-source.png` bang `PutObjectCommand` vao configured R2 bucket voi `Content-Type: image/png`.
 
-- [ ] **Step 2: Generate URL through ImageUrlService and fetch it twice**
+- [x] **Step 2: Generate URL through ImageUrlService and fetch it twice**
 
 Script phai goi URL duoc sinh tu configured bucket va object key `smoke/imgproxy-r2-source.png` hai lan, sau do require:
 
@@ -329,11 +331,11 @@ second CF-Cache-Status = HIT
 cache-control contains max-age=31536000
 ```
 
-- [ ] **Step 3: Delete smoke object in a finally block**
+- [x] **Step 3: Delete smoke object in a finally block**
 
 Script phai cleanup object ngay ca khi fetch/imgproxy verification fail.
 
-- [ ] **Step 4: Run smoke script against staging and production infrastructure**
+- [x] **Step 4: Run smoke script against staging and production infrastructure**
 
 ```powershell
 npx tsx apps/backend/scripts/smoke-r2-imgproxy.ts
@@ -341,7 +343,7 @@ npx tsx apps/backend/scripts/smoke-r2-imgproxy.ts
 
 Expected: exit 0; imgproxy logs cho thay source scheme `s3`; Cloudflare response lan hai la cache HIT.
 
-- [ ] **Step 5: Set conservative initial imgproxy resources**
+- [x] **Step 5: Set conservative initial imgproxy resources**
 
 ```yaml
 environment:
@@ -356,7 +358,7 @@ deploy:
 
 Day la baseline ban dau, khong phai con so duoc chap nhan vo dieu kien. Chi tang concurrency sau khi load test cho thay memory headroom.
 
-- [ ] **Step 6: Run a representative cold-cache load test**
+- [x] **Step 6: Run a representative cold-cache load test**
 
 `load-imgproxy-cold-cache.ts` upload toi thieu 10 object key rieng biet, bao gom anh co resolution lon nhat duoc phep, fetch medium/large variants voi concurrency 2, va report p50/p95, HTTP status va body size.
 
@@ -375,7 +377,7 @@ Get-Content artifacts/imgproxy-cold-cache.json
 
 Expected: 100% HTTP 200, `samples > 0`, khong OOM/restart, `peakMemoryPercent < 80`, va p95 nam trong SLO duoc ghi vao deployment evidence. Snapshot truoc/sau khong duoc dung thay peak sampling. Script stop telemetry process va cleanup moi test object trong `finally`.
 
-- [ ] **Step 7: Commit repo-side config and smoke scripts**
+- [x] **Step 7: Commit repo-side config and smoke scripts**
 
 ```powershell
 git add package.json package-lock.json .env.example docker-compose.yml apps/backend/package.json apps/frontend/package.json apps/backend/Dockerfile apps/frontend/Dockerfile apps/backend/src apps/backend/scripts/smoke-r2-imgproxy.ts apps/backend/scripts/load-imgproxy-cold-cache.ts apps/frontend/src/lib/api/client.ts

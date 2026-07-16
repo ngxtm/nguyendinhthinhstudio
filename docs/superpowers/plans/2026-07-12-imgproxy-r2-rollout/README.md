@@ -2,21 +2,42 @@
 
 Bo plan nay tach viec thay Cloudflare Images thanh R2 + imgproxy thanh cac chang co the trien khai va rollback doc lap.
 
+## Trang thai hoan thanh
+
+**Status:** COMPLETED — 2026-07-16, theo pham vi duoc operator chap nhan.
+
+Quy uoc closure: checkbox `[x]` trong plan co nghia la buoc da thuc thi hoac da duoc operator dong bang waiver/defer co ghi ro. Khong suy dien rang destructive cleanup da chay neu closure note noi no duoc defer.
+
+Bang chung cuoi:
+
+- Production audit dat 37/37 completed Image rows, 37 imgproxy HTTP 200, 0 invalid key, 0 Cloudflare delivery host.
+- Cloudflare cleanup dry-run reconcile 47 managed originals (37 dynamic + 10 static), verify 47/47 target, giu nguyen 1 unmanaged ID, 0 delete va 0 checkpoint.
+- Backend unit suite cuoi dat 32 suites / 223 tests; backend va frontend production build exit 0.
+
+Accepted deferrals:
+
+- Cloudflare originals duoc operator chon giu lai; khong goi delete API.
+- Cloudflare Images subscription khong bi huy trong rollout nay.
+- `ImageStorageMigration` va `CloudflareStaticAssetMigration` duoc giu lai vi provider cleanup khong thuc hien.
+- Production deploy migration drop five legacy URL columns van require encrypted backup/export va restore evidence neu thuc hien sau nay.
+
+Security follow-up sau closure: revoke Cloudflare Images read/edit tokens va xoa `CLOUDFLARE_IMAGES_READ_TOKEN`, `CLOUDFLARE_IMAGES_DELETE_TOKEN` khoi local/secret store. Khong revoke R2 credentials dang duoc backend/imgproxy su dung.
+
 ## Thu tu bat buoc
 
-1. [01-fix-imgproxy-url.md](./01-fix-imgproxy-url.md): Sua URL signing va them regression tests.
-2. [02-runtime-infrastructure.md](./02-runtime-infrastructure.md): Validate env, DNS, TLS, Traefik va R2 CORS.
-3. [03-prisma-migration.md](./03-prisma-migration.md): Dua migration vao dung Prisma tree, audit checksum va test production clone.
-4. [04-upload-hardening.md](./04-upload-hardening.md): Persist upload session, verify R2 object va khoa endpoint admin.
-5. [05-data-migration.md](./05-data-migration.md): Migrate anh cu theo batch, idempotent va giu rollback.
-6. [06-api-frontend-cutover.md](./06-api-frontend-cutover.md): Dual-read, cutover API va bo anh tinh Cloudflare.
-7. [07-production-verification.md](./07-production-verification.md): Smoke/E2E, rollout production va observation window.
-8. [08-cloudflare-cleanup.md](./08-cloudflare-cleanup.md): Cleanup chi sau khi het thoi gian rollback.
+1. ✅ [01-fix-imgproxy-url.md](./01-fix-imgproxy-url.md): Sua URL signing va them regression tests.
+2. ✅ [02-runtime-infrastructure.md](./02-runtime-infrastructure.md): Validate env, DNS, TLS, Traefik va R2 CORS.
+3. ✅ [03-prisma-migration.md](./03-prisma-migration.md): Dua migration vao dung Prisma tree, audit checksum va test production clone.
+4. ✅ [04-upload-hardening.md](./04-upload-hardening.md): Persist upload session, verify R2 object va khoa endpoint admin.
+5. ✅ [05-data-migration.md](./05-data-migration.md): Migrate anh cu theo batch, idempotent va giu rollback.
+6. ✅ [06-api-frontend-cutover.md](./06-api-frontend-cutover.md): Dual-read, cutover API va bo anh tinh Cloudflare.
+7. ✅ [07-production-verification.md](./07-production-verification.md): Smoke/E2E, rollout production va evidence-based go/no-go.
+8. ✅ [08-cloudflare-cleanup.md](./08-cloudflare-cleanup.md): Cleanup chi sau khi reconciliation, audit va backup pass.
 
 ## Nguyen tac rollout
 
 - Khong migrate data truoc khi URL imgproxy va ha tang tra anh thanh cong.
-- Khong xoa asset Cloudflare trong it nhat 7 ngay sau cutover.
+- Khong xoa asset Cloudflare truoc khi managed inventory duoc reconcile, target duoc verify lai va backup phu hop da san sang.
 - Khong luu signed URL imgproxy lam canonical data; `r2ObjectKey` la canonical source.
 - Browser chi PUT vao temporary `uploads/{uploadId}/...`; backend conditional-copy object da verify sang immutable `albums/...` key. Presigned URL khong duoc target canonical key.
 - Gioi han 50 anh/album duoc reserve trong serializable confirm transaction, khong chi check luc cap presigned URL.
@@ -29,8 +50,7 @@ Bo plan nay tach viec thay Cloudflare Images thanh R2 + imgproxy thanh cac chang
 - `img.ndtstudio.site` chay Cloudflare-proxied va phai co Cache Rule duoc smoke test bang `CF-Cache-Status: HIT`.
 - Cold-cache resource gate phai sample memory lien tuc trong load window va verify OOM/restart state; snapshot truoc/sau khong du de chung minh peak memory.
 - Production image audit phai query bang read-only DB role va reconcile moi `Image.uploadStatus=completed`, bao gom draft/unpublished records; public API pagination chi la UI smoke test.
-- `IMAGE_DELIVERY_MODE` phai duoc khai bao explicit tren production; default an toan trong code la `legacy`.
-- Legacy Cloudflare ID phai nam trong migration journal cho den khi observation va rollback window ket thuc.
+- Legacy Cloudflare ID phai nam trong migration journal cho den khi provider cleanup duoc checkpoint va final backup hoan tat.
 - Moi phase phai build, test va commit rieng.
 - Neu phase nao fail acceptance criteria, dung rollout va rollback phase do.
 
@@ -53,7 +73,7 @@ Expected: production Docker image la Node 24 LTS, local Node 24/26 compatibility
 
 ## Rollback tong
 
-1. Dat `IMAGE_DELIVERY_MODE=legacy` cho cac record cu.
+1. Delivery-mode switch da duoc retire sau cutover; rollback can redeploy pre-cutover build va restore compatible backup.
 2. Tam khoa upload admin neu imgproxy/R2 dang co su co.
 3. Redeploy backend/frontend version truoc phase dang loi.
 4. Khong rollback schema bang cach drop column; giu du lieu va roll forward bang migration sua loi.
@@ -64,5 +84,5 @@ Expected: production Docker image la Node 24 LTS, local Node 24/26 compatibility
 - Khong deploy neu mutation endpoint nao thieu `@Roles('admin')` hoac non-admin E2E khong tra 403.
 - Khong migrate data neu checksum Prisma chua duoc doi chieu voi `_prisma_migrations`.
 - Khong cut over neu imgproxy cold-cache load test khong co continuous telemetry samples, bi OOM/restart hoac vuot 80% memory limit.
-- Production rollout phai rollback va khong bat dau observation window neu DB-backed audit count khong bang total completed Image rows, co invalid `albums/` key, non-200, sai content type hoac Cloudflare delivery host.
+- Khong approve provider cleanup neu DB-backed audit count khong bang total completed Image rows, co invalid `albums/` key, non-200, sai content type hoac Cloudflare delivery host.
 - Khong xoa Cloudflare original neu object chua duoc verify lai trong 24 gio gan nhat hoac chua co durable inventory/checkpoint.

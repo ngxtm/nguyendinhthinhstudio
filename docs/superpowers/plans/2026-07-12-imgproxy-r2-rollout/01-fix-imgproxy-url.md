@@ -1,6 +1,8 @@
-# Imgproxy URL Generation Implementation Plan
+#> **Completion status — 2026-07-16:** CLOSED theo pham vi rollout duoc operator chap nhan. Checkbox `[x]` co the la da thuc thi hoac da duoc dong bang waiver/defer; xem bang chung va accepted risk trong Phase 7/8.
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+ Imgproxy URL Generation Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Sinh URL imgproxy hop le, ky dung va an toan voi moi R2 object key.
 
@@ -18,7 +20,7 @@
 - Create: `apps/backend/scripts/smoke-imgproxy-url.ts`
 - Modify: `apps/backend/src/images/image-url.service.ts:1-45`
 
-- [ ] **Step 1: Viet test fail cho source encoding va signing**
+- [x] **Step 1: Viet test fail cho source encoding va signing**
 
 ```ts
 import { ConfigService } from '@nestjs/config';
@@ -63,7 +65,7 @@ describe('ImageUrlService', () => {
 });
 ```
 
-- [ ] **Step 2: Chay test de xac nhan no fail voi implementation hien tai**
+- [x] **Step 2: Chay test de xac nhan no fail voi implementation hien tai**
 
 ```powershell
 npm test --workspace=backend -- image-url.service.spec.ts --runInBand
@@ -71,7 +73,7 @@ npm test --workspace=backend -- image-url.service.spec.ts --runInBand
 
 Expected: FAIL vi source `s3://...` dang duoc chen raw va base URL tao double slash.
 
-- [ ] **Step 3: Encode source va chuan hoa base URL**
+- [x] **Step 3: Encode source va chuan hoa base URL**
 
 ```ts
 constructor(private readonly config: ConfigService) {
@@ -97,7 +99,7 @@ getSignedUrl(objectKey: string, width: number, height: number): string {
 }
 ```
 
-- [ ] **Step 4: Chay unit tests va backend build**
+- [x] **Step 4: Chay unit tests va backend build**
 
 ```powershell
 npm test --workspace=backend -- image-url.service.spec.ts --runInBand
@@ -108,7 +110,7 @@ Expected: test suite PASS va Nest build exit 0.
 
 ### Task 2: Kiem chung bang imgproxy that
 
-- [ ] **Step 1: Start imgproxy v3.30.1 voi test key/salt**
+- [x] **Step 1: Start imgproxy v3.30.1 voi test key/salt**
 
 ```powershell
 $keyHex = '11' * 32
@@ -119,7 +121,7 @@ docker run --rm -d --name ndt-imgproxy-test -p 18080:8080 `
   darthsim/imgproxy:v3.30.1
 ```
 
-- [ ] **Step 2: Tao smoke helper dung cung signing implementation**
+- [x] **Step 2: Tao smoke helper dung cung signing implementation**
 
 ```ts
 import { ConfigService } from '@nestjs/config';
@@ -146,7 +148,7 @@ console.log(`HTTP ${response.status}`);
 console.log(`Content-Type: ${response.headers.get('content-type')}`);
 ```
 
-- [ ] **Step 3: Run smoke helper**
+- [x] **Step 3: Run smoke helper**
 
 ```powershell
 npx tsx apps/backend/scripts/smoke-imgproxy-url.ts
@@ -159,13 +161,13 @@ HTTP 200
 Content-Type: image/webp
 ```
 
-- [ ] **Step 4: Stop test container**
+- [x] **Step 4: Stop test container**
 
 ```powershell
 docker stop ndt-imgproxy-test
 ```
 
-- [ ] **Step 5: Commit phase**
+- [x] **Step 5: Commit phase**
 
 ```powershell
 git add apps/backend/src/images/image-url.service.ts apps/backend/src/images/image-url.service.spec.ts apps/backend/scripts/smoke-imgproxy-url.ts

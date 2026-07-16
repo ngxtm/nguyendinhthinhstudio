@@ -1,6 +1,8 @@
-# R2 Upload Hardening Implementation Plan
+#> **Completion status — 2026-07-16:** CLOSED theo pham vi rollout duoc operator chap nhan. Checkbox `[x]` co the la da thuc thi hoac da duoc dong bang waiver/defer; xem bang chung va accepted risk trong Phase 7/8.
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+ R2 Upload Hardening Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Bien upload flow thanh quy trinh authenticated, restart-safe va chi confirm khi object thuc su ton tai tren R2.
 
@@ -18,7 +20,7 @@
 - Create: `apps/backend/prisma/migrations/20260712000100_add_image_upload_session/migration.sql`
 - Modify: `apps/backend/src/images/images.service.ts:16-126`
 
-- [ ] **Step 1: Them Prisma model**
+- [x] **Step 1: Them Prisma model**
 
 ```prisma
 model ImageUpload {
@@ -45,7 +47,7 @@ model ImageUpload {
 
 Them `imageUploads ImageUpload[]` vao model `Album`.
 
-- [ ] **Step 2: Tao migration SQL va validate**
+- [x] **Step 2: Tao migration SQL va validate**
 
 ```sql
 CREATE TABLE "ImageUpload" (
@@ -82,7 +84,7 @@ npx prisma migrate deploy --schema apps/backend/prisma/schema.prisma
 
 Expected tren staging clone: migration chi tao table/index/foreign key moi va status up to date.
 
-- [ ] **Step 3: Viet failing service tests**
+- [x] **Step 3: Viet failing service tests**
 
 **Create:** `apps/backend/src/images/images.service.spec.ts`
 
@@ -105,7 +107,7 @@ album deletion cannot cascade away an active upload session
 
 Use explicit fixtures for an active session, expired session, consumed session, missing HeadObject response, metadata mismatch and two real concurrent transactions. Moi test phai assert exact Prisma/S3 calls va final rows, khong chi assert HTTP status.
 
-- [ ] **Step 4: Chay test fail**
+- [x] **Step 4: Chay test fail**
 
 ```powershell
 npm test --workspace=backend -- images.service.spec.ts --runInBand
@@ -120,7 +122,7 @@ Expected: FAIL vi service van doc `uploadRequests` Map.
 - Modify: `apps/backend/src/images/storage.service.ts`
 - Modify: `apps/backend/src/images/storage.service.spec.ts`
 
-- [ ] **Step 1: Them `HeadObjectCommand` test**
+- [x] **Step 1: Them `HeadObjectCommand` test**
 
 ```ts
 await expect(
@@ -133,7 +135,7 @@ await expect(
 
 Test command mismatch va missing object phai reject.
 
-- [ ] **Step 2: Implement metadata verification**
+- [x] **Step 2: Implement metadata verification**
 
 ```ts
 async verifyObject(
@@ -158,7 +160,7 @@ async verifyObject(
 }
 ```
 
-- [ ] **Step 3: Add conditional temporary-to-final promotion**
+- [x] **Step 3: Add conditional temporary-to-final promotion**
 
 Import `CopyObjectCommand` and add:
 
@@ -186,7 +188,7 @@ async promoteObject(
 
 `verifyObject` return normalized non-empty `ETag` cua temporary object de session claim bind vao dung object version. Tests phai assert `CopySourceIfMatch`; neu temporary key bi overwrite sau `HeadObject`, copy fail va khong co `Image` row.
 
-- [ ] **Step 4: Chay StorageService tests**
+- [x] **Step 4: Chay StorageService tests**
 
 ```powershell
 npm test --workspace=backend -- storage.service.spec.ts --runInBand
@@ -201,7 +203,7 @@ Expected: PASS.
 - Modify: `apps/backend/src/images/images.service.ts`
 - Modify: `apps/backend/src/images/dto/upload-confirm.dto.ts`
 
-- [ ] **Step 1: Rut gon confirm DTO**
+- [x] **Step 1: Rut gon confirm DTO**
 
 ```ts
 export class UploadConfirmDto {
@@ -210,7 +212,7 @@ export class UploadConfirmDto {
 }
 ```
 
-- [ ] **Step 2: Persist session trong `getUploadUrl`**
+- [x] **Step 2: Persist session trong `getUploadUrl`**
 
 Refactor `StorageService` de tach temporary/final key creation khoi presigning:
 
@@ -226,7 +228,7 @@ getPresignedUploadUrl(
 
 Ca hai helper chi dung basename da sanitize, khong cho control character hoac path separator tu filename tao nested key. Temporary key bat buoc co prefix `uploads/{uploadId}/`; final key bat buoc co prefix `albums/{albumId}/` va mot UUID moi. `ImagesService` tao ca hai key, luu `ImageUpload` `status=pending` voi `expiresAt = now + 1 hour`, sau do chi presign `uploadObjectKey`. Neu presign fail, xoa session vua tao. `finalObjectKey` khong bao gio duoc tra cho browser truoc confirm.
 
-- [ ] **Step 3: Confirm theo transaction**
+- [x] **Step 3: Confirm theo transaction**
 
 Thu tu bat buoc:
 
@@ -247,11 +249,11 @@ Mot `finalizing` claim cu hon 10 phut co the duoc reclaim chi khi temporary `Hea
 
 Neu conditional copy/verification fail do ETag mismatch hoac metadata sai, set session `failed`, khong create Image, va de cleanup xoa ca temporary/final key neu final key da duoc tao. Loi network transient giu `finalizing` de retry/reclaim theo lease.
 
-- [ ] **Step 4: Xoa `uploadRequests` Map va timeout cleanup**
+- [x] **Step 4: Xoa `uploadRequests` Map va timeout cleanup**
 
 Khong de lai in-memory state trong `ImagesService`.
 
-- [ ] **Step 5: Chay service tests/build**
+- [x] **Step 5: Chay service tests/build**
 
 ```powershell
 npm test --workspace=backend -- images.service.spec.ts --runInBand
@@ -268,7 +270,7 @@ Expected: PASS.
 - Modify: `apps/frontend/src/lib/api/images.ts`
 - Create: `apps/backend/test/images.e2e-spec.ts`
 
-- [ ] **Step 1: Rename confirm route**
+- [x] **Step 1: Rename confirm route**
 
 ```ts
 @Post('confirm-upload')
@@ -278,7 +280,7 @@ confirmUpload(@Body() uploadConfirmDto: UploadConfirmDto) {
 }
 ```
 
-- [ ] **Step 2: Remove `@Public()`**
+- [x] **Step 2: Remove `@Public()`**
 
 Remove khoi `upload-url`, `confirm-upload`, update, delete va reorder. Giu `findByAlbum` public. Them `@Roles('admin')` rieng tren moi mutation; chi bo `@Public()` khong du de admin-only vi `RolesGuard` cho qua khi route khong khai bao role.
 
@@ -299,7 +301,7 @@ Remove khoi `upload-url`, `confirm-upload`, update, delete va reorder. Giu `find
 @Roles('admin')
 ```
 
-- [ ] **Step 3: Update frontend request**
+- [x] **Step 3: Update frontend request**
 
 ```ts
 await apiClient('/images/confirm-upload', {
@@ -308,7 +310,7 @@ await apiClient('/images/confirm-upload', {
 });
 ```
 
-- [ ] **Step 4: E2E auth tests**
+- [x] **Step 4: E2E auth tests**
 
 Expected:
 
@@ -331,7 +333,7 @@ npm run test:e2e --workspace=backend -- --runInBand
 
 Expected: every mutation returns 401 without JWT, 403 for a valid non-admin JWT, and reaches its handler for an admin JWT.
 
-- [ ] **Step 5: Commit phase**
+- [x] **Step 5: Commit phase**
 
 ```powershell
 git add apps/backend/prisma apps/backend/src/images apps/backend/test apps/frontend/src/lib/api/images.ts
@@ -351,7 +353,7 @@ git commit -m "feat(images): persist and verify R2 upload sessions"
 - Create: `apps/backend/scripts/process-image-deletions.ts`
 - Modify: `apps/backend/package.json`
 
-- [ ] **Step 1: Add a standalone deletion queue and explicit Album deletion state**
+- [x] **Step 1: Add a standalone deletion queue and explicit Album deletion state**
 
 Them vao `Album`:
 
@@ -393,13 +395,13 @@ model ImageObjectDeletion {
 
 Khong tao foreign key den `Image`; queue phai con ton tai sau khi Image/Album row bi xoa. `provider` chi nhan `r2` hoac `cloudflare_legacy` va duoc service validate. Migration SQL phai tao day du table, unique/index cua model tren cung voi `Album` columns; Prisma schema, migration SQL va service property names phai dung chinh xac `deleteStatus`/`deleteStartedAt`.
 
-- [ ] **Step 2: Queue before deleting database rows**
+- [x] **Step 2: Queue before deleting database rows**
 
 Individual image delete phai trong mot transaction: upsert queue row, clear `Album.coverImageId` neu can, delete Image, decrement `Album.imageCount`. Album delete phai transactionally queue tat ca image keys truoc khi cascade DB rows. R2 keys `albums/...` vao `pending`; legacy UUID vao `deferred` de phase 08 xoa Cloudflare original sau rollback window.
 
 Khong con pattern catch `DeleteObject` roi van xoa DB ma khong checkpoint.
 
-- [ ] **Step 3: Protect album deletion from live presigned uploads**
+- [x] **Step 3: Protect album deletion from live presigned uploads**
 
 Album deletion la state machine retryable:
 
@@ -415,7 +417,7 @@ Moi retry tren album `deleting` chay expired/failed-session cleanup, sau do tron
 
 Tests phai prove: state duoc persist truoc 409; presign moi bi reject trong khi deleting; session cu co the confirm; retry sau khi session consumed/expired queue tat ca objects va xoa album; retry sau transaction failure khong duplicate queue rows.
 
-- [ ] **Step 4: Process R2 deletions idempotently**
+- [x] **Step 4: Process R2 deletions idempotently**
 
 `process-image-deletions.ts` select toi da 100 `provider=r2,status=pending` rows. Moi successful/idempotent `DeleteObject` update `status=deleted`, `deletedAt=now`; failure increment `attempts`, persist sanitized `lastError`, va giu `pending` cho retry. `cloudflare_legacy` rows khong duoc worker nay goi Cloudflare API.
 
@@ -425,7 +427,7 @@ Tests phai prove: state duoc persist truoc 409; presign moi bi reject trong khi 
 }
 ```
 
-- [ ] **Step 5: Test deletion failure, retries and session races**
+- [x] **Step 5: Test deletion failure, retries and session races**
 
 ```text
 DeleteObject failure leaves a durable pending row
@@ -443,7 +445,7 @@ npm run test:e2e --workspace=backend -- --runInBand
 
 Expected: failure/restart khong lam mat object key; queue drain xong thi R2 HeadObject tra not found.
 
-- [ ] **Step 6: Commit durable deletion support**
+- [x] **Step 6: Commit durable deletion support**
 
 ```powershell
 git add apps/backend/prisma apps/backend/src/images apps/backend/src/albums/albums.service.ts apps/backend/scripts/process-image-deletions.ts apps/backend/package.json
@@ -460,7 +462,7 @@ git commit -m "feat(images): make object deletion durable"
 - Modify: `apps/backend/src/images/images.module.ts`
 - Modify: `apps/backend/package.json`
 
-- [ ] **Step 1: Write cleanup tests**
+- [x] **Step 1: Write cleanup tests**
 
 ```text
 expired pending/failed session deletes temporary and any unreferenced final key, then its DB row
@@ -471,11 +473,11 @@ consumed session cleanup deletes only uploadObjectKey and the session row, never
 rerunning cleanup produces zero additional deletions
 ```
 
-- [ ] **Step 2: Implement idempotent cleanup service**
+- [x] **Step 2: Implement idempotent cleanup service**
 
 Process `pending`/`failed` sessions co `expiresAt < now - 1 hour` va `finalizing` lease cu hon 1 gio theo batch 100; grace period tranh cleanup object khi request con dang ket thuc. Neu khong co `Image.r2ObjectKey = finalObjectKey`, delete ca `uploadObjectKey` va `finalObjectKey`, sau do conditional `deleteMany` theo session ID/status. Process consumed sessions co `consumedAt < now - 7 days` bang cach idempotent delete **chi** `uploadObjectKey`, roi xoa session row; canonical `finalObjectKey` khong bao gio bi upload cleanup delete. Job overlap duoc phep goi S3 delete lap lai nhung conditional DB delete phai ngan mat session dang duoc confirm.
 
-- [ ] **Step 3: Add operator command**
+- [x] **Step 3: Add operator command**
 
 ```json
 {
@@ -485,7 +487,7 @@ Process `pending`/`failed` sessions co `expiresAt < now - 1 hour` va `finalizing
 
 Command chi log aggregate counts `scanned`, `objectsDeleted`, `sessionsDeleted`, `failed`; khong log credentials/presigned URLs.
 
-- [ ] **Step 4: Schedule daily cleanup in Dokploy**
+- [x] **Step 4: Schedule daily cleanup in Dokploy**
 
 ```powershell
 npm run images:uploads:cleanup --workspace=backend
@@ -493,7 +495,7 @@ npm run images:uploads:cleanup --workspace=backend
 
 Expected: exit 0. Job overlap phai an toan nho conditional deletes va idempotent S3 DeleteObject.
 
-- [ ] **Step 5: Run cleanup and concurrency verification**
+- [x] **Step 5: Run cleanup and concurrency verification**
 
 ```powershell
 npm test --workspace=backend -- upload-cleanup.service.spec.ts images.service.spec.ts --runInBand
@@ -502,7 +504,7 @@ npm run build --workspace=backend
 
 Expected: cleanup tests PASS; normal concurrent confirms tao `orderIndex` khac nhau; boundary test tai 49 images cho mot success va mot capacity error.
 
-- [ ] **Step 6: Commit cleanup support**
+- [x] **Step 6: Commit cleanup support**
 
 ```powershell
 git add apps/backend/src/images apps/backend/scripts/cleanup-expired-image-uploads.ts apps/backend/package.json

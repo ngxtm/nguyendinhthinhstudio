@@ -1,6 +1,8 @@
 # Image Delivery API and Frontend Cutover Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Completion status — 2026-07-16:** CLOSED theo pham vi rollout duoc operator chap nhan. Checkbox `[x]` co the la da thuc thi hoac da duoc dong bang waiver/defer; xem bang chung va accepted risk trong Phase 7/8.
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Chuyen API va frontend sang imgproxy URLs ma van co legacy fallback cho records cu.
 
@@ -27,7 +29,7 @@
 - Modify: `.env.example`
 - Modify: `docker-compose.yml`
 
-- [ ] **Step 1: Define delivery modes**
+- [x] **Step 1: Define delivery modes**
 
 ```ts
 type ImageDeliveryMode = 'legacy' | 'imgproxy' | 'auto';
@@ -49,11 +51,11 @@ imgproxy: require r2ObjectKey with albums/ prefix and return generated URLs
 auto: generated URLs for R2 keys, stored URLs for legacy records
 ```
 
-- [ ] **Step 2: Write presenter tests**
+- [x] **Step 2: Write presenter tests**
 
 Test nested cover image, album images, legacy key, R2 key, object khong co image relation, invalid mode, local missing mode -> legacy, va production missing mode -> validation error.
 
-- [ ] **Step 3: Implement presenter without mutating Prisma objects**
+- [x] **Step 3: Implement presenter without mutating Prisma objects**
 
 ```ts
 import type { Image } from '@prisma/client';
@@ -65,7 +67,7 @@ presentImage<T extends Image>(image: T): T {
 }
 ```
 
-- [ ] **Step 4: Apply presenter to every concrete read path**
+- [x] **Step 4: Apply presenter to every concrete read path**
 
 `AlbumsService.presentAlbum` phai map ca `coverImage` va moi item trong `images` qua `ImagePresenterService` truoc khi return. Goi/verify presenter tai:
 
@@ -83,7 +85,7 @@ RecommendationService.getRelatedAlbums -> every coverImage before caching and on
 
 Them regression tests cho tung shape tren. Test recommendation phai goi hai lan de chung minh cached response cung da duoc present, khong chi fresh query.
 
-- [ ] **Step 5: Run backend tests/build**
+- [x] **Step 5: Run backend tests/build**
 
 ```powershell
 npm test --workspace=backend -- image-presenter.service.spec.ts --runInBand
@@ -101,7 +103,7 @@ Expected: PASS.
 - Modify: `apps/frontend/src/lib/api/images.ts:1-80`
 - Modify: comments/labels in admin image components
 
-- [ ] **Step 1: Replace provider-specific field**
+- [x] **Step 1: Replace provider-specific field**
 
 ```ts
 export interface Image {
@@ -121,11 +123,11 @@ export interface Image {
 }
 ```
 
-- [ ] **Step 2: Remove fake `cloudflareImageId` confirm payload**
+- [x] **Step 2: Remove fake `cloudflareImageId` confirm payload**
 
 Frontend chi gui `{ uploadId }` den `/images/confirm-upload`.
 
-- [ ] **Step 3: Build frontend**
+- [x] **Step 3: Build frontend**
 
 ```powershell
 npm run build --workspace=frontend
@@ -156,7 +158,7 @@ Expected: exit 0.
 - Create: `apps/frontend/public/images/home/collection-05.webp`
 - Create: `apps/frontend/public/images/home/collection-06.webp`
 
-- [ ] **Step 1: Generate a durable inventory for all 10 hard-coded IDs**
+- [x] **Step 1: Generate a durable inventory for all 10 hard-coded IDs**
 
 `download-static-cloudflare-images.ts` dung `CLOUDFLARE_IMAGES_READ_TOKEN`, download dung 10 IDs hien co trong `images.ts`, stream SHA-256 source, optimize WebP bang `sharp`, stream SHA-256 target va ghi manifest. ID-to-path mapping bat buoc:
 
@@ -182,7 +184,7 @@ npx tsx apps/backend/scripts/download-static-cloudflare-images.ts
 
 Expected: 10 WebP non-empty, 10 manifest rows, moi hash la 64 lowercase hex, va rerun tao cung target hash voi cung source.
 
-- [ ] **Step 2: Import static inventory into a durable cleanup journal**
+- [x] **Step 2: Import static inventory into a durable cleanup journal**
 
 ```prisma
 model CloudflareStaticAssetMigration {
@@ -207,7 +209,7 @@ npx tsx apps/backend/scripts/download-static-cloudflare-images.ts --import-manif
 
 Expected: migration deploy pass va table co dung 10 rows khop manifest; rerun chi update cung rows, khong duplicate.
 
-- [ ] **Step 3: Replace provider-specific naming**
+- [x] **Step 3: Replace provider-specific naming**
 
 ```ts
 interface SiteImage {
@@ -217,7 +219,7 @@ interface SiteImage {
 }
 ```
 
-- [ ] **Step 4: Replace `imagedelivery.net` URLs**
+- [x] **Step 4: Replace `imagedelivery.net` URLs**
 
 ```ts
 const heroImagePaths = [
@@ -237,11 +239,11 @@ const collectionImagePaths = [
 ];
 ```
 
-- [ ] **Step 5: Giu remote pattern trong observation window**
+- [x] **Step 5: Giu remote pattern den khi Phase 8 contract cleanup bat dau**
 
 Khong can remote pattern cho local homepage assets. Giu `imagedelivery.net` tam thoi cho rollback va xoa o phase cleanup.
 
-- [ ] **Step 6: Build va inspect homepage HTML**
+- [x] **Step 6: Build va inspect homepage HTML**
 
 ```powershell
 npm run build --workspace=frontend
@@ -251,19 +253,19 @@ Expected: homepage image sources khong con phat sinh moi tu Cloudflare config.
 
 ### Task 4: Controlled cutover
 
-- [ ] **Step 1: Deploy voi `IMAGE_DELIVERY_MODE=auto`**
+- [x] **Step 1: Deploy voi `IMAGE_DELIVERY_MODE=auto`**
 
 Legacy records van Cloudflare; migrated R2 records dung imgproxy.
 
-- [ ] **Step 2: Verify staging, sau do production**
+- [x] **Step 2: Verify staging, sau do production**
 
 Kiem tra gallery list/detail, metadata, PhotoSwipe, related albums va admin grid.
 
-- [ ] **Step 3: Switch sang `imgproxy` khi reconcile legacy = 0**
+- [x] **Step 3: Switch sang `imgproxy` khi reconcile legacy = 0**
 
 Neu co broken image, rollback `IMAGE_DELIVERY_MODE=auto` hoac `legacy` cho old records.
 
-- [ ] **Step 4: Commit phase**
+- [x] **Step 4: Commit phase**
 
 ```powershell
 git add package-lock.json .env.example docker-compose.yml apps/backend/package.json apps/backend/prisma apps/backend/scripts/download-static-cloudflare-images.ts apps/backend/data/cloudflare-static-image-inventory.json apps/backend/src apps/frontend/src apps/frontend/public/images/home apps/frontend/next.config.mjs
