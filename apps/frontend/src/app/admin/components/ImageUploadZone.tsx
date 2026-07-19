@@ -9,7 +9,6 @@ import { useState, useRef, useCallback } from 'react';
 import { Upload, X, FileImage, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { uploadImage } from '@/lib/api';
-import imageCompression from 'browser-image-compression';
 
 interface Props {
   albumId: string;
@@ -38,9 +37,7 @@ export default function ImageUploadZone({ albumId, onUploadComplete }: Props) {
   const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
   const MAX_FILES = 50;
   const CONCURRENT_UPLOADS = 2; // Upload 2 ảnh đồng thời
-  const PREVIEW_SIZE_LIMIT = 10 * 1024 * 1024; // Chỉ tạo preview cho ảnh < 10MB
-  const COMPRESSION_THRESHOLD = 10 * 1024 * 1024; // Compress ảnh > 10MB
-  const ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
+  const ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
 
   function validateFile(file: File): string | null {
     if (!ALLOWED_TYPES.includes(file.type)) {
@@ -50,48 +47,6 @@ export default function ImageUploadZone({ albumId, onUploadComplete }: Props) {
       return 'File quá lớn (tối đa 100MB)';
     }
     return null;
-  }
-
-  /**
-   * Compress image if it's larger than 10MB
-   * Target: ~10MB with quality 0.85 (very good quality)
-   */
-  async function compressImageIfNeeded(file: File): Promise<File> {
-    // Skip compression if file is already small enough
-    if (file.size <= COMPRESSION_THRESHOLD) {
-      return file;
-    }
-
-    // Skip compression for GIF (would lose animation)
-    if (file.type === 'image/gif') {
-      return file;
-    }
-
-    try {
-      console.log(`🗜️ Compressing ${file.name} (${formatFileSize(file.size)})...`);
-
-      const options = {
-        maxSizeMB: 10, // Target 10MB
-        maxWidthOrHeight: 4096, // Max dimension (keeps aspect ratio)
-        useWebWorker: true,
-        quality: 0.85, // 85% quality - still very sharp
-        fileType: file.type as any,
-      };
-
-      const compressedFile = await imageCompression(file, options);
-
-      console.log(`✅ Compressed: ${formatFileSize(file.size)} → ${formatFileSize(compressedFile.size)}`);
-
-      // Rename to keep original filename
-      return new File([compressedFile], file.name, {
-        type: compressedFile.type,
-        lastModified: Date.now(),
-      });
-    } catch (error) {
-      console.error('Compression failed:', error);
-      toast.warning(`Không thể nén ${file.name}, sẽ upload bản gốc`);
-      return file;
-    }
   }
 
   function formatFileSize(bytes: number): string {
@@ -111,13 +66,8 @@ export default function ImageUploadZone({ albumId, onUploadComplete }: Props) {
     const validFiles: FileWithProgress[] = [];
     const filesToProcess = Array.from(newFiles);
 
-    // Show compression toast if needed
-    const largeFiles = filesToProcess.filter(f => f.size > COMPRESSION_THRESHOLD && f.type !== 'image/gif');
-    if (largeFiles.length > 0) {
-      toast.info(`Đang nén ${largeFiles.length} ảnh lớn để tối ưu upload...`, { duration: 5000 });
-    }
-
-    // Process files with compression
+    // Stage 07 owns optimization and previews; this legacy surface must never
+    // perform iterative compression or retain an original-file preview.
     for (const file of filesToProcess) {
       const error = validateFile(file);
 
@@ -133,15 +83,9 @@ export default function ImageUploadZone({ albumId, onUploadComplete }: Props) {
         continue;
       }
 
-      // Compress if needed
-      const processedFile = await compressImageIfNeeded(file);
-
-      // Chỉ tạo preview cho ảnh nhỏ hơn 10MB (tránh lag)
-      const shouldCreatePreview = processedFile.size < PREVIEW_SIZE_LIMIT;
-
       validFiles.push({
-        file: processedFile,
-        preview: shouldCreatePreview ? URL.createObjectURL(processedFile) : null,
+        file,
+        preview: null,
         progress: 0,
         status: 'pending',
         error: undefined,

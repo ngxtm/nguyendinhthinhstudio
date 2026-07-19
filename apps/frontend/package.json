@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "test": "node --import tsx --test test/**/*.test.ts",
+    "test:focused": "node --import tsx --test",
     "dev": "next dev --turbopack -p 3001",
     "build": "next build",
     "start": "next start -p 3001",
@@ -16,7 +17,6 @@
     "@supabase/ssr": "^0.12.3",
     "@supabase/supabase-js": "^2.110.5",
     "@vercel/speed-insights": "^1.2.0",
-    "browser-image-compression": "^2.0.2",
     "framer-motion": "^12.23.3",
     "gsap": "^3.13.0",
     "lucide-react": "^0.536.0",
@@ -26,8 +26,8 @@
     "react-icons": "^5.5.0"
   },
   "devDependencies": {
-    "@ndt/types": "^0.1.0",
     "@eslint/eslintrc": "^3",
+    "@ndt/types": "^0.1.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^24.13.3",
     "@types/react": "^19",
