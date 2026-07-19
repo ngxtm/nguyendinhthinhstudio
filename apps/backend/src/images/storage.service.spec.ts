@@ -2,11 +2,16 @@ import { ConfigService } from '@nestjs/config';
 import { Logger } from '@nestjs/common';
 import {
   CopyObjectCommand,
+  DeleteObjectCommand,
+  GetObjectCommand,
   HeadObjectCommand,
   PutObjectCommand,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { StorageService } from './storage.service';
+import {
+  r2CopyDestinationCreateOnlyMiddleware,
+  StorageService,
+} from './storage.service';
 
 jest.mock('@aws-sdk/s3-request-presigner', () => ({
   getSignedUrl: jest.fn(),
@@ -152,8 +157,10 @@ describe('StorageService', () => {
         contentType: 'image/jpeg',
         fileSize: 1024,
       }),
-    ).resolves.toBe('"source-etag"');
-    expect(send).toHaveBeenCalledWith(expect.any(HeadObjectCommand));
+    ).resolves.toBe('source-etag');
+    expect(send).toHaveBeenCalledWith(expect.any(HeadObjectCommand), {
+      abortSignal: expect.any(AbortSignal),
+    });
   });
 
   it('rejects object metadata mismatches and missing ETags', async () => {
@@ -193,6 +200,154 @@ describe('StorageService', () => {
     ).rejects.toThrow('Uploaded object ETag is missing');
   });
 
+  it('bounds never-resolving HEAD and DELETE provider calls', async () => {
+    jest.useFakeTimers();
+    try {
+      const service = new StorageService(config);
+      const send = jest
+        .spyOn((service as any).s3, 'send')
+        .mockImplementation(() => new Promise(() => undefined));
+
+      const head = service.verifyObject(
+        'uploads/id/photo.jpg',
+        { contentType: 'image/jpeg', fileSize: 1024 },
+        { operationTimeoutMs: 10 },
+      );
+      const headRejected = expect(head).rejects.toMatchObject({
+        name: 'AbortError',
+      });
+      await jest.advanceTimersByTimeAsync(10);
+      await headRejected;
+      expect(send.mock.calls[0][0]).toBeInstanceOf(HeadObjectCommand);
+      expect(send.mock.calls[0][1]).toEqual({
+        abortSignal: expect.any(AbortSignal),
+      });
+
+      const deletion = service.deleteObject('uploads/id/photo.jpg', {
+        operationTimeoutMs: 10,
+      });
+      const deletionRejected = expect(deletion).rejects.toMatchObject({
+        name: 'AbortError',
+      });
+      await jest.advanceTimersByTimeAsync(10);
+      await deletionRejected;
+      expect(send.mock.calls[1][0]).toBeInstanceOf(DeleteObjectCommand);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('keeps the deadline active through a never-resolving GetObject body read', async () => {
+    jest.useFakeTimers();
+    try {
+      const service = new StorageService(config);
+      const send = jest.spyOn((service as any).s3, 'send').mockResolvedValue({
+        Body: {
+          transformToByteArray: () => new Promise(() => undefined),
+        },
+      });
+
+      const reading = service.readObjectBytes(
+        'uploads/id/photo.jpg',
+        { operationTimeoutMs: 10 },
+        'SourceCase',
+      );
+      const readingRejected = expect(reading).rejects.toMatchObject({
+        name: 'AbortError',
+      });
+      await jest.advanceTimersByTimeAsync(10);
+      await readingRejected;
+      expect(send.mock.calls[0][0]).toBeInstanceOf(GetObjectCommand);
+      expect((send.mock.calls[0][0] as GetObjectCommand).input).toEqual(
+        expect.objectContaining({ IfMatch: '"SourceCase"' }),
+      );
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('constructs exact create-only CopyObject from durable promotion facts without destination HEAD', async () => {
+    const service = new StorageService(config);
+    const send = jest.spyOn((service as any).s3, 'send').mockResolvedValue({
+      CopyObjectResult: { ETag: '"DestinationCase"' },
+    });
+
+    await expect(
+      service.promoteObject({
+        destinationObjectKey: 'albums/album/photo.webp',
+        sourceObjectKey: 'uploads/id/photo.webp',
+        sourceEtag: 'SourceCase',
+        canonicalMime: 'image/webp',
+        inspectedSha256: 'a'.repeat(64),
+        inspectedWidth: 1200,
+        inspectedHeight: 800,
+        policyVersion: 'web-v1-policy',
+      }),
+    ).resolves.toBe('DestinationCase');
+
+    expect(send).toHaveBeenCalledTimes(1);
+    const command = send.mock.calls[0][0];
+    expect(command).toBeInstanceOf(CopyObjectCommand);
+    expect(command.input).toEqual(
+      expect.objectContaining({
+        Bucket: 'test-images',
+        Key: 'albums/album/photo.webp',
+        CopySource: '/test-images/uploads/id/photo.webp',
+        CopySourceIfMatch: '"SourceCase"',
+        MetadataDirective: 'REPLACE',
+        ContentType: 'image/webp',
+        Metadata: {
+          sha256: 'a'.repeat(64),
+          width: '1200',
+          height: '800',
+          policy: 'web-v1-policy',
+        },
+      }),
+    );
+  });
+
+  it('adds the create-only R2 destination condition before signing', async () => {
+    const next = jest.fn(async (args) => args);
+    const args = { request: { headers: {} as Record<string, string> } };
+
+    await r2CopyDestinationCreateOnlyMiddleware(next)(args);
+
+    expect(args.request.headers).toEqual({
+      'cf-copy-destination-if-none-match': '*',
+    });
+    expect(next).toHaveBeenCalledWith(args);
+  });
+
+  it('bounds a never-resolving CopyObject dispatch', async () => {
+    jest.useFakeTimers();
+    try {
+      const service = new StorageService(config);
+      jest
+        .spyOn((service as any).s3, 'send')
+        .mockImplementation(() => new Promise(() => undefined));
+      const copying = service.promoteObject(
+        {
+          destinationObjectKey: 'albums/album/photo.webp',
+          sourceObjectKey: 'uploads/id/photo.webp',
+          sourceEtag: 'SourceCase',
+          canonicalMime: 'image/webp',
+          inspectedSha256: 'a'.repeat(64),
+          inspectedWidth: 1200,
+          inspectedHeight: 800,
+          policyVersion: 'web-v1-policy',
+        },
+        { operationTimeoutMs: 10 },
+      );
+      const copyingRejected = expect(copying).rejects.toMatchObject({
+        name: 'AbortError',
+      });
+      await jest.advanceTimersByTimeAsync(10);
+      await copyingRejected;
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it('promotes only the ETag-verified temporary object', async () => {
     const service = new StorageService(config);
     const send = jest
@@ -218,6 +373,7 @@ describe('StorageService', () => {
       expect.objectContaining({
         input: expect.objectContaining({ CopySourceIfMatch: '"source-etag"' }),
       }),
+      { abortSignal: expect.any(AbortSignal) },
     );
     expect(send.mock.calls[0][0]).toBeInstanceOf(CopyObjectCommand);
   });

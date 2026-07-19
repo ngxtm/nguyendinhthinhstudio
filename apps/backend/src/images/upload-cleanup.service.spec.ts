@@ -251,4 +251,16 @@ describe('UploadCleanupService', () => {
     expect(storage.deleteObject).toHaveBeenCalledTimes(firstRunDeletionCount);
     expect(prisma.imageUpload.deleteMany).toHaveBeenCalledTimes(1);
   });
+
+  it('preserves current upload evidence and verifies only temporary cleanup', async () => {
+    const session = { id: 'u-current', status: 'failed', uploadObjectKey: 'uploads/u-current/a.jpg', finalObjectKey: 'albums/a/current.jpg' };
+    const { prisma, storage, service } = createHarness({ expired: [session] });
+    prisma.imageUpload.updateMany = jest.fn().mockResolvedValue({ count: 1 });
+
+    await expect(service.cleanupExpired()).resolves.toEqual(expect.objectContaining({ sessionsDeleted: 0, sessionsVerified: 1 }));
+    expect(storage.deleteObject).toHaveBeenCalledWith(session.uploadObjectKey);
+    expect(storage.deleteObject).not.toHaveBeenCalledWith(session.finalObjectKey);
+    expect(prisma.imageUpload.deleteMany).not.toHaveBeenCalled();
+    expect(prisma.imageUpload.updateMany).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ temporaryCleanupState: 'verified_deleted', temporaryCleanupVerifiedAt: NOW }) }));
+  });
 });

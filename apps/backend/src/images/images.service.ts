@@ -21,6 +21,10 @@ import {
   truncateToWholeSecond,
 } from './image-upload-presign-expiry';
 import { ImageUploadPolicyService } from './image-upload-policy.service';
+import { ImageUploadPromotionRepository } from './image-upload-promotion.repository';
+import { ImageInspectionSemaphoreService } from './image-inspection-semaphore.service';
+import { StoredImageInspectorService } from './stored-image-inspector.service';
+import { canonicalizeEtag } from './canonical-etag';
 
 const FINALIZATION_LEASE_MS = 10 * 60 * 1000;
 
@@ -49,6 +53,11 @@ export class ImagesService {
     private readonly imagePresenter: ImagePresenterService,
     private readonly uploadPolicy: ImageUploadPolicyService =
       new ImageUploadPolicyService(),
+    private readonly promotions?: ImageUploadPromotionRepository,
+    private readonly inspectionSemaphore: ImageInspectionSemaphoreService =
+      new ImageInspectionSemaphoreService(),
+    private readonly storedInspector: StoredImageInspectorService =
+      new StoredImageInspectorService(),
   ) {}
 
   /**
@@ -572,7 +581,10 @@ export class ImagesService {
   /**
    * Confirm image upload after R2 direct upload
    */
-  async confirmUpload(confirmDto: UploadConfirmDto) {
+  async confirmUpload(confirmDto: UploadConfirmDto, createdByAdminId?: string) {
+    if (this.promotions) {
+      return this.confirmUploadWithInspection(confirmDto, createdByAdminId);
+    }
     const imageUpload = (this.prisma as any).imageUpload;
     const session = await imageUpload.findUnique({
       where: { id: confirmDto.uploadId },
@@ -721,6 +733,161 @@ export class ImagesService {
     this.logger.log(`Image uploaded successfully: ${image.id}`);
 
     return image;
+  }
+
+  /** Current tokenized confirmation path. The legacy branch above remains only
+   * for isolated callers that construct ImagesService without module wiring. */
+  private async confirmUploadWithInspection(confirmDto: UploadConfirmDto, createdByAdminId?: string) {
+    const upload = await (this.prisma as any).imageUpload.findUnique({
+      where: { id: confirmDto.uploadId },
+    });
+    if (!upload || (createdByAdminId && upload.createdByAdminId !== createdByAdminId)) {
+      throw new NotFoundException('Upload session not found');
+    }
+    if (upload.status === 'consumed' || upload.status === 'failed') {
+      return this.renderSessionStatus(upload, new Date());
+    }
+    let sourceEtag: string;
+    try {
+      sourceEtag = await this.storage.verifyObject(upload.uploadObjectKey, {
+        contentType: upload.contentType,
+        fileSize: upload.fileSize,
+      });
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        await this.terminalizeCurrentFailure(upload, 'pending', null, 'upload_source_changed', new Date());
+      }
+      throw error;
+    }
+    const now = new Date();
+    const leaseToken = randomUUID();
+    const claimed = await runSerializableWithRetry(() =>
+      (this.prisma as any).$transaction(async (tx: any) => {
+        const current = await tx.imageUpload.findUnique({ where: { id: upload.id } });
+        if (!current) throw new NotFoundException('Upload session not found');
+        if (createdByAdminId && current.createdByAdminId !== createdByAdminId) {
+          throw new NotFoundException('Upload session not found');
+        }
+        if (current.status === 'consumed') return current;
+        if (current.status !== 'pending' && current.status !== 'finalizing') {
+          throw new ConflictException('Upload session is not confirmable');
+        }
+        if (current.expiresAt <= now) throw new BadRequestException('Upload session has expired');
+        if (current.status === 'finalizing' && current.finalizationStartedAt &&
+            current.finalizationStartedAt.getTime() > now.getTime() - FINALIZATION_LEASE_MS) {
+          throw new ConflictException('Upload session is already being finalized');
+        }
+        const changed = await tx.imageUpload.updateMany({
+          where: { id: current.id, createdByAdminId: current.createdByAdminId, status: current.status, ...(current.status === 'finalizing' ? { finalizationStartedAt: current.finalizationStartedAt, sourceEtag: current.sourceEtag } : {}) },
+          data: { status: 'finalizing', sourceEtag, finalizationStartedAt: now, finalizationLeaseToken: leaseToken },
+        });
+        if (changed.count !== 1) throw new ConflictException('Upload session is already being finalized');
+        return { ...current, status: 'finalizing', sourceEtag, finalizationLeaseToken: leaseToken };
+      }, { isolationLevel: 'Serializable' as any }),
+    );
+    if ((claimed as any).status === 'consumed') return this.renderSessionStatus(claimed, new Date());
+
+    const release = await this.inspectionSemaphore.acquire();
+    let inspected;
+    try {
+      const bytes = await this.storage.readObjectBytes(
+        upload.uploadObjectKey,
+        { operationTimeoutMs: 15_000 },
+        sourceEtag,
+      );
+      inspected = await this.storedInspector.inspect(bytes, this.uploadPolicy.policy, upload.contentType);
+      if (upload.processedSha256 && inspected.digestSha256 !== upload.processedSha256) {
+        throw Object.assign(new BadRequestException('Uploaded object digest does not match'), { failureCode: 'upload_digest_mismatch' });
+      }
+    } catch (error) {
+      await this.terminalizeCurrentFailure(upload, 'finalizing', leaseToken, (error as any)?.failureCode ?? 'upload_decode_failed', new Date());
+      throw error;
+    } finally {
+      release();
+    }
+
+    const dispatched = await this.promotions!.createDispatchedPromotion({
+      uploadId: upload.id,
+      albumId: upload.albumId,
+      finalizationLeaseToken: leaseToken,
+      accountId: process.env.IMAGE_UPLOAD_CLOUDFLARE_ACCOUNT_ID ?? process.env.CLOUDFLARE_ACCOUNT_ID ?? 'unknown',
+      bucket: process.env.IMAGE_UPLOAD_R2_BUCKET ?? process.env.CLOUDFLARE_R2_BUCKET_NAME ?? 'unknown',
+      sourceObjectKey: upload.uploadObjectKey,
+      sourceEtag,
+      destinationObjectKey: upload.finalObjectKey,
+      inspectedSha256: inspected.digestSha256,
+      inspectedByteSize: inspected.byteSize,
+      canonicalMime: inspected.facts.mime,
+      inspectedWidth: inspected.facts.width,
+      inspectedHeight: inspected.facts.height,
+      policyVersion: upload.policyVersion ?? this.uploadPolicy.policyVersion,
+      now,
+      eventGraceMs: 30_000,
+    });
+
+    let responseEtag: string;
+    try {
+      responseEtag = canonicalizeEtag(await this.storage.promoteObject({
+        destinationObjectKey: upload.finalObjectKey,
+        sourceObjectKey: upload.uploadObjectKey,
+        sourceEtag,
+        canonicalMime: inspected.facts.mime,
+        inspectedSha256: inspected.digestSha256,
+        inspectedWidth: inspected.facts.width,
+        inspectedHeight: inspected.facts.height,
+        policyVersion: upload.policyVersion ?? this.uploadPolicy.policyVersion,
+      }, { operationTimeoutMs: 30_000 }));
+    } catch (error) {
+      // Dispatch is already durable; response loss is intentionally ambiguous.
+      if (error instanceof Error && /CopyObject response ETag|ETag must/.test(error.message)) {
+        return this.renderPresignWinner({ ...upload, status: 'finalizing', finalizationStartedAt: now });
+      }
+      throw error;
+    }
+
+    const imageId = randomUUID();
+    const variants = this.imageUrl.getVariantUrls(upload.finalObjectKey);
+    const last = await (this.prisma as any).image.findFirst({ where: { albumId: upload.albumId }, orderBy: { orderIndex: 'desc' }, select: { orderIndex: true } });
+    await this.promotions!.settleCopyResponseAndCommit({
+      uploadId: upload.id,
+      createdByAdminId: upload.createdByAdminId,
+      finalizationLeaseToken: leaseToken,
+      copyResponseEtag: responseEtag,
+      observedAt: new Date(),
+      image: { id: imageId, albumId: upload.albumId, filename: upload.filename, r2ObjectKey: upload.finalObjectKey, width: inspected.facts.width, height: inspected.facts.height, fileSizeBytes: inspected.byteSize, ...variants, orderIndex: (last?.orderIndex ?? 0) + 1 },
+      resultRetentionExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      temporaryCleanupNextAttemptAt: new Date(Math.max(Date.now(), new Date(upload.presignExpiresAt ?? upload.expiresAt).getTime() + 5 * 60 * 1000)),
+    });
+    return (this.prisma as any).image.findUnique({ where: { id: imageId } });
+  }
+
+  private async terminalizeCurrentFailure(
+    upload: any,
+    expectedStatus: 'pending' | 'finalizing',
+    leaseToken: string | null,
+    failureCode: string,
+    terminalAt: Date,
+  ): Promise<boolean> {
+    const resultRetentionExpiresAt = new Date(terminalAt.getTime() + 30 * 24 * 60 * 60 * 1000);
+    return (this.prisma as any).$transaction(async (tx: any) => {
+      const changed = await tx.imageUpload.updateMany({
+        where: {
+          id: upload.id,
+          createdByAdminId: upload.createdByAdminId,
+          status: expectedStatus,
+          ...(leaseToken ? { finalizationLeaseToken: leaseToken } : {}),
+          ...(expectedStatus === 'pending' ? { presignExpiresAt: { gt: terminalAt } } : {}),
+        },
+        data: { status: 'failed', failureCode, terminalAt, resultRetentionExpiresAt, temporaryCleanupState: 'pending', temporaryCleanupNextAttemptAt: terminalAt },
+      });
+      if (changed.count !== 1) return false;
+      const outcome = await tx.imageUploadIdempotency.updateMany({
+        where: { uploadId: upload.id, terminalOutcome: null },
+        data: { terminalOutcome: 'failed', failureCode, terminalAt, resultRetentionExpiresAt },
+      });
+      if (outcome.count !== 1) throw new Error('upload failure idempotency CAS failed');
+      return true;
+    }, { isolationLevel: 'Serializable' as any });
   }
 
   /**

@@ -1,6 +1,7 @@
 import {
   CopyObjectCommand,
   DeleteObjectCommand,
+  GetObjectCommand,
   HeadObjectCommand,
   PutObjectCommand,
   S3Client,
@@ -9,11 +10,43 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createHash, randomUUID } from 'crypto';
+import { canonicalizeEtag, toHttpEtag } from './canonical-etag';
+import {
+  type ImageUploadDeadlineOptions,
+  withImageUploadDeadline,
+} from './image-upload-deadline';
 import {
   assertPresignedUrlMatchesExpiry,
   remainingPresignSeconds,
   truncateToWholeSecond,
 } from './image-upload-presign-expiry';
+
+export type StorageOperationDeadline = Omit<
+  ImageUploadDeadlineOptions,
+  'operationTimeoutMs'
+> & {
+  operationTimeoutMs?: number;
+};
+
+export type ImageUploadPromotionCopyFacts = {
+  destinationObjectKey: string;
+  sourceObjectKey: string;
+  sourceEtag: string;
+  canonicalMime: string;
+  inspectedSha256: string;
+  inspectedWidth: number;
+  inspectedHeight: number;
+  policyVersion: string;
+};
+
+const DEFAULT_R2_OPERATION_TIMEOUT_MS = 30_000;
+
+export const r2CopyDestinationCreateOnlyMiddleware =
+  (next: (args: any) => Promise<any>) => async (args: any) => {
+    const request = args.request as { headers: Record<string, string> };
+    request.headers['cf-copy-destination-if-none-match'] = '*';
+    return next(args);
+  };
 
 @Injectable()
 export class StorageService {
@@ -92,7 +125,21 @@ export class StorageService {
     return signedUrl;
   }
 
-  async deleteObject(objectKey: string): Promise<void> {
+  private runR2<T>(
+    operation: (signal: AbortSignal) => Promise<T>,
+    deadline: StorageOperationDeadline = {},
+  ): Promise<T> {
+    return withImageUploadDeadline(operation, {
+      ...deadline,
+      operationTimeoutMs:
+        deadline.operationTimeoutMs ?? DEFAULT_R2_OPERATION_TIMEOUT_MS,
+    });
+  }
+
+  async deleteObject(
+    objectKey: string,
+    deadline: StorageOperationDeadline = {},
+  ): Promise<void> {
     const objectKeyHash = createHash('sha256')
       .update(objectKey)
       .digest('hex')
@@ -103,7 +150,11 @@ export class StorageService {
     });
 
     try {
-      await this.s3.send(deleteObjectCommand);
+      await this.runR2(
+        (signal) =>
+          this.s3.send(deleteObjectCommand, { abortSignal: signal }),
+        deadline,
+      );
       this.logger.log(`Object deleted: keyHash=${objectKeyHash}`);
     } catch (error) {
       this.logger.error(`Object deletion failed: keyHash=${objectKeyHash}`);
@@ -114,9 +165,15 @@ export class StorageService {
   async verifyObject(
     objectKey: string,
     expected: { contentType: string; fileSize: number },
+    deadline: StorageOperationDeadline = {},
   ): Promise<string> {
-    const result = await this.s3.send(
-      new HeadObjectCommand({ Bucket: this.bucketname, Key: objectKey }),
+    const result = await this.runR2(
+      (signal) =>
+        this.s3.send(
+          new HeadObjectCommand({ Bucket: this.bucketname, Key: objectKey }),
+          { abortSignal: signal },
+        ),
+      deadline,
     );
     if (result.ContentLength !== expected.fileSize) {
       throw new BadRequestException('Uploaded object size does not match');
@@ -129,27 +186,98 @@ export class StorageService {
     if (!result.ETag?.trim()) {
       throw new BadRequestException('Uploaded object ETag is missing');
     }
-    return result.ETag;
+    return canonicalizeEtag(result.ETag);
   }
 
+  async readObjectBytes(
+    objectKey: string,
+    deadline: StorageOperationDeadline = {},
+    ifMatch?: string,
+  ): Promise<Uint8Array> {
+    return this.runR2(async (signal) => {
+      const result = await this.s3.send(
+        new GetObjectCommand({
+          Bucket: this.bucketname,
+          Key: objectKey,
+          ...(ifMatch ? { IfMatch: toHttpEtag(ifMatch) } : {}),
+        }),
+        { abortSignal: signal },
+      );
+      if (!result.Body?.transformToByteArray) {
+        throw new Error('R2 GetObject body is unavailable');
+      }
+      return result.Body.transformToByteArray();
+    }, deadline);
+  }
+
+  async promoteObject(
+    promotion: ImageUploadPromotionCopyFacts,
+    deadline?: StorageOperationDeadline,
+  ): Promise<string>;
   async promoteObject(
     uploadObjectKey: string,
     finalObjectKey: string,
     sourceEtag: string,
     expected: { contentType: string; fileSize: number },
-  ): Promise<void> {
-    const copySource = encodeURIComponent(
-      `${this.bucketname}/${uploadObjectKey}`,
-    ).replace(/%2F/g, '/');
-    await this.s3.send(
-      new CopyObjectCommand({
+  ): Promise<void>;
+  async promoteObject(
+    promotionOrSource: ImageUploadPromotionCopyFacts | string,
+    deadlineOrDestination?: StorageOperationDeadline | string,
+    sourceEtag?: string,
+    _expected?: { contentType: string; fileSize: number },
+  ): Promise<string | void> {
+    if (typeof promotionOrSource === 'string') {
+      const destination = deadlineOrDestination as string;
+      const command = new CopyObjectCommand({
         Bucket: this.bucketname,
-        Key: finalObjectKey,
-        CopySource: copySource,
-        CopySourceIfMatch: sourceEtag,
+        Key: destination,
+        CopySource: encodeURIComponent(
+          `/${this.bucketname}/${promotionOrSource}`,
+        ).replace(/%2F/g, '/'),
+        CopySourceIfMatch: toHttpEtag(sourceEtag ?? ''),
         MetadataDirective: 'COPY',
-      }),
+      });
+      await this.runR2((signal) =>
+        this.s3.send(command, { abortSignal: signal }),
+      );
+      return;
+    }
+
+    const promotion = promotionOrSource;
+    const deadline =
+      (deadlineOrDestination as StorageOperationDeadline | undefined) ?? {};
+    const command = new CopyObjectCommand({
+      Bucket: this.bucketname,
+      Key: promotion.destinationObjectKey,
+      CopySource: encodeURIComponent(
+        `/${this.bucketname}/${promotion.sourceObjectKey}`,
+      ).replace(/%2F/g, '/'),
+      CopySourceIfMatch: toHttpEtag(promotion.sourceEtag),
+      MetadataDirective: 'REPLACE',
+      ContentType: promotion.canonicalMime,
+      Metadata: {
+        sha256: promotion.inspectedSha256,
+        width: String(promotion.inspectedWidth),
+        height: String(promotion.inspectedHeight),
+        policy: promotion.policyVersion,
+      },
+    });
+    command.middlewareStack.addRelativeTo(
+      r2CopyDestinationCreateOnlyMiddleware,
+      {
+        name: 'r2CopyDestinationCreateOnly',
+        relation: 'before',
+        toMiddleware: 'awsAuthMiddleware',
+      },
     );
-    await this.verifyObject(finalObjectKey, expected);
+    const result = await this.runR2(
+      (signal) => this.s3.send(command, { abortSignal: signal }),
+      deadline,
+    );
+    const destinationEtag = result.CopyObjectResult?.ETag;
+    if (!destinationEtag) {
+      throw new Error('CopyObject response ETag is missing');
+    }
+    return canonicalizeEtag(destinationEtag);
   }
 }

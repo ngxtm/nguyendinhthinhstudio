@@ -163,6 +163,7 @@ function createHarness(session = activeUpload()) {
       ),
     ),
     verifyObject: jest.fn().mockResolvedValue('"source-etag"'),
+    readObjectBytes: jest.fn().mockResolvedValue(new Uint8Array([1, 2, 3])),
     promoteObject: jest.fn().mockResolvedValue(undefined),
     deleteObject: jest.fn().mockResolvedValue(undefined),
   };
@@ -204,6 +205,8 @@ function createHarness(session = activeUpload()) {
         imagePresenter,
         policy,
       ),
+    createCurrentService: (promotions: any, semaphore: any, inspector: any) =>
+      new (ImagesService as any)(prisma, storage, imageUrl, imagePresenter, policy, promotions, semaphore, inspector),
   };
 }
 
@@ -723,6 +726,48 @@ describe('ImagesService upload sessions', () => {
       harness.createService().abandonUpload(UPLOAD_ID, ADMIN_ID),
     ).resolves.toEqual(expect.objectContaining(expected));
     expect(harness.prisma.imageUpload.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('persists inspected promotion facts before the only CopyObject dispatch', async () => {
+    const harness = createHarness();
+    harness.storage.verifyObject.mockResolvedValue('source-etag');
+    harness.storage.promoteObject.mockResolvedValue('destination-etag');
+    const release = jest.fn();
+    const semaphore = { acquire: jest.fn().mockResolvedValue(release) };
+    const inspector = { inspect: jest.fn().mockResolvedValue({ digestSha256: 'b'.repeat(64), byteSize: 3, facts: { mime: 'image/jpeg', width: 10, height: 20 } }) };
+    const promotions = {
+      createDispatchedPromotion: jest.fn().mockResolvedValue({ uploadId: UPLOAD_ID }),
+      settleCopyResponseAndCommit: jest.fn().mockResolvedValue({ uploadId: UPLOAD_ID, disposition: 'committed' }),
+    };
+
+    await harness.createCurrentService(promotions, semaphore, inspector).confirmUpload({ uploadId: UPLOAD_ID } as any);
+
+    expect(promotions.createDispatchedPromotion.mock.invocationCallOrder[0]).toBeLessThan(harness.storage.promoteObject.mock.invocationCallOrder[0]);
+    expect(promotions.createDispatchedPromotion).toHaveBeenCalledWith(expect.objectContaining({ uploadId: UPLOAD_ID, finalizationLeaseToken: expect.any(String), sourceEtag: 'source-etag', inspectedSha256: 'b'.repeat(64), inspectedWidth: 10, inspectedHeight: 20 }));
+    expect(harness.storage.promoteObject).toHaveBeenCalledTimes(1);
+    expect(promotions.settleCopyResponseAndCommit).toHaveBeenCalledWith(expect.objectContaining({ copyResponseEtag: 'destination-etag' }));
+    expect(release).toHaveBeenCalledTimes(1);
+  });
+
+  it('hides a session owned by another admin before HEAD or body access', async () => {
+    const harness = createHarness();
+    const service = harness.createCurrentService({}, { acquire: jest.fn() }, { inspect: jest.fn() });
+    await expect(service.confirmUpload({ uploadId: UPLOAD_ID } as any, 'other-admin')).rejects.toThrow('Upload session not found');
+    expect(harness.storage.verifyObject).not.toHaveBeenCalled();
+    expect(harness.storage.readObjectBytes).not.toHaveBeenCalled();
+  });
+
+  it('terminalizes a definitive HEAD mismatch but leaves transient HEAD failure unchanged', async () => {
+    const definitive = createHarness();
+    definitive.storage.verifyObject.mockRejectedValueOnce(new BadRequestException('metadata mismatch'));
+    await expect(definitive.createCurrentService({}, { acquire: jest.fn() }, { inspect: jest.fn() }).confirmUpload({ uploadId: UPLOAD_ID } as any, ADMIN_ID)).rejects.toBeInstanceOf(BadRequestException);
+    expect(definitive.prisma.imageUpload.updateMany).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ failureCode: 'upload_source_changed' }) }));
+    expect(definitive.prisma.imageUploadIdempotency.updateMany).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ terminalOutcome: 'failed', failureCode: 'upload_source_changed' }) }));
+
+    const transient = createHarness();
+    transient.storage.verifyObject.mockRejectedValueOnce(new Error('network timeout'));
+    await expect(transient.createCurrentService({}, { acquire: jest.fn() }, { inspect: jest.fn() }).confirmUpload({ uploadId: UPLOAD_ID } as any, ADMIN_ID)).rejects.toThrow('network timeout');
+    expect(transient.prisma.imageUpload.updateMany).not.toHaveBeenCalled();
   });
 
   it('survives a new ImagesService instance by loading and consuming the persisted session', async () => {

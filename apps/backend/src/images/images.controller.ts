@@ -266,10 +266,10 @@ export class ImagesController {
   @HttpCode(200)
   @Roles('admin')
   async confirmUpload(@Body() body: unknown, @Req() request: AdminRequest) {
-    await this.admit(request, 'confirm_upload');
+    const adminId = await this.admit(request, 'confirm_upload');
     const confirm = this.validateDto(body, UploadConfirmDto);
     return this.invokeBusiness(
-      () => this.imagesService.confirmUpload(confirm),
+      () => this.imagesService.confirmUpload(confirm, adminId),
       'upload_invalid_request',
     );
   }
