@@ -69,8 +69,8 @@ The same new release produces two separately configured processes:
 3. The browser PUTs the optimized image to `uploads/{uploadId}/{safeFilename}`.
 4. Confirm HEADs and reads that exact object, enforces the byte limit, computes the digest, validates the stored-image grammar, and completes the bounded Sharp decode.
 5. The request claims a tokenized finalization lease.
-6. In a committed database transaction, the backend creates or reuses the promotion record in `prepared` state.
-7. The backend changes the promotion to `dispatched`, then sends CopyObject with exact source ETag and replacement canonical metadata.
+6. In a committed database transaction, the backend creates or reuses the promotion record directly in `dispatched` state. Here `dispatched` means provider mutation is authorized and may already have happened, so recovery always treats it as outcome-ambiguous.
+7. Only after that transaction commits does the backend send CopyObject with exact source ETag, replacement canonical metadata, and R2 destination condition `cf-copy-destination-if-none-match: *`. The condition is staging-qualified and fail-closed so repeated recovery dispatches cannot overwrite or create more than one canonical winner.
 8. A successful CopyObject response allows the lease owner to create `Image`, increment the album count, mark the upload `consumed`, and set the promotion disposition to `committed` in one serializable transaction.
 9. The temporary object is deleted best-effort. Delete timeout creates retryable cleanup work and never rolls back the committed image.
 10. Confirm or status retries return the retained terminal result and never create another image.
@@ -104,11 +104,12 @@ Identity and matching fields:
 - source object key and source ETag;
 - destination object key;
 - unique provider event ID when delivered;
-- provider destination ETag.
+- provider destination ETag;
+- dispatch attempt count and last dispatch time.
 
 Provider state is independent from object disposition:
 
-- `copyState`: `prepared | dispatched | provider_settled`;
+- `copyState`: `dispatched | provider_settled`;
 - `disposition`: `pending | committed | cleanup_required | verified_deleted`.
 
 This separation prevents the false assumption that a completed COPY implies that its destination should be deleted.
@@ -133,7 +134,7 @@ If the promotion is `pending` and the finalization lease is still active, the re
 
 ### Stale lease
 
-If the lease is stale, provider settlement exists, and the destination HEAD matches the event ETag and stored digest, the reconciler claims a new token and completes the same serializable image transaction.
+If the lease is stale and provider settlement exists, the reconciler requires destination HEAD to match the event ETag and stored digest, then claims a new token and completes the same serializable image transaction. If settlement is still absent after the configured grace period, it HEADs the destination: an existing exact object waits for its event, while an absent destination permits one bounded retry of the same create-only conditional CopyObject. HTTP 412 means another dispatch already created the destination and never authorizes deletion.
 
 ### Committed upload
 
@@ -155,14 +156,16 @@ Production and staging each have dedicated resources:
 
 - source Queue name and ID;
 - DLQ name and ID;
-- HTTP-pull consumer ID;
-- consumer type `http_pull`;
-- configured DLQ name;
+- source Queue HTTP-pull consumer ID;
+- DLQ inspection HTTP-pull consumer ID;
+- both consumer types `http_pull`;
+- source consumer configured DLQ name;
+- DLQ inspection consumer with no recursive DLQ binding;
 - explicit batch size, max retries, retry delay, and visibility timeout;
 - message retention of at least 24 hours;
 - R2 notification rule ID with action exactly `CopyObject` and the exact canonical prefix.
 
-Provisioning must read all values back from Cloudflare before uploads are enabled. The DLQ runbook defines inspect, redacted export, replay, quarantine, acknowledgement, and operator receipt procedures.
+Provisioning must read all values back from Cloudflare before uploads are enabled. The DLQ inspection consumer makes inspect, redacted export, replay, quarantine, acknowledgement, and operator receipt procedures executable; it never forwards poison messages recursively.
 
 ## 8. Cleanup rules
 
@@ -184,7 +187,7 @@ Warnings fire when unresolved promotion work is 15 minutes old. Critical alerts 
 The cutover is serial and uses a bounded maintenance window:
 
 1. Build, test, and record the immutable new image digest.
-2. Provision and read back the production Queue, DLQ, HTTP-pull consumer, notification rule, and least-privilege secrets.
+2. Provision and read back the production Queue, DLQ, source HTTP-pull consumer, DLQ inspection consumer, notification rule, and least-privilege secrets.
 3. Disable new presign at ingress while the old backend finishes already-started confirms.
 4. After one maximum confirm deadline, block confirm and abandon and stop every old API, cleanup job, deletion job, and scheduler.
 5. Verify no old process or lease can mutate upload state.
@@ -214,7 +217,7 @@ Database backup remains mandatory for disaster recovery, but the operational upl
 
 ## 11. Staging qualification
 
-Staging uses long-lived, explicitly non-production R2, Queue, DLQ, HTTP consumer, notification rule, and scoped credentials. Each run uses a unique object prefix and a disposable PostgreSQL database.
+Staging uses long-lived, explicitly non-production R2, Queue, DLQ, source HTTP consumer, DLQ inspection consumer, notification rule, and scoped credentials. Each run uses a unique object prefix and a disposable PostgreSQL database.
 
 A single `test:staging:run` orchestrator owns provisioned run state and executes migration, backend suites, frontend suites, real CopyObject settlement, DLQ tests, imgproxy rendering, smoke uploads, and prefix cleanup in `try/finally`. CI adds an `always()` cleanup step as a second safety net.
 
@@ -224,6 +227,8 @@ Required staging cases include:
 
 - successful event before and after the image transaction;
 - CopyObject response loss with later provider settlement;
+- crash after the durable dispatch record but before the HTTP call, followed by create-only retry;
+- destination create-only precondition and HTTP 412 recovery;
 - stale lease recovery;
 - consumed event acknowledgement without deletion;
 - failed promotion cleanup;
@@ -252,11 +257,11 @@ The design is complete when:
 
 - no runtime or cutover step starts old and new upload generations together;
 - the API rejects legacy request shapes after the cutover;
-- every CopyObject dispatch has a durable promotion record before provider mutation;
+- every CopyObject dispatch has a durable `dispatched` promotion record before provider mutation;
 - routine committed events acknowledge without deleting canonical images;
 - ambiguous CopyObject outcomes recover through Queue settlement;
 - canonical deletion requires explicit cleanup authority and exact provider identity;
-- the HTTP-pull consumer and DLQ configuration are read back exactly;
+- both HTTP-pull consumers and the source-to-DLQ configuration are read back exactly;
 - staging exercises real R2 CopyObject and Queue behavior;
 - Docker smoke tests use real build artifacts;
 - production cutover and incident recovery are roll-forward only.
