@@ -7,6 +7,7 @@ import { ImageUrlService } from './image-url.service';
 import { StorageService } from './storage.service';
 import { ImageDeletionService } from './image-deletion.service';
 import { UploadCleanupService } from './upload-cleanup.service';
+import { ImageUploadPromotionRepository } from './image-upload-promotion.repository';
 import { PrismaModule } from '../prisma/prisma.module';
 import { AuthModule } from '../auth/auth.module';
 
@@ -20,6 +21,7 @@ import { AuthModule } from '../auth/auth.module';
     ImagePresenterService,
     ImageDeletionService,
     UploadCleanupService,
+    ImageUploadPromotionRepository,
   ],
   exports: [
     ImagesService,
@@ -27,6 +29,7 @@ import { AuthModule } from '../auth/auth.module';
     ImageUrlService,
     ImagePresenterService,
     UploadCleanupService,
+    ImageUploadPromotionRepository,
   ],
 })
 export class ImagesModule {}

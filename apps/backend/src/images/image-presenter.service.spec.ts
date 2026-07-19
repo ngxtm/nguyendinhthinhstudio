@@ -32,6 +32,7 @@ function createImage(overrides: Partial<Image> = {}): Image {
     width: 2400,
     height: 1600,
     fileSizeKb: 512,
+    fileSizeBytes: null,
     createdAt: new Date('2026-07-12T12:00:00.000Z'),
     ...overrides,
   };
