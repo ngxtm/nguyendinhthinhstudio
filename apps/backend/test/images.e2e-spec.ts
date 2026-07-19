@@ -14,10 +14,14 @@ function signJwt(role: 'admin' | 'user'): string {
     Buffer.from(JSON.stringify(value)).toString('base64url');
   const header = encode({ alg: 'HS256', typ: 'JWT' });
   const payload = encode({
-    sub: `${role}-user-id`,
-    email: `${role}@example.com`,
-    role,
+    sub:
+      role === 'admin'
+        ? '00000000-0000-4000-8000-000000000001'
+        : '00000000-0000-4000-8000-000000000002',
+    iss: 'https://project-ref.supabase.co/auth/v1',
     aud: 'authenticated',
+    email: `${role}@example.com`,
+    user_role: role === 'admin' ? 'admin' : 'user',
     iat: now,
     exp: now + 60,
   });
