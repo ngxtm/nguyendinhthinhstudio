@@ -18,18 +18,20 @@
 - Modify: `apps/backend/src/images/storage.service.spec.ts`
 - Create: `apps/backend/src/images/image-upload-deadline.ts`
 - Create: `apps/backend/src/images/image-upload-deadline.spec.ts`
+- Create: `apps/backend/src/images/canonical-etag.ts`
+- Create: `apps/backend/src/images/canonical-etag.spec.ts`
 
 - [ ] **Step 1: Write failing deadline tests**
 
-Cover never-resolving HEAD, GetObject body reads, CopyObject, and DeleteObject. The effective deadline is the earliest of operation timeout, request/job deadline, session expiry, and finalization lease expiry. Timers and listeners must be removed in `finally`.
+Cover never-resolving HEAD, GetObject body reads, CopyObject, and DeleteObject. The effective deadline is the earliest of operation timeout, request/job deadline, session expiry, and finalization lease expiry. Timers and listeners must be removed in `finally`. Add canonical ETag vectors for unquoted Cloudflare events, quoted AWS SDK HEAD/Copy responses, case preservation, conditional-header quoting, and rejection of weak, empty, control-character, or malformed quoted values.
 
 - [ ] **Step 2: Run focused tests and observe failure**
 
 ```powershell
-npm test --workspace=backend -- image-upload-deadline.spec.ts storage.service.spec.ts --runInBand
+npm test --workspace=backend -- canonical-etag.spec.ts image-upload-deadline.spec.ts storage.service.spec.ts --runInBand
 ```
 
-Expected: FAIL because bounded operations are absent.
+Expected: FAIL because bounded operations and the canonical ETag representation are absent.
 
 - [ ] **Step 3: Implement exact CopyObject construction**
 
@@ -43,14 +45,14 @@ const command = new CopyObjectCommand({
         /%2F/g,
         '/',
     ),
-    CopySourceIfMatch: promotion.sourceEtag,
+    CopySourceIfMatch: toHttpEtag(promotion.sourceEtag),
     MetadataDirective: 'REPLACE',
-    ContentType: inspected.canonicalMime,
+    ContentType: promotion.canonicalMime,
     Metadata: {
-        sha256: inspected.sha256,
-        width: String(inspected.width),
-        height: String(inspected.height),
-        policy: inspected.policyVersion,
+        sha256: promotion.inspectedSha256,
+        width: String(promotion.inspectedWidth),
+        height: String(promotion.inspectedHeight),
+        policy: promotion.policyVersion,
     },
 });
 
@@ -73,10 +75,10 @@ The leading slash in `CopySource` and create-only destination header are require
 - [ ] **Step 4: Verify storage tests**
 
 ```powershell
-npm test --workspace=backend -- image-upload-deadline.spec.ts storage.service.spec.ts --runInBand
+npm test --workspace=backend -- canonical-etag.spec.ts image-upload-deadline.spec.ts storage.service.spec.ts --runInBand
 ```
 
-Expected: deadline cleanup, exact source encoding, source ETag, metadata replacement, and no post-success destination HEAD tests PASS.
+Expected: canonical ETag, deadline cleanup, exact source encoding, quoted source If-Match, metadata replacement from durable promotion facts, and no post-success destination HEAD tests PASS.
 
 ### Task 2: Implement bounded full-image inspection
 
@@ -156,7 +158,7 @@ HEAD occurs before claim. A definitive source validation failure conditionally m
 
 - [ ] **Step 4: Persist promotion before provider mutation**
 
-In one committed transaction, call `createDispatchedPromotion` with exact account, bucket, source key/ETag, destination key, album, lease token, `dispatchAttempts=1`, and `lastDispatchAttemptAt=now`. `dispatched` means provider mutation is authorized and outcome-ambiguous even if the process dies before the HTTP call. Only after this transaction commits may `storage.promoteObject` run.
+In one committed transaction, call `createDispatchedPromotion` with `origin=current`, exact account, bucket, source key, canonical unquoted source ETag, destination key, album, lease token, inspected SHA-256, byte size, canonical MIME, width, height, policy version, `dispatchAttempts=1`, and `lastDispatchAttemptAt=now`. Reject any missing inspected fact. `dispatched` means provider mutation is authorized and outcome-ambiguous even if the process dies before the HTTP call. Only after this transaction commits may `storage.promoteObject` build metadata from the durable promotion and run.
 
 If CopyObject times out after dispatch, leave:
 
@@ -176,8 +178,8 @@ On a definite successful CopyObject response, one serializable transaction:
 - creates the exact `Image` with digest, byte count, dimensions, URLs, and order;
 - increments album count;
 - sets upload `consumed` and result image ID;
-- sets idempotency terminal outcome;
-- changes promotion disposition `pending→committed`.
+- sets idempotency terminal outcome, `terminalAt`, and `resultRetentionExpiresAt=terminalAt+30 days`;
+- changes promotion disposition `pending→committed` and stores `committedResultImageId`.
 
 A stale owner or zero-count update re-reads the winner. It never deletes the destination.
 
@@ -215,7 +217,7 @@ For `metadata.CF-Content-Type`, base64-decode `json` and `bytes`, parse `text` a
 
 - [ ] **Step 2: Write failing event validation tests**
 
-Validate exact account, bucket, `action=CopyObject`, destination key, destination ETag, source object, and RFC 3339 event time. Compute:
+Validate exact account, bucket, `action=CopyObject`, destination key, canonicalized unquoted destination ETag, source object, and RFC 3339 event time. Compute:
 
 ```text
 providerEventId = SHA-256(
@@ -223,7 +225,7 @@ providerEventId = SHA-256(
 )
 ```
 
-Normalize only documented envelope encoding; never guess a missing key or ETag.
+Normalize only documented envelope encoding and the explicit canonical ETag representation; never guess a missing key or ETag and never case-fold an ETag.
 
 - [ ] **Step 3: Implement the bounded Queue client and validator**
 
@@ -248,7 +250,10 @@ Expected: HTTP, timeout, content-type, validation, and redaction tests PASS.
 - Modify: `apps/backend/src/images/upload-cleanup.service.ts`
 - Modify: `apps/backend/src/images/upload-cleanup.service.spec.ts`
 - Modify: `apps/backend/src/images/image-deletion.service.ts`
+- Modify: `apps/backend/src/images/image-deletion.service.spec.ts`
 - Modify: `apps/backend/src/images/images.module.ts`
+- Modify: `apps/backend/package.json`
+- Modify: `package-lock.json`
 - Create: `apps/backend/test/image-upload-settlement.integration-spec.ts`
 
 - [ ] **Step 1: Write the complete failing state-matrix tests**
@@ -263,14 +268,14 @@ Required cases:
 | consumed or committed                       | record settlement and ACK                                                            | never            |
 | failed/expired/abandoned + cleanup_required | matching HEAD, delete, final absent HEAD                                             | allowed          |
 | unmatched or malformed                      | retry, then DLQ                                                                      | never            |
-| duplicate providerEventId                   | return existing committed result and ACK                                             | never            |
+| duplicate providerEventId                   | deduplicate evidence, re-read state, and execute the matching row above              | state-dependent  |
 
-Also cover event-before-commit, event-after-consumed, normal success without DLQ growth, crash after durable dispatch before HTTP, create-only retry, HTTP 412 recovery, process restart after DB commit before ACK, destination ETag mismatch, source-key mismatch, DeleteObject timeout, and reclaim loser.
+Also cover event-before-commit, event-after-consumed, normal success without DLQ growth, crash after durable dispatch before HTTP with the temporary source still present, create-only retry from persisted inspected facts, HTTP 412 recovery, process restart after DB commit before ACK, quoted HEAD versus unquoted event ETag, true destination ETag mismatch, source-key mismatch, DeleteObject timeout, legitimate committed-result deletion, and reclaim loser. Add explicit restart/idempotency tests for each of the four bounded loops: Queue settlement, promotion recovery, temporary-session cleanup, and `ImageObjectDeletion`.
 
 - [ ] **Step 2: Run focused tests and observe failure**
 
 ```powershell
-npm test --workspace=backend -- r2-copy-settlement.service.spec.ts image-upload-reconciler.service.spec.ts upload-cleanup.service.spec.ts --runInBand
+npm test --workspace=backend -- r2-copy-settlement.service.spec.ts image-upload-reconciler.service.spec.ts upload-cleanup.service.spec.ts image-deletion.service.spec.ts --runInBand
 npm run test:integration --workspace=backend -- image-upload-settlement.integration-spec.ts
 ```
 
@@ -286,24 +291,37 @@ For each valid event:
 4. Commit the database change.
 5. ACK the Queue lease.
 
-If step 2–4 fails, retry the message. A `committed` disposition is immutable and always wins over cleanup. For stale `dispatched` rows without provider settlement, wait the configured event grace period, then HEAD: an exact existing destination waits for its event; an absent destination permits one bounded retry with the same source ETag, destination, metadata, and create-only condition. Increment `dispatchAttempts` before each retry. HTTP 412 waits for settlement and never authorizes cleanup.
+If step 2–4 fails, retry the message. A `committed` disposition is immutable and always wins over failed-promotion cleanup. Duplicate event identity only reuses the stored provider evidence and then evaluates the current row again. For stale `dispatched` rows without provider settlement, wait the configured event grace period, then HEAD: an exact existing destination waits for its event; an absent destination permits one bounded retry using only the persisted inspected facts, canonical source ETag, destination, metadata, and create-only condition. Increment `dispatchAttempts` before each retry. HTTP 412 waits for settlement and never authorizes cleanup.
 
 - [ ] **Step 4: Implement safe cleanup authority**
 
-Only terminal failed/expired/abandoned sessions can CAS `pending→cleanup_required`, and only when no `Image` references the destination. Deletion requires provider settlement plus matching destination ETag. `verified_deleted` requires a final absent HEAD after DeleteObject. Absence before provider settlement is never sufficient.
+Only terminal failed/expired/abandoned sessions that never committed can CAS `pending→cleanup_required`, and only when no `Image` references the destination. Failed-promotion deletion requires provider settlement plus matching canonical destination ETag. `verified_deleted` requires a final absent HEAD after DeleteObject. Absence before provider settlement is never sufficient.
 
-- [ ] **Step 5: Implement singleton scheduling and alerts**
+A committed result deletion never enters this path. The image-deletion loop requires the exact `ImageObjectDeletion` row plus matching idempotency `resultDeletedAt`, deletes the destination, verifies absence, and terminalizes that deletion record while leaving the promotion `committed`.
 
-The reconciler acquires a PostgreSQL advisory lock, publishes a heartbeat, pulls at most 100 messages, processes bounded batches, scans due promotions, and releases the lock on graceful shutdown. One-minute cadence, 15-minute warning, and one-hour critical age/bytes alerts are explicit.
-
-- [ ] **Step 6: Verify settlement and cleanup tests**
+- [ ] **Step 5: Install the dedicated PostgreSQL client**
 
 ```powershell
-npm test --workspace=backend -- r2-copy-settlement.service.spec.ts image-upload-reconciler.service.spec.ts upload-cleanup.service.spec.ts --runInBand
+npm install --workspace=backend pg@^8 --save
+npm install --workspace=backend @types/pg@^8 --save-dev
+```
+
+Expected: backend package and lockfile contain explicit `pg` dependencies before the reconciler tests compile; Prisma pool affinity is never used for the session advisory lock.
+
+- [ ] **Step 6: Implement singleton scheduling and alerts**
+
+Use one dedicated `pg.Client`, never a returned Prisma pool connection, to acquire the session advisory lock. Upsert `ImageUploadReconcilerHeartbeat(id='singleton')` with owner/build fingerprints and per-loop completion times through that connection. On connection error, abort every in-flight loop controller and perform no further mutation until a fresh process owns the lock.
+
+While holding the lock, run four independently bounded loops in this order: pull/settle at most 100 Queue messages, scan due promotions, clean expired or failed temporary sessions, and process due `ImageObjectDeletion` rows. One loop failure is recorded and retried but cannot make later work unbounded. Release the lock on graceful shutdown. One-minute cadence, heartbeat freshness within two cadences, 15-minute warning, and one-hour critical age/bytes alerts are explicit.
+
+- [ ] **Step 7: Verify settlement and cleanup tests**
+
+```powershell
+npm test --workspace=backend -- r2-copy-settlement.service.spec.ts image-upload-reconciler.service.spec.ts upload-cleanup.service.spec.ts image-deletion.service.spec.ts --runInBand
 npm run test:integration --workspace=backend -- image-upload-settlement.integration-spec.ts
 ```
 
-Expected: all matrix, late-COPY, ack-after-commit, duplicate, DLQ, restart, and cleanup tests PASS.
+Expected: all matrix, late-COPY, ack-after-commit, duplicate, DLQ, four-loop restart/idempotency, temporary cleanup, and committed-result deletion tests PASS.
 
 ### Task 6: Add production entrypoint and settlement runbook
 
@@ -315,7 +333,7 @@ Expected: all matrix, late-COPY, ack-after-commit, duplicate, DLQ, restart, and 
 
 - [ ] **Step 1: Write the entrypoint contract test**
 
-Assert the script refuses non-reconciler role, obtains one advisory lock, reports heartbeat, handles SIGTERM, never boots HTTP routes, and exits nonzero on invalid Queue/DLQ configuration.
+Assert the script refuses non-reconciler role, obtains the advisory lock on one dedicated PostgreSQL connection, publishes the singleton heartbeat, runs all four bounded loops, aborts all work on lock-connection loss, handles SIGTERM, never boots HTTP routes, and exits nonzero on duplicate lock ownership or invalid Queue/DLQ/R2 configuration.
 
 - [ ] **Step 2: Add the production script**
 
@@ -329,7 +347,7 @@ Register:
 
 - [ ] **Step 3: Document provider configuration and DLQ disposition**
 
-The runbook records Queue/DLQ names and IDs, source consumer ID/type/settings/DLQ binding, DLQ inspection consumer ID/type with no recursive DLQ, event-rule ID/action/prefix, retention, role-specific secrets, pull/ack endpoints for both Queues, dashboards, alert thresholds, pause/resume, DLQ inspect/replay/quarantine/ACK steps, and teardown/readback commands. Provider actions require sanitized operator receipts.
+The runbook records Queue/DLQ names and IDs, source consumer ID/type/settings/DLQ binding, DLQ inspection consumer ID/type with no recursive DLQ, event-rule ID/action/prefix, retention, role-specific secrets, a bucket-scoped reconciler R2 credential with Object Read & Write permission for HEAD/COPY/DELETE, pull/ack endpoints for both Queues, dashboards, alert thresholds, pause/resume, DLQ inspect/replay/quarantine/ACK steps, and teardown/readback commands. Provider actions require sanitized operator receipts.
 
 - [ ] **Step 4: Verify compiled entrypoint**
 

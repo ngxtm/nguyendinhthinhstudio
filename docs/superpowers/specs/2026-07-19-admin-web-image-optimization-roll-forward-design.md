@@ -53,12 +53,15 @@ The same new release produces two separately configured processes:
 
 ### Reconciler process
 
-- runs as one logical singleton protected by a PostgreSQL advisory lock;
+- runs as one logical singleton using a dedicated PostgreSQL connection that owns the session advisory lock;
+- stops all mutation work immediately if the lock connection is lost;
+- publishes a database heartbeat with owner and build fingerprints;
 - pulls and acknowledges Queue messages;
-- resumes stale finalization after provider settlement;
-- deletes only objects with explicit cleanup authority;
-- receives Queue read/write credentials and scoped R2 HEAD/DELETE credentials;
-- never receives the event-rule provisioning token.
+- resumes stale finalization and create-only CopyObject dispatch from durable inspected facts;
+- runs bounded loops for promotion reconciliation, expired temporary-session cleanup, and `ImageObjectDeletion`;
+- deletes canonical objects only through explicit promotion-cleanup or user-deletion authority;
+- receives a separate bucket-scoped R2 Object Read & Write credential because recovery requires HEAD, COPY, and DELETE;
+- never receives the event-rule provisioning token or API presigning credential.
 
 `IMAGE_UPLOAD_PROCESS_ROLE=api|reconciler|cutover` is strict. Each entrypoint validates only its own required configuration and rejects secrets belonging to another role.
 
@@ -69,8 +72,8 @@ The same new release produces two separately configured processes:
 3. The browser PUTs the optimized image to `uploads/{uploadId}/{safeFilename}`.
 4. Confirm HEADs and reads that exact object, enforces the byte limit, computes the digest, validates the stored-image grammar, and completes the bounded Sharp decode.
 5. The request claims a tokenized finalization lease.
-6. In a committed database transaction, the backend creates or reuses the promotion record directly in `dispatched` state. Here `dispatched` means provider mutation is authorized and may already have happened, so recovery always treats it as outcome-ambiguous.
-7. Only after that transaction commits does the backend send CopyObject with exact source ETag, replacement canonical metadata, and R2 destination condition `cf-copy-destination-if-none-match: *`. The condition is staging-qualified and fail-closed so repeated recovery dispatches cannot overwrite or create more than one canonical winner.
+6. In a committed database transaction, the backend creates or reuses the promotion record directly in `dispatched` state and persists the inspected digest, byte size, MIME, dimensions, policy version, canonical source ETag, destination, and lease identity. Here `dispatched` means provider mutation is authorized and may already have happened, so recovery always treats it as outcome-ambiguous.
+7. Only after that transaction commits does the backend send CopyObject with the HTTP-quoted source ETag, replacement canonical metadata from the durable promotion record, and R2 destination condition `cf-copy-destination-if-none-match: *`. The condition is staging-qualified and fail-closed so repeated recovery dispatches cannot overwrite or create more than one canonical winner.
 8. A successful CopyObject response allows the lease owner to create `Image`, increment the album count, mark the upload `consumed`, and set the promotion disposition to `committed` in one serializable transaction.
 9. The temporary object is deleted best-effort. Delete timeout creates retryable cleanup work and never rolls back the committed image.
 10. Confirm or status retries return the retained terminal result and never create another image.
@@ -86,11 +89,11 @@ Stores the live session and ownership state:
 - `consumed` with result image ID;
 - `failed` with a stable failure category.
 
-Every new session has `createdByAdminId`, `clientRequestId`, `policyVersion=web-v1`, processed digest, upload key, final key, source ETag when known, expiry, and result tombstone fields.
+Every new session has `createdByAdminId`, `clientRequestId`, the current `web-v1-<hash>` policy version, processed digest, upload key, final key, canonical source ETag when known, expiry, and result tombstone fields.
 
 ### `ImageUploadIdempotency`
 
-Stores one permanent compact outcome per `clientRequestId`. It prevents duplicate sessions and duplicate images after request or response loss.
+Stores one permanent compact outcome per `clientRequestId`. It prevents duplicate sessions and duplicate images after request or response loss. Terminal outcomes store `terminalAt` and `resultRetentionExpiresAt`; the full safe result is replayable for exactly 30 days, after which retries return `gone` without creating another session. The compact fingerprint, owner, upload ID, terminal outcome, result/deletion tombstone, and object-deletion evidence are not automatically pruned by this plan.
 
 ### `ImageUploadPromotion`
 
@@ -98,13 +101,15 @@ One row exists per upload promotion before R2 receives CopyObject.
 
 Identity and matching fields:
 
-- promotion ID and upload ID;
+- promotion ID, upload ID, and origin `current | legacy_bridge`;
 - finalization lease token;
 - account ID and bucket;
-- source object key and source ETag;
+- source object key and canonical unquoted source ETag; `sourceEtag` may be null only for a committed `legacy_bridge` whose exact existing Image plus matching provider event prove keep authority;
 - destination object key;
+- immutable inspected digest, byte size, canonical MIME, width, height, and policy version for current-generation dispatches;
+- committed result image ID when committed;
 - unique provider event ID when delivered;
-- provider destination ETag;
+- canonical unquoted provider destination ETag;
 - dispatch attempt count and last dispatch time.
 
 Provider state is independent from object disposition:
@@ -118,9 +123,18 @@ Constraints:
 
 - upload ID and destination key are unique;
 - `(settlementSource, providerEventId)` is unique when present;
-- `committed` requires a result image that references the destination key;
-- `cleanup_required` requires a terminal failed/expired/abandoned session and no `Image` reference;
-- `verified_deleted` requires matching provider settlement, a successful or safely retried DeleteObject, and a final absent HEAD.
+- every `current` promotion has all immutable inspected facts before provider mutation;
+- `committed` requires a committed result image ID and initially an `Image` that references the destination key;
+- after a legitimate result deletion, `committed` remains immutable historical promotion authority and is valid only when the idempotency tombstone has `resultDeletedAt` plus a matching durable `ImageObjectDeletion` record;
+- `cleanup_required` is only for a failed/expired/abandoned promotion that never committed and has no `Image` reference;
+- `verified_deleted` requires matching provider settlement, a successful or safely retried DeleteObject, and a final absent HEAD;
+- compact user-deletion and promotion evidence is retained together so a late provider event can never reinterpret a deleted committed result as failed-promotion cleanup.
+
+All persisted ETags use one canonical unquoted opaque representation. R2 event, HEAD, and CopyObject response values are normalized by stripping exactly one valid surrounding quote pair without case folding. Weak, empty, control-character, or malformed quoted ETags are rejected. Conditional HTTP headers render the canonical value with quotes.
+
+### `ImageUploadReconcilerHeartbeat`
+
+Stores the singleton owner ID, immutable build fingerprint, lock-acquired time, last heartbeat time, and last completed loop times. The reconciler updates it through the same dedicated PostgreSQL connection that owns the session advisory lock. Loss of that connection aborts all in-flight loop controllers before the process reconnects or exits. A healthy heartbeat is newer than two one-minute loop cadences and corresponds to exactly one advisory-lock owner.
 
 ## 6. Queue settlement state matrix
 
@@ -138,7 +152,7 @@ If the lease is stale and provider settlement exists, the reconciler requires de
 
 ### Committed upload
 
-If the promotion is `committed`, or an `Image` already references the destination key, the reconciler records settlement and acknowledges the message. It never deletes the canonical object.
+If the promotion is `committed`, or an `Image` already references the destination key, the reconciler records settlement and acknowledges the message. It never uses failed-promotion cleanup to delete the canonical object. A committed result that was later deleted remains `committed`; only its matching `ImageObjectDeletion` record authorizes user-requested object deletion.
 
 ### Cleanup-authorized upload
 
@@ -148,7 +162,7 @@ If the promotion is `cleanup_required`, no `Image` references the destination, a
 
 An event with no exact durable match cannot authorize deletion. It is retried with a bounded delay and eventually enters the DLQ. Operator disposition is required before cutover completion or incident recovery can be declared safe.
 
-Queue acknowledgement occurs only after the corresponding PostgreSQL transaction commits. Duplicate delivery is harmless.
+Queue acknowledgement occurs only after the corresponding PostgreSQL transaction commits. A duplicate provider event only deduplicates provider evidence; it then re-enters this matrix using the durable current session, copy state, and disposition. It never implies `committed` by itself.
 
 ## 7. Cloudflare Queue contract
 
@@ -174,11 +188,13 @@ Pre-promotion validation failure deletes only the temporary upload key.
 After CopyObject dispatch:
 
 - absence alone cannot close ambiguous cleanup;
-- active or consumed sessions cannot authorize canonical deletion;
+- active or consumed sessions cannot authorize failed-promotion canonical deletion;
+- a legitimate committed result deletion is authorized only by a result tombstone plus `ImageObjectDeletion`, never by `cleanup_required`;
 - album deletion is blocked while a related promotion is `pending` or `cleanup_required`;
 - a reclaim loser performs no R2 mutation;
 - DeleteObject timeout remains retryable cleanup work;
-- promotion and idempotency evidence is retained until terminal retention expires.
+- expired temporary sessions and durable image-object deletions are processed by separate bounded reconciler loops;
+- compact promotion, idempotency, and object-deletion evidence is retained together without an automatic retention deadline in this plan.
 
 Warnings fire when unresolved promotion work is 15 minutes old. Critical alerts fire at one hour and include only server-generated IDs, counts, ages, and key hashes.
 
@@ -187,17 +203,19 @@ Warnings fire when unresolved promotion work is 15 minutes old. Critical alerts 
 The cutover is serial and uses a bounded maintenance window:
 
 1. Build, test, and record the immutable new image digest.
-2. Provision and read back the production Queue, DLQ, source HTTP-pull consumer, DLQ inspection consumer, notification rule, and least-privilege secrets.
+2. Provision and read back the production Queue, DLQ, source HTTP-pull consumer, DLQ inspection consumer, notification rule, and role-separated secrets.
 3. Disable new presign at ingress while the old backend finishes already-started confirms.
-4. After one maximum confirm deadline, block confirm and abandon and stop every old API, cleanup job, deletion job, and scheduler.
+4. After the 10-minute finalization lease plus the bounded R2 operation deadline, block confirm and abandon and stop every old API, cleanup job, deletion job, and scheduler.
 5. Verify no old process or lease can mutate upload state.
-6. Apply the additive migration.
-7. Run one cutover command with API ingress disabled. It creates promotion bridge records for retained old sessions, consumes captured CopyObject events, treats an existing `Image.r2ObjectKey` reference as committed authority, and never deletes an unmatched destination.
-8. Require active uploads, unresolved promotion work, Queue backlog, and DLQ depth to be zero. Require a healthy singleton lock and heartbeat.
-9. Start only the new API and reconciler with presign disabled.
-10. Verify configuration fingerprints, process roles, actual replica count, schema, routes, R2 operations, Queue/DLQ, event rule, and signed imgproxy variants.
-11. Run representative production smoke uploads.
-12. Enable presign and deploy/purge the new frontend so cached old request shapes are not accepted.
+6. Before migration, run the cutover entrypoint in audit mode and classify retained old rows. Audit-pulled Queue messages are retried, never acknowledged. A row with no source ETag, no matching CopyObject event, no destination object, and no `Image` reference is proven pre-dispatch, is terminalized, and authorizes deletion of only its temporary key without creating a promotion. An existing `Image.r2ObjectKey` is committed keep authority. A row with a source ETag, destination object, or matching event but no Image is legacy-ambiguous and blocks migration until operator disposition makes the receipt's ambiguous count zero.
+7. Apply the additive migration only after the pre-migration legacy-ambiguous gate is zero.
+8. With API ingress disabled, run the same cutover entrypoint in apply mode against the verified receipt. It re-reads evidence, creates `legacy_bridge` promotion records only for rows with exact dispatch/event evidence, creates compact internal idempotency evidence for committed bridges so later user deletion can retain its tombstone, waits for every audit-retried event to be redelivered, and acknowledges it only after the matching database transaction commits. It preserves existing Image references without inventing a promotion when dispatch evidence is absent and never treats the receipt alone as provider settlement or deletes an unmatched destination.
+9. Require active uploads, unresolved promotion work, Queue backlog, DLQ depth, invalid authority, and unprocessed image-deletion work to be zero twice, separated by one Queue visibility timeout.
+10. Start only the new API and reconciler with presign disabled.
+11. Verify configuration fingerprints, the dedicated singleton lock/heartbeat, actual replica count, schema, routes, read-only R2 access, Queue/DLQ configuration, event rule, and signed imgproxy read paths.
+12. Deploy and purge the new frontend while general upload ingress remains blocked.
+13. Enable presign while ingress allowlists only the authenticated operator smoke path, then run representative browser uploads and mutating R2/Queue/imgproxy acceptance.
+14. Open general upload ingress only after every acceptance and cleanup gate passes.
 
 No old binary is started after migration.
 
@@ -210,8 +228,8 @@ If a post-cutover failure occurs:
 3. Capture sanitized session, promotion, Queue, DLQ, and heartbeat evidence.
 4. Fix the new version and deploy a new immutable image.
 5. Apply only forward-compatible migrations.
-6. Run the same presign-disabled smoke gates.
-7. Re-enable uploads only when active corruption risk is absent and Queue/DLQ disposition is complete.
+6. Run the same presign-disabled read-only gates, then enable presign behind operator-only ingress and run the full mutating acceptance suite.
+7. Open general upload ingress only when active corruption risk is absent and Queue/DLQ/object-deletion disposition is complete.
 
 Database backup remains mandatory for disaster recovery, but the operational upload rollback procedure never starts the prior application generation.
 
@@ -227,12 +245,14 @@ Required staging cases include:
 
 - successful event before and after the image transaction;
 - CopyObject response loss with later provider settlement;
-- crash after the durable dispatch record but before the HTTP call, followed by create-only retry;
+- crash after the durable dispatch record but before the HTTP call, followed by create-only retry from persisted inspected facts;
 - destination create-only precondition and HTTP 412 recovery;
+- quoted HEAD ETag versus unquoted event ETag normalization;
 - stale lease recovery;
-- consumed event acknowledgement without deletion;
+- consumed event acknowledgement without failed-promotion deletion;
+- legitimate committed-result deletion through `ImageObjectDeletion`;
 - failed promotion cleanup;
-- duplicate event delivery;
+- duplicate event delivery in active, committed, and cleanup-required states;
 - malformed and unmatched events reaching DLQ;
 - process restart between database commit and Queue acknowledgement;
 - cancellation and confirm response loss;
@@ -249,7 +269,7 @@ The shared policy package emits and the Docker smoke checks the actual files:
 
 Both production images test package resolution through public exports. The backend image also contains the compiled reconciler and cutover entrypoints.
 
-GitHub ruleset verification lists rulesets, fetches the selected ruleset by ID, and validates the exact target ref, active enforcement, required contexts, and bypass actors. A branch-protection 404 is acceptable only after ruleset verification succeeds.
+GitHub ruleset verification lists rulesets, fetches the selected ruleset by ID, and validates the exact target ref, active enforcement, required contexts, and bypass actors. Required contexts are `backend-image-upload`, `image-upload-packaging`, `frontend-playwright-chromium`, `frontend-stable-chrome`, and `frontend-image-memory`. A branch-protection 404 is acceptable only after ruleset verification succeeds. The memory job generates a deterministic non-sensitive large-image fixture in CI; the local professional photo is optional visual-quality evidence only.
 
 ## 13. Canonical optimization policy
 
@@ -489,13 +509,13 @@ Routes remain:
 - `GET /images/upload-sessions/:uploadId`;
 - `POST /images/upload-sessions/:uploadId/abandon`.
 
-All timestamps and `retryAfter` values are absolute RFC 3339 strings. The frontend switches on discriminants and stable codes, never message text. Status never returns a presigned URL, policy snapshot, object key, or credential.
+All timestamps and `retryAfter` values are absolute RFC 3339 strings. For `finalizing`, `retryAfter` is the earliest instant at which status should be polled again; reaching it does not itself prove lease ownership or authorize a client-side state transition. The frontend polls status at that instant and calls confirm again only after status returns `pending`. The frontend switches on discriminants and stable codes, never message text. Status never returns a presigned URL, policy snapshot, object key, or credential.
 
-## 17. Session, quota, and deadline semantics
+## 17. Session, admission, retention, and deadline semantics
 
 Presign validates the exact current policy, positive stored size <=5 MiB, lowercase 64-hex digest, canonical MIME, normalized filename, UUID IDs, ownership, and album state before creating ledger/session/object keys.
 
-One serializable transaction resolves `clientRequestId`, compares the canonical request fingerprint, enforces owner and rolling quota, counts completed images plus active upload reservations, and creates at most one session. An album can hold at most 50 completed plus active uploads.
+One serializable transaction resolves `clientRequestId`, compares the canonical request fingerprint, enforces owner isolation, counts completed images plus active upload reservations, and creates at most one session. An album can hold at most 50 completed plus active uploads. This admin-only design does not add a daily byte/count quota or a separate per-admin active-session quota; authenticated route throttling and album capacity are the bounded admission controls.
 
 Active means unexpired `pending` or any `finalizing`. Failed and consumed sessions do not reserve capacity. A stale finalizing lease must be reclaimed or terminalized before releasing its slot.
 
@@ -509,14 +529,14 @@ The initial deployment is one API process with two decode permits. Rollout verif
 
 Abandon changes only an owned `pending` session to `failed/abandoned`. It loses to a finalization claim. The frontend may cancel optimization, presign, and PUT; once verifying begins it does not abort confirm and instead follows status/finalization.
 
-Consumed confirm/status is idempotent for the retained result window and returns the same safe image. Result deletion stamps `resultDeletedAt` before deleting `Image`; later status returns `upload_result_deleted`. Missing image without deletion evidence returns `upload_result_unavailable`.
+Consumed confirm/status is idempotent for the 30-day retained result window and returns the same safe image with the persisted `resultRetentionExpiresAt`. After that instant it returns `gone` while the permanent idempotency record still forbids reuse. Result deletion atomically stamps `resultDeletedAt`, creates or reuses the matching `ImageObjectDeletion`, and then deletes `Image`; later status within the result window returns `upload_result_deleted`. Missing image without deletion evidence returns `upload_result_unavailable`.
 
 ## 18. Security and observability invariants
 
 - All upload-policy/session routes require authenticated admin authorization.
 - The R2 bucket is private. Public image delivery uses signed imgproxy URLs generated only from committed `Image` rows.
 - Presigned PUT signs exact key, Content-Length, MIME, and one-hour expiry. Client claims are not content proof.
-- API, reconciler, and cutover roles receive only their required secrets. The event-rule/operator token never enters API or reconciler runtime.
+- API, reconciler, and cutover roles receive separate credentials. The reconciler's R2 credential is honestly modeled as bucket-scoped Object Read & Write because COPY and DELETE cannot be split into separate R2 permission groups; application entrypoints still expose only role-allowed operations. The event-rule/operator token never enters API or reconciler runtime.
 - Queue tokens, R2 credentials, presigned URLs, full object keys, client filenames, and full digests never enter logs, receipts, API errors, or telemetry.
 - Logs use server-generated IDs, counts, ages, stable error codes, and truncated one-way key hashes.
 - Public/admin serializers use explicit allowlists and never spread Prisma objects.
@@ -532,10 +552,10 @@ Required automated coverage includes:
 - deterministic policy hash and package ESM/CommonJS export resolution;
 - JPEG/PNG/WebP conformance, terminal bytes, CRC/padding, metadata/ICC, deterministic fuzzing, and bounded-memory behavior;
 - browser capability, orientation corner signatures, target-size decode, one encode, resource ownership, cancellation, response loss, and three-context memory benchmark;
-- current-only request validation, owner isolation, idempotent presign/confirm/status/abandon, quota and 49/50 admission races;
-- tokenized lease contention, stale reclaim, digest/source-ETag mismatch, CopyObject response loss, event before/after commit, create-only retry, and HTTP 412;
-- committed-event ACK without deletion, cleanup authority, duplicate event, ack-after-commit restart, malformed/unmatched DLQ, and final absent HEAD;
-- empty/upgrade migration, one-shot cutover bridge, role-secret isolation, Docker runtime artifacts, exact Queue consumers/rule readback, ruleset-by-ID verification, real staging R2/Queue/imgproxy, cold cutover, and roll-forward drill.
+- current-only request validation, owner isolation, idempotent presign/confirm/status/abandon, route throttling, 30-day result retention, and 49/50 admission races;
+- tokenized lease contention, stale reclaim, digest/source-ETag mismatch, canonical quoted/unquoted ETag vectors, CopyObject response loss, crash-before-call recovery from persisted inspected facts, event before/after commit, create-only retry, and HTTP 412;
+- committed-event ACK without failed-promotion deletion, legitimate result deletion with a durable object-deletion tombstone, cleanup authority, duplicate events re-entering every current state, ack-after-commit restart, malformed/unmatched DLQ, and final absent HEAD;
+- empty/upgrade migration, pre-migration legacy ambiguity classification, one-shot cutover bridge, dedicated advisory-lock loss, heartbeat freshness, all four reconciler loops, role-secret isolation, Docker runtime artifacts, exact Queue consumers/rule readback, all five required ruleset contexts, deterministic CI memory fixture, real staging R2/Queue/imgproxy, operator-only smoke ingress, cold cutover, and roll-forward drill.
 
 Every stage runs focused tests, relevant full suites/builds, and `git diff --check`. Provider tests use explicitly non-production resources and fail when credentials or identities can match production.
 
@@ -553,11 +573,15 @@ The design is complete when:
 
 - no runtime or cutover step starts old and new upload generations together;
 - the API rejects legacy request shapes after the cutover;
-- every CopyObject dispatch has a durable `dispatched` promotion record before provider mutation;
-- routine committed events acknowledge without deleting canonical images;
-- ambiguous CopyObject outcomes recover through Queue settlement;
-- canonical deletion requires explicit cleanup authority and exact provider identity;
+- every current-generation CopyObject dispatch has a durable `dispatched` promotion record with complete inspected facts before provider mutation;
+- routine committed events acknowledge without failed-promotion deletion, and legitimate result deletion remains valid durable history;
+- ambiguous CopyObject outcomes recover through Queue settlement using canonical ETags and persisted metadata;
+- failed-promotion canonical deletion and user-requested committed-result deletion have separate explicit authorities;
+- the reconciler holds one dedicated advisory-lock connection and runs Queue settlement, promotion recovery, temporary cleanup, and image-object deletion;
+- legacy pre-dispatch rows do not receive invented promotion records, and legacy ambiguity is zero before migration;
 - both HTTP-pull consumers and the source-to-DLQ configuration are read back exactly;
 - staging exercises real R2 CopyObject and Queue behavior;
+- backend, packaging, both browser jobs, and deterministic memory benchmark are required checks;
 - Docker smoke tests use real build artifacts;
+- general upload ingress opens only after operator-only acceptance passes;
 - production cutover and incident recovery are roll-forward only.

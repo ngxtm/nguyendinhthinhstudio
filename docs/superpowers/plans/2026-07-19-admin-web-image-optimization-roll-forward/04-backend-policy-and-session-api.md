@@ -47,7 +47,7 @@ Assert:
 
 - `api` requires database, R2 data-plane, imgproxy, policy, and presign configuration;
 - `api` rejects `IMAGE_UPLOAD_SETTLEMENT_API_TOKEN` and `NDT_STAGING_CF_TOKEN`;
-- `reconciler` requires database, R2 HEAD/DELETE credentials, account ID, Queue ID, DLQ ID, source HTTP consumer ID, DLQ inspection consumer ID, bucket, prefix, and Queue read/write token;
+- `reconciler` requires database, a separate bucket-scoped R2 Object Read & Write credential for HEAD/COPY/DELETE, account ID, Queue ID, DLQ ID, source HTTP consumer ID, DLQ inspection consumer ID, bucket, prefix, and Queue read/write token;
 - `reconciler` rejects the operator event-rule token;
 - `cutover` is the only role allowed to receive provisioning credentials;
 - Queue and DLQ IDs differ;
@@ -152,7 +152,7 @@ const fingerprintInput = {
 };
 ```
 
-Cover same-key/same-fingerprint retry, same-key/different-fingerprint conflict, two simultaneous requests for one clientRequestId, 50-image album admission, per-admin active limits, rolling daily byte/count quota, response loss, and signing failure.
+Cover same-key/same-fingerprint retry, same-key/different-fingerprint conflict, two simultaneous requests for one clientRequestId, 49/50 album admission, authenticated route throttling, response loss, signing failure, and the absence of any invented daily/per-admin quota.
 
 - [ ] **Step 2: Run focused tests and observe failure**
 
@@ -170,8 +170,8 @@ In one serializable transaction:
 1. Re-read the album and deletion state.
 2. Insert or lock the idempotency record.
 3. Reject a fingerprint or owner mismatch.
-4. Count active sessions and quota usage.
-5. Reserve one album slot.
+4. Count completed images plus active session reservations for this album.
+5. Require the sum to remain at most 50.
 6. Create exactly one `ImageUpload` with owner, current policy snapshot, digest, upload key, final key, and expiry.
 
 Generate the presigned URL after the transaction. If signing fails, conditionally mark the session failed and store the terminal outcome; never delete a winner created by another retry.
@@ -197,8 +197,10 @@ Expected: exactly one session and stable response/outcome per clientRequestId.
 
 Cover:
 
-- status for `pending`, `finalizing`, `consumed`, `failed`, `gone`, deleted, and unavailable results;
-- a different admin receives `upload_session_forbidden` without existence leakage;
+- status for `pending`, `finalizing`, `consumed`, `failed`, `gone`, `deleted`, and `unavailable` results;
+- consumed responses replay the same persisted `retentionExpiresAt=terminalAt+30 days`;
+- after that instant status and idempotent presign return `gone` without creating a replacement session;
+- a different admin and an unknown upload receive the same non-enumerating response envelope;
 - abandon changes only owned `pending` to `failed/abandoned`;
 - abandon loses to a finalization claim and returns `upload_finalizing`;
 - consumed abandon returns `upload_consumed`;
@@ -237,11 +239,11 @@ Assert public/admin album and upload responses expose only documented `PublicIma
 
 - [ ] **Step 2: Write failing body-limit and deletion tests**
 
-Assert JSON and URL-encoded bodies above 1 MiB return 413. Deleting a consumed image stamps `resultDeletedAt` before deleting `Image`. Album deletion returns `album_cleanup_pending` while an active upload or promotion disposition `pending|cleanup_required` exists.
+Assert JSON and URL-encoded bodies above 1 MiB return 413. Deleting a consumed image atomically stamps `resultDeletedAt` in live/idempotency tombstones, upserts the matching `ImageObjectDeletion`, verifies the promotion is `committed`, and only then deletes `Image`. A committed promotion without a live Image remains valid only through that exact result/deletion evidence. Album deletion returns `album_cleanup_pending` while an active upload or promotion disposition `pending|cleanup_required` exists.
 
 - [ ] **Step 3: Implement controls**
 
-Route all image serialization through `ImagePresenterService`, configure both body parsers to 1 MiB, replace sensitive logs with server IDs or truncated key hashes, and recheck upload/promotion conflicts inside the serializable album-delete transaction.
+Route all image serialization through `ImagePresenterService`, configure both body parsers to 1 MiB, replace sensitive logs with server IDs or truncated key hashes, and recheck upload/promotion conflicts inside the serializable album-delete transaction. Keep user-requested `ImageObjectDeletion` authority separate from failed-promotion `cleanup_required`; never transition a committed promotion during result deletion.
 
 - [ ] **Step 4: Verify controls**
 

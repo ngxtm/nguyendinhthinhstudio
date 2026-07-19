@@ -61,7 +61,7 @@ Do not test or copy nonexistent `dist/index.js`.
 node /app/dist/scripts/reconcile-image-uploads.js
 ```
 
-and has `IMAGE_UPLOAD_PROCESS_ROLE=reconciler`, Queue read/write secret, scoped R2 reconciliation credentials, advisory lock, heartbeat, restart policy, and one replica. Duplicate lock ownership fails closed.
+and has `IMAGE_UPLOAD_PROCESS_ROLE=reconciler`, a Queue read/write secret, and a separate bucket-scoped R2 Object Read & Write credential because it performs HEAD/COPY/DELETE. It acquires the PostgreSQL session advisory lock through one dedicated `pg.Client`, publishes `ImageUploadReconcilerHeartbeat`, and runs the four bounded loops for Queue settlement, promotion recovery, temporary-session cleanup, and `ImageObjectDeletion`. Configure restart policy and one replica; duplicate lock ownership or loss of the lock connection fails closed and aborts in-flight work.
 
 - [ ] **Step 5: Build and smoke production images**
 
@@ -99,6 +99,7 @@ Expected: both builds and all applicable runtime checks exit 0.
 - Modify: `apps/frontend/package.json`
 - Modify: `apps/frontend/playwright.config.ts`
 - Create: `apps/frontend/test/benchmark/image-upload-memory.benchmark.ts`
+- Create: `apps/backend/test/generate-image-upload-memory-fixture.ts`
 - Modify: `.gitignore`
 
 - [ ] **Step 1: Write the failing workflow contract script**
@@ -106,33 +107,29 @@ Expected: both builds and all applicable runtime checks exit 0.
 The script parses the workflow and requires jobs named exactly:
 
 ```text
+backend-image-upload
+image-upload-packaging
 frontend-playwright-chromium
 frontend-stable-chrome
+frontend-image-memory
 ```
 
-Neither job may use `continue-on-error`, conditional skipping, or an unpinned browser channel. The benchmark must emit absolute memory delta, control delta, and relative ratio.
+It must prove from each job's `run` steps that `backend-image-upload` executes the focused backend unit/integration suites, `image-upload-packaging` builds both production images and validates Compose, each browser job executes its required Playwright project, and `frontend-image-memory` generates then benchmarks the deterministic fixture. No required job may use job/step `continue-on-error`, a change-based conditional skip, or an unpinned browser channel. The benchmark must emit absolute memory delta, control delta, and relative ratio.
 
 - [ ] **Step 2: Add pinned browsers and fail-closed projects**
 
-Use Playwright bundled Chromium and a Chrome for Testing version pinned in workflow config with major at least 136. Missing binary, failed capability probe, or skipped required project fails the job.
+Use Playwright bundled Chromium and a Chrome for Testing version pinned in workflow config with major at least 136. Missing binary, failed capability probe, skipped required project, or a required job that never executes its contract command fails the workflow verifier and the job.
 
 - [ ] **Step 3: Implement the benchmark gate**
 
-Run three fresh contexts and require each:
+Generate the required CI input with backend Sharp into the runner temp directory, using fixed dimensions, fixed seeded pixel content, fixed encoder options, stripped metadata, and a checked expected SHA-256. The generator refuses repository output paths and prints the temp path plus digest; `frontend-image-memory` passes that path to the benchmark. Run three fresh contexts and require each:
 
 ```text
 optimized memory delta <= 536870912 bytes
 optimized memory delta <= 0.50 × full-decode control delta
 ```
 
-Before the local fixture is used:
-
-```powershell
-git check-ignore -q -- 0W9A1500.jpg
-git status --short -- 0W9A1500.jpg
-```
-
-Expected: first exits 0 and second prints nothing. Add exact root rule `/0W9A1500.jpg` to `.gitignore`; never force-add the fixture.
+`0W9A1500.jpg` is optional local visual-quality evidence only and is never a required CI/benchmark input. Keep the exact root rule `/0W9A1500.jpg` in `.gitignore`; never read it from a required test, copy it into an image, upload it as an artifact, or force-add it.
 
 - [ ] **Step 4: Verify CI contracts locally**
 
@@ -140,9 +137,12 @@ Expected: first exits 0 and second prints nothing. Add exact root rule `/0W9A150
 node scripts/verify-image-upload-workflow.mjs
 npm test --workspace=frontend
 npm exec --workspace=frontend playwright test test/image-upload.browser.spec.ts --project=chromium
+$env:IMAGE_UPLOAD_MEMORY_FIXTURE = Join-Path $env:TEMP "ndt-image-upload-memory-fixture.jpg"
+npm exec --workspace=backend -- tsx test/generate-image-upload-memory-fixture.ts --output $env:IMAGE_UPLOAD_MEMORY_FIXTURE
+npm exec --workspace=frontend playwright test test/benchmark/image-upload-memory.benchmark.ts --project=chromium
 ```
 
-Expected: workflow contract, frontend tests, and bundled Chromium pass.
+Expected: the five-job workflow contract, frontend tests, bundled Chromium, deterministic fixture digest check, and memory thresholds pass.
 
 ### Task 3: Apply and prove the GitHub ruleset
 
@@ -157,7 +157,13 @@ Expected: workflow contract, frontend tests, and bundled Chromium pass.
 The payload targets `refs/heads/main`, uses `enforcement=active`, has no bypass actors, and requires exactly:
 
 ```json
-[{ "context": "frontend-playwright-chromium" }, { "context": "frontend-stable-chrome" }]
+[
+    { "context": "backend-image-upload" },
+    { "context": "image-upload-packaging" },
+    { "context": "frontend-playwright-chromium" },
+    { "context": "frontend-stable-chrome" },
+    { "context": "frontend-image-memory" }
+]
 ```
 
 - [ ] **Step 2: Preview and apply only with operator approval**
@@ -204,6 +210,8 @@ NDT_STAGING_R2_ENDPOINT
 NDT_STAGING_R2_BUCKET
 NDT_STAGING_R2_ACCESS_KEY_ID
 NDT_STAGING_R2_SECRET_ACCESS_KEY
+NDT_STAGING_RECONCILER_R2_ACCESS_KEY_ID
+NDT_STAGING_RECONCILER_R2_SECRET_ACCESS_KEY
 NDT_STAGING_IMGPROXY_ACCESS_KEY_ID
 NDT_STAGING_IMGPROXY_SECRET_ACCESS_KEY
 NDT_STAGING_QUEUE_NAME
@@ -217,11 +225,11 @@ NDT_STAGING_EVENT_RULE_ID
 NDT_STAGING_CF_READ_TOKEN
 ```
 
-The preflight rejects production bucket, Queue ID, DLQ ID, rule ID, either missing consumer ID, Queue/DLQ equality, recursive DLQ binding, shared API/imgproxy credentials, placeholder values, or any operator write token in child runtime environments.
+The preflight rejects production bucket, Queue ID, DLQ ID, rule ID, either missing consumer ID, Queue/DLQ equality, recursive DLQ binding, any shared API/reconciler/imgproxy credential, placeholder values, or any operator write token in child runtime environments. Its active canary proves the API credential's upload scope, the reconciler credential's bucket-scoped Object Read & Write capability for HEAD/COPY/DELETE, and the imgproxy credential's read-only behavior.
 
 - [ ] **Step 2: Document one-time provider provisioning**
 
-The long-lived staging Queue has an HTTP-pull consumer with explicit DLQ name, max retries, retry delay, batch size, and visibility timeout. The DLQ has a separate HTTP-pull inspection consumer with no recursive DLQ binding. The R2 event rule uses action exactly `CopyObject` and prefix `staging/`. Data credentials are scoped separately for API read/write and imgproxy read-only. The read token can inspect configuration but cannot mutate resources.
+The long-lived staging Queue has an HTTP-pull consumer with explicit DLQ name, max retries, retry delay, batch size, and visibility timeout. The DLQ has a separate HTTP-pull inspection consumer with no recursive DLQ binding. The R2 event rule uses action exactly `CopyObject` and prefix `staging/`. Data credentials are scoped separately for API uploads, reconciler bucket-scoped Object Read & Write, and imgproxy read-only. The read token can inspect configuration but cannot mutate resources.
 
 - [ ] **Step 3: Implement exact readback preflight**
 
@@ -279,7 +287,7 @@ Add scripts:
 }
 ```
 
-The orchestrator uses Testcontainers PostgreSQL and refuses ambient `DATABASE_URL`/`DIRECT_URL`. API and reconciler children receive only their role-specific secrets and the unique run prefix.
+The orchestrator uses Testcontainers PostgreSQL and refuses ambient `DATABASE_URL`/`DIRECT_URL`. API and reconciler children receive only their role-specific secrets and the unique run prefix. The reconciler uses a dedicated `pg.Client` for the session advisory lock, publishes the singleton heartbeat, and must prove all four bounded loops before the orchestrator accepts the run.
 
 - [ ] **Step 4: Exercise real provider behavior**
 
@@ -290,12 +298,17 @@ Required real cases:
 - CopyObject response loss;
 - crash after durable dispatch before the HTTP call;
 - create-only destination condition and HTTP 412 recovery;
-- duplicate event;
+- canonical ETag normalization across quoted HEAD/Copy responses and unquoted, case-preserving events;
+- recovery after restart using only promotion-persisted digest, bytes, MIME, dimensions, policy, canonical source ETag, destination, and lease;
+- duplicate event while finalizing, after committed, and during cleanup-required, each re-entering the current state matrix;
 - stale lease recovery;
-- consumed event ACK without delete;
-- cleanup-required final deletion;
+- consumed/committed event ACK without delete;
+- cleanup-required failed-promotion final deletion;
+- legitimate committed-result deletion through `ImageObjectDeletion` while promotion remains `committed`;
 - malformed/unmatched message to DLQ;
 - restart after DB commit before ACK;
+- dedicated advisory-lock connection loss and singleton heartbeat freshness;
+- restart/idempotency of Queue settlement, promotion recovery, temporary-session cleanup, and `ImageObjectDeletion` loops;
 - imgproxy rendering of every canonical variant.
 
 Before cleanup require no unresolved run promotion, no run message in source Queue/DLQ, and no unreferenced canonical object.

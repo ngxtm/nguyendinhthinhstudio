@@ -53,13 +53,13 @@ Cancel optimizing/ready/presigning/uploading with separate controllers. After PU
 
 - [ ] **Step 4: Implement confirm polling**
 
-Poll finalizing at retryAfter with bounded exponential backoff. Reconfirm only when the server says pending or the lease is reclaimable. Stop on every terminal outcome.
+Treat `retryAfter` only as the instant at which the client polls the status endpoint again. After that poll, reconfirm only when the returned status is exactly `pending`; the client must never infer lease expiry or reclaimability from local time, a previous response, or `retryAfter`. Continue polling while the server returns `finalizing`, and stop on every terminal outcome.
 
 - [ ] **Step 5: Verify state-machine tests**
 
     npm test --workspace=frontend -- image-upload-state-machine.test.ts
 
-Expected: all transitions, resource ownership, cancellation races, retries, and polling tests PASS.
+Expected: all transitions, resource ownership, cancellation races, exact `retryAfter` status polling, server-authorized `pending` reconfirmation, retries, and terminal polling tests PASS.
 
 ### Task 3: Integrate ImageUploadZone
 

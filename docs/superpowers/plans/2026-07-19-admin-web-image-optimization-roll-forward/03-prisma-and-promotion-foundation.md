@@ -31,6 +31,8 @@ const uploadFields = [
     'finalizationLeaseToken',
     'resultImageId',
     'resultDeletedAt',
+    'terminalAt',
+    'resultRetentionExpiresAt',
     'failureCode',
 ];
 ```
@@ -46,6 +48,8 @@ terminalOutcome
 resultImageId
 resultDeletedAt
 failureCode
+terminalAt
+resultRetentionExpiresAt
 createdAt
 archivedAt
 ```
@@ -55,6 +59,7 @@ Assert `ImageUploadPromotion` has:
 ```text
 id primary key
 uploadId unique
+origin
 albumId
 finalizationLeaseToken
 accountId
@@ -62,6 +67,13 @@ bucket
 sourceObjectKey
 sourceEtag
 destinationObjectKey unique
+inspectedSha256
+inspectedByteSize
+canonicalMime
+inspectedWidth
+inspectedHeight
+policyVersion
+committedResultImageId
 copyState
 disposition
 copyDispatchedAt
@@ -78,7 +90,7 @@ createdAt
 updatedAt
 ```
 
-Assert indexes on `(createdByAdminId, createdAt)`, `(copyState, nextReconcileAt)`, `(disposition, nextReconcileAt)`, and the partial unique provider-event index.
+Assert indexes on `(createdByAdminId, createdAt)`, `(copyState, nextReconcileAt)`, `(disposition, nextReconcileAt)`, and the partial unique provider-event index. Assert one `ImageUploadReconcilerHeartbeat` table keyed by `id=singleton` with owner/build fingerprints, lock-acquired time, heartbeat time, and last-completed timestamps for Queue settlement, promotion recovery, temporary cleanup, and image-object deletion.
 
 - [ ] **Step 2: Run the contract test and observe failure**
 
@@ -109,6 +121,8 @@ model ImageUploadIdempotency {
   resultImageId     String?
   resultDeletedAt   DateTime?
   failureCode       String?
+  terminalAt        DateTime?
+  resultRetentionExpiresAt DateTime?
   createdAt         DateTime @default(now())
   archivedAt        DateTime?
 
@@ -119,13 +133,21 @@ model ImageUploadIdempotency {
 model ImageUploadPromotion {
   id                           String   @id @default(uuid())
   uploadId                     String   @unique
+  origin                       String
   albumId                      String
   finalizationLeaseToken       String
   accountId                    String
   bucket                       String
   sourceObjectKey              String
-  sourceEtag                   String
+  sourceEtag                   String?
   destinationObjectKey         String   @unique
+  inspectedSha256              String?
+  inspectedByteSize            Int?
+  canonicalMime                String?
+  inspectedWidth               Int?
+  inspectedHeight              Int?
+  policyVersion                String?
+  committedResultImageId       String?
   copyState                    String
   disposition                  String
   copyDispatchedAt             DateTime?
@@ -145,9 +167,22 @@ model ImageUploadPromotion {
   @@index([disposition, nextReconcileAt])
   @@index([albumId, disposition])
 }
+
+model ImageUploadReconcilerHeartbeat {
+  id                           String   @id
+  ownerId                      String
+  buildFingerprint             String
+  lockAcquiredAt               DateTime
+  heartbeatAt                  DateTime
+  queueSettlementCompletedAt   DateTime?
+  promotionRecoveryCompletedAt DateTime?
+  temporaryCleanupCompletedAt  DateTime?
+  imageDeletionCompletedAt     DateTime?
+  updatedAt                    DateTime @updatedAt
+}
 ```
 
-Do not add foreign keys from idempotency or promotion rows to `ImageUpload` or `Image`; their evidence must survive live-row or result deletion.
+Do not add foreign keys from idempotency or promotion rows to `ImageUpload` or `Image`; their evidence must survive live-row or result deletion. `sourceEtag` is nullable only for a committed `legacy_bridge` record whose existing Image and matching provider event provide keep authority; every current-generation promotion requires it. The heartbeat row is operational state and contains no secret or object key.
 
 - [ ] **Step 2: Add database state constraints**
 
@@ -155,10 +190,34 @@ The SQL migration adds checks equivalent to:
 
 ```sql
 ALTER TABLE "ImageUploadPromotion"
+  ADD CONSTRAINT "ImageUploadPromotion_origin_check"
+  CHECK ("origin" IN ('current', 'legacy_bridge')),
   ADD CONSTRAINT "ImageUploadPromotion_copyState_check"
   CHECK ("copyState" IN ('dispatched', 'provider_settled')),
   ADD CONSTRAINT "ImageUploadPromotion_disposition_check"
   CHECK ("disposition" IN ('pending', 'committed', 'cleanup_required', 'verified_deleted')),
+  ADD CONSTRAINT "ImageUploadPromotion_current_facts_check"
+  CHECK (
+    "origin" <> 'current' OR (
+      "sourceEtag" IS NOT NULL AND
+      "inspectedSha256" IS NOT NULL AND
+      "inspectedByteSize" IS NOT NULL AND
+      "canonicalMime" IS NOT NULL AND
+      "inspectedWidth" IS NOT NULL AND
+      "inspectedHeight" IS NOT NULL AND
+      "policyVersion" IS NOT NULL
+    )
+  ),
+  ADD CONSTRAINT "ImageUploadPromotion_source_etag_check"
+  CHECK (
+    "sourceEtag" IS NOT NULL OR (
+      "origin" = 'legacy_bridge' AND
+      "disposition" = 'committed' AND
+      "copyState" = 'provider_settled'
+    )
+  ),
+  ADD CONSTRAINT "ImageUploadPromotion_committed_result_check"
+  CHECK ("disposition" <> 'committed' OR "committedResultImageId" IS NOT NULL),
   ADD CONSTRAINT "ImageUploadPromotion_provider_evidence_check"
   CHECK (
     "copyState" <> 'provider_settled' OR (
@@ -174,7 +233,14 @@ ON "ImageUploadPromotion" ("settlementSource", "providerEventId")
 WHERE "settlementSource" IS NOT NULL AND "providerEventId" IS NOT NULL;
 ```
 
-Application validation additionally enforces that `committed` has a matching `Image.r2ObjectKey`, `cleanup_required` has no matching Image, and `verified_deleted` follows provider settlement plus a final absent HEAD.
+Application validation additionally enforces:
+
+- every stored ETag is canonical, unquoted, non-weak, and not case-folded; a null source ETag is accepted only for a provider-settled committed legacy bridge with exact Image/event keep authority;
+- a newly `committed` promotion has an exact Image ID/key match;
+- a committed result may later have no Image only when the permanent idempotency row has the same result ID plus `resultDeletedAt` and a matching durable `ImageObjectDeletion`;
+- `cleanup_required` has no matching Image and was never committed;
+- `verified_deleted` follows provider settlement plus a final absent HEAD;
+- `terminalAt` and `resultRetentionExpiresAt=terminalAt+30 days` are written together for terminal idempotency outcomes.
 
 - [ ] **Step 3: Validate and format the schema**
 
@@ -203,6 +269,7 @@ Before migration insert representative `pending`, `finalizing`, `consumed`, and 
 - all existing upload rows remain readable;
 - new live-session fields are null;
 - no promotion or idempotency row is invented by the schema migration;
+- the singleton heartbeat table exists but has no row until the new reconciler starts;
 - no old application binary is executed.
 
 - [ ] **Step 3: Run migration integration tests**
@@ -226,11 +293,14 @@ Expected: empty deploy and upgrade cases PASS.
 Cover:
 
 - exactly one promotion per upload;
-- the row is created with `copyState=dispatched` and commits before the mocked CopyObject call is allowed to start;
+- a current row contains every inspected fact and a canonical source ETag, is created with `copyState=dispatched`, and commits before the mocked CopyObject call is allowed to start;
+- a current row with any missing inspected fact is rejected;
 - a different lease token cannot reuse or mutate the promotion;
 - provider event identity is idempotent;
-- `committed` requires an Image reference to the exact destination;
-- `cleanup_required` rejects any Image reference;
+- a duplicate provider event re-reads the current state instead of implying committed;
+- newly `committed` requires an Image ID/reference to the exact destination;
+- committed remains valid after legitimate result deletion only with matching idempotency and `ImageObjectDeletion` tombstones;
+- `cleanup_required` rejects any Image reference or prior committed result;
 - `committed` can never transition to `cleanup_required`;
 - `verified_deleted` requires provider settlement.
 

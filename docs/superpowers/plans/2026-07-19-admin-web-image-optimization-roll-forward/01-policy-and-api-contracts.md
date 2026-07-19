@@ -172,7 +172,7 @@ export type UploadPresignRequest = {
 };
 ```
 
-Define closed unions for `PublicImageResponse`, `PolicyResponse`, `PresignResponse`, `ConfirmResponse`, `UploadSessionStatusResponse`, `AbandonResponse`, and `UploadErrorResponse`. Include exact outcomes `pending`, `finalizing`, `consumed`, `failed`, `gone`, `result_deleted`, and `result_unavailable` where relevant.
+Define closed unions for `PublicImageResponse`, `PolicyResponse`, `PresignResponse`, `ConfirmResponse`, `UploadSessionStatusResponse`, `AbandonResponse`, and `UploadErrorResponse`. Include exact outcomes `pending`, `finalizing`, `consumed`, `failed`, `gone`, `deleted`, and `unavailable` where relevant. The corresponding stable error codes remain `upload_result_deleted` and `upload_result_unavailable`. A consumed response includes the persisted absolute `retentionExpiresAt` for the exact 30-day result window.
 
 The type test must prove there is no request variant without `clientRequestId`, `processedSha256`, or `policyVersion`; do not define `legacy-v0` or `legacy-head-only`.
 
