@@ -65,6 +65,19 @@ describe('image confirmation concurrency (PostgreSQL)', () => {
       schemaPath,
     ]);
     const baselineClient = new PrismaClient({ datasourceUrl: databaseUrl });
+    // The RBAC migration targets Supabase-managed roles and auth.users. The
+    // disposable vanilla PostgreSQL container must expose that minimal catalog
+    // contract before replaying the committed production migrations.
+    for (const statement of [
+      'CREATE ROLE anon NOLOGIN',
+      'CREATE ROLE authenticated NOLOGIN',
+      'CREATE ROLE supabase_auth_admin NOLOGIN',
+      'CREATE ROLE service_role NOLOGIN',
+      'CREATE SCHEMA auth',
+      'CREATE TABLE auth.users (id uuid PRIMARY KEY)',
+    ]) {
+      await baselineClient.$executeRawUnsafe(statement);
+    }
     await baselineClient.$executeRawUnsafe(
       'DROP TABLE "CloudflareStaticAssetMigration"',
     );
