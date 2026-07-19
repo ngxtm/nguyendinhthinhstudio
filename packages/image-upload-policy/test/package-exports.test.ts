@@ -22,6 +22,17 @@ const resolutionCases = [
   ],
 ] as const;
 
+const fixtureResolutionCases = [
+  [
+    'import',
+    `console.log(import.meta.resolve('@ndt/image-upload-policy/fixtures')); await import('@ndt/image-upload-policy/fixtures')`,
+  ],
+  [
+    'require',
+    `console.log(require.resolve('@ndt/image-upload-policy/fixtures')); require('@ndt/image-upload-policy/fixtures')`,
+  ],
+] as const;
+
 test('public package exports resolve to compiled artifacts', () => {
   for (const [kind, expression] of resolutionCases) {
     const args =
@@ -37,6 +48,26 @@ test('public package exports resolve to compiled artifacts', () => {
       result.status,
       0,
       `${kind} failed:\n${result.stderr || result.stdout}`,
+    );
+    assert.doesNotMatch(result.stdout, /[\\/]src[\\/]/);
+  }
+});
+
+test('fixture package exports resolve to compiled artifacts', () => {
+  for (const [kind, expression] of fixtureResolutionCases) {
+    const args =
+      kind === 'import'
+        ? ['--input-type=module', '--eval', expression]
+        : ['--eval', expression];
+    const result = spawnSync(process.execPath, args, {
+      cwd: repositoryRoot,
+      encoding: 'utf8',
+    });
+
+    assert.equal(
+      result.status,
+      0,
+      `${kind} fixtures failed:\n${result.stderr || result.stdout}`,
     );
     assert.doesNotMatch(result.stdout, /[\\/]src[\\/]/);
   }
