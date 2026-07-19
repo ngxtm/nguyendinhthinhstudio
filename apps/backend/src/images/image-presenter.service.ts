@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Image } from '@prisma/client';
+import type { PublicImageResponse } from '@ndt/types';
 import { ImageUrlService } from './image-url.service';
 
 export type ImageDeliveryMode = 'legacy' | 'imgproxy' | 'auto';
@@ -31,26 +32,33 @@ export class ImagePresenterService {
     this.deliveryMode = configuredMode;
   }
 
-  presentImage<T extends Image>(image: T): T {
+  presentImage(image: Image): PublicImageResponse {
     const objectKey = image.r2ObjectKey;
-
-    if (!objectKey) {
-      if (this.deliveryMode === 'imgproxy') {
-        throw new Error(
-          'imgproxy delivery requires an albums/ R2 object key',
-        );
-      }
-
-      return image;
+    if (!objectKey && this.deliveryMode === 'imgproxy') {
+      throw new Error(
+        'imgproxy delivery requires an albums/ R2 object key',
+      );
     }
 
-    if (!this.shouldUseImgproxy(objectKey)) {
-      return image;
-    }
+    const variants =
+      objectKey && this.shouldUseImgproxy(objectKey)
+        ? this.imageUrl.getVariantUrls(objectKey)
+        : {
+            thumbnailUrl: image.thumbnailUrl,
+            smallUrl: image.smallUrl,
+            mediumUrl: image.mediumUrl,
+            largeUrl: image.largeUrl,
+            xlargeUrl: image.xlargeUrl,
+          };
 
     return {
-      ...image,
-      ...this.imageUrl.getVariantUrls(objectKey),
+      id: image.id,
+      filename: image.filename,
+      width: image.width,
+      height: image.height,
+      altText: image.altText,
+      ...variants,
+      orderIndex: image.orderIndex,
     };
   }
 

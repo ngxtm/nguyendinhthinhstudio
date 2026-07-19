@@ -147,7 +147,11 @@ describe('ImageDeletionService', () => {
 
     expect(prisma.imageObjectDeletion.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { provider: 'r2', status: 'pending' },
+        where: {
+          provider: 'r2',
+          status: 'pending',
+          authority: { in: ['current_result', 'legacy_image'] },
+        },
       }),
     );
     expect(storage.deleteObject).not.toHaveBeenCalled();

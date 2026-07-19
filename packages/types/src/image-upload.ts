@@ -37,6 +37,7 @@ export type UploadFailureCode =
   | StoredImageErrorCode
   | 'upload_abandoned'
   | 'upload_expired'
+  | 'upload_presign_failed'
   | 'upload_digest_mismatch'
   | 'upload_source_changed'
   | 'upload_decode_failed'
@@ -191,7 +192,7 @@ export type UploadErrorResponse =
     }
   | {
       statusCode: 409;
-      code: 'policy_refresh_required' | 'upload_capacity_exceeded';
+      code: 'policy_refresh_required' | 'upload_capacity_exceeded' | 'album_cleanup_pending';
       message: string;
     }
   | {

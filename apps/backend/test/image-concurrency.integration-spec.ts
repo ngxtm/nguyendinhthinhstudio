@@ -9,10 +9,13 @@ import {
   StartedPostgreSqlContainer,
 } from '@testcontainers/postgresql';
 import { ImagesService } from '../src/images/images.service';
+import { ImageUploadPolicyService } from '../src/images/image-upload-policy.service';
 
 const execFileAsync = promisify(execFile);
 const CONTENT_TYPE = 'image/jpeg';
 const FILE_SIZE = 1024;
+const ADMIN_ID = '00000000-0000-4000-8000-000000000001';
+const PROCESSED_SHA256 = 'a'.repeat(64);
 
 type UploadFixture = {
   id: string;
@@ -64,54 +67,8 @@ describe('image confirmation concurrency (PostgreSQL)', () => {
       '--schema',
       schemaPath,
     ]);
-    const baselineClient = new PrismaClient({ datasourceUrl: databaseUrl });
-    // The RBAC migration targets Supabase-managed roles and auth.users. The
-    // disposable vanilla PostgreSQL container must expose that minimal catalog
-    // contract before replaying the committed production migrations.
-    for (const statement of [
-      'CREATE ROLE anon NOLOGIN',
-      'CREATE ROLE authenticated NOLOGIN',
-      'CREATE ROLE supabase_auth_admin NOLOGIN',
-      'CREATE ROLE service_role NOLOGIN',
-      'CREATE SCHEMA auth',
-      'CREATE TABLE auth.users (id uuid PRIMARY KEY)',
-    ]) {
-      await baselineClient.$executeRawUnsafe(statement);
-    }
-    await baselineClient.$executeRawUnsafe(
-      'DROP TABLE "CloudflareStaticAssetMigration"',
-    );
-    await baselineClient.$executeRawUnsafe(
-      'DROP TABLE "ImageStorageMigration"',
-    );
-    await baselineClient.$executeRawUnsafe('DROP TABLE "ImageObjectDeletion"');
-    await baselineClient.$executeRawUnsafe('DROP TABLE "ImageUpload"');
-    await baselineClient.$executeRawUnsafe(
-      'ALTER TABLE "Album" DROP COLUMN "deleteStartedAt"',
-    );
-    await baselineClient.$executeRawUnsafe(
-      'ALTER TABLE "Album" DROP COLUMN "deleteStatus"',
-    );
-    await baselineClient.$disconnect();
-
-    await runPrisma([
-      'migrate',
-      'resolve',
-      '--applied',
-      '20251023120000_multi_category_albums',
-      '--schema',
-      schemaPath,
-    ]);
-    await runPrisma([
-      'migrate',
-      'resolve',
-      '--applied',
-      '20260301000000_rename_cloudflare_to_r2',
-      '--schema',
-      schemaPath,
-    ]);
-    await runPrisma(['migrate', 'deploy', '--schema', schemaPath]);
-
+    // Admission/confirmation concurrency targets the current schema. Migration
+    // replay is covered by image-upload-schema.integration-spec.ts.
     prisma = new PrismaClient({ datasourceUrl: databaseUrl });
     await prisma.$connect();
   });
@@ -119,6 +76,7 @@ describe('image confirmation concurrency (PostgreSQL)', () => {
   afterEach(async () => {
     if (!prisma) return;
     await prisma.$executeRawUnsafe('DELETE FROM "ImageStorageMigration"');
+    await prisma.imageUploadIdempotency.deleteMany();
     await prisma.imageUpload.deleteMany();
     await prisma.image.deleteMany();
     await prisma.album.deleteMany();
@@ -189,8 +147,23 @@ describe('image confirmation concurrency (PostgreSQL)', () => {
     return row;
   }
 
-  function createService() {
+  function createService(prismaClient: any = prisma) {
     const storage = {
+      createUploadObjectKey: jest
+        .fn()
+        .mockImplementation(
+          (uploadId: string, filename: string) =>
+            `uploads/${uploadId}/${filename}`,
+        ),
+      createFinalObjectKey: jest
+        .fn()
+        .mockImplementation(
+          (albumId: string, filename: string) =>
+            `albums/${albumId}/${randomUUID()}-${filename}`,
+        ),
+      signFixedExpiryPut: jest
+        .fn()
+        .mockResolvedValue('https://r2.test/presigned-upload'),
       verifyObject: jest.fn().mockResolvedValue('"source-etag"'),
       promoteObject: jest.fn().mockResolvedValue(undefined),
       deleteObject: jest.fn().mockResolvedValue(undefined),
@@ -207,13 +180,158 @@ describe('image confirmation concurrency (PostgreSQL)', () => {
     const imagePresenter = {
       presentImage: jest.fn((image: unknown) => image),
     };
-    return new ImagesService(
-      prisma as any,
+    const policy = new ImageUploadPolicyService();
+    const service = new ImagesService(
+      prismaClient,
       storage as any,
       imageUrl as any,
       imagePresenter as any,
+      policy,
     );
+    return { service, storage, policy };
   }
+
+  function presignRequest(albumId: string, clientRequestId = randomUUID()) {
+    return {
+      clientRequestId,
+      albumId,
+      filename: 'photo.jpg',
+      contentType: CONTENT_TYPE as 'image/jpeg',
+      fileSize: FILE_SIZE,
+      processedSha256: PROCESSED_SHA256,
+      policyVersion: new ImageUploadPolicyService().policyVersion,
+    };
+  }
+
+  it('creates one session for two simultaneous same-request presign calls', async () => {
+    const album = await createAlbumWithImages(0);
+    const request = presignRequest(album.id);
+    const { service, storage } = createService();
+
+    const [first, second] = await Promise.all([
+      service.getUploadUrl(request, ADMIN_ID),
+      service.getUploadUrl(request, ADMIN_ID),
+    ]);
+
+    expect(first).toEqual(expect.objectContaining({ outcome: 'ready' }));
+    expect(second).toEqual(
+      expect.objectContaining({
+        outcome: 'ready',
+        uploadId: (first as { uploadId: string }).uploadId,
+        expiresAt: (first as { expiresAt: string }).expiresAt,
+      }),
+    );
+    await expect(
+      prisma.imageUpload.count({
+        where: { clientRequestId: request.clientRequestId },
+      }),
+    ).resolves.toBe(1);
+    await expect(
+      prisma.imageUploadIdempotency.count({
+        where: { clientRequestId: request.clientRequestId },
+      }),
+    ).resolves.toBe(1);
+    expect(storage.signFixedExpiryPut).toHaveBeenCalledTimes(2);
+  });
+
+  it('allows only one of two presign admissions at 49 completed images', async () => {
+    const album = await createAlbumWithImages(49);
+    const { service, storage } = createService();
+
+    const results = await Promise.allSettled([
+      service.getUploadUrl(presignRequest(album.id), ADMIN_ID),
+      service.getUploadUrl(presignRequest(album.id), ADMIN_ID),
+    ]);
+
+    expect(
+      results.filter((result) => result.status === 'fulfilled'),
+    ).toHaveLength(1);
+    const rejected = results.filter(
+      (result): result is PromiseRejectedResult => result.status === 'rejected',
+    );
+    expect(rejected).toHaveLength(1);
+    expect(rejected[0].reason).toMatchObject({
+      response: expect.objectContaining({ code: 'upload_capacity_exceeded' }),
+    });
+    await expect(
+      prisma.imageUpload.count({ where: { albumId: album.id } }),
+    ).resolves.toBe(1);
+    expect(storage.signFixedExpiryPut).toHaveBeenCalledTimes(1);
+  });
+
+  it('excludes expired pending reservations from presign capacity', async () => {
+    const album = await createAlbumWithImages(49);
+    await prisma.imageUpload.create({
+      data: {
+        id: randomUUID(),
+        albumId: album.id,
+        uploadObjectKey: `uploads/${randomUUID()}/expired.jpg`,
+        finalObjectKey: `albums/${album.id}/${randomUUID()}-expired.jpg`,
+        filename: 'expired.jpg',
+        contentType: CONTENT_TYPE,
+        fileSize: FILE_SIZE,
+        status: 'pending',
+        expiresAt: new Date(Date.now() - 1_000),
+      },
+    });
+    const { service } = createService();
+
+    await expect(
+      service.getUploadUrl(presignRequest(album.id), ADMIN_ID),
+    ).resolves.toEqual(expect.objectContaining({ outcome: 'ready' }));
+  });
+
+  it.each([
+    ['stale', new Date(Date.now() - 11 * 60 * 1000)],
+    ['fresh', new Date(Date.now() - 60 * 1000)],
+  ])(
+    'includes %s finalizing reservations in presign capacity',
+    async (_label, finalizationStartedAt) => {
+      const album = await createAlbumWithImages(49);
+      await prisma.imageUpload.create({
+        data: {
+          id: randomUUID(),
+          albumId: album.id,
+          uploadObjectKey: `uploads/${randomUUID()}/finalizing.jpg`,
+          finalObjectKey: `albums/${album.id}/${randomUUID()}-finalizing.jpg`,
+          filename: 'finalizing.jpg',
+          contentType: CONTENT_TYPE,
+          fileSize: FILE_SIZE,
+          status: 'finalizing',
+          finalizationStartedAt,
+          finalizationLeaseToken: randomUUID(),
+          expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+        },
+      });
+      const { service, storage } = createService();
+
+      await expect(
+        service.getUploadUrl(presignRequest(album.id), ADMIN_ID),
+      ).rejects.toMatchObject({
+        response: expect.objectContaining({ code: 'upload_capacity_exceeded' }),
+      });
+      expect(storage.signFixedExpiryPut).not.toHaveBeenCalled();
+    },
+  );
+
+  it('creates and signs nothing after bounded P2034 retry exhaustion', async () => {
+    const transaction = jest
+      .fn()
+      .mockRejectedValue(
+        Object.assign(new Error('serialization failure'), { code: 'P2034' }),
+      );
+    const fakePrisma = {
+      $transaction: transaction,
+    };
+    const { service, storage } = createService(fakePrisma);
+
+    await expect(
+      service.getUploadUrl(presignRequest(randomUUID()), ADMIN_ID),
+    ).rejects.toMatchObject({ code: 'P2034' });
+
+    expect(transaction).toHaveBeenCalledTimes(3);
+    expect(storage.signFixedExpiryPut).not.toHaveBeenCalled();
+  });
 
   it('allows exactly one confirm at 49 images and persists exactly 50 images', async () => {
     const album = await createAlbumWithImages(49);
@@ -221,7 +339,7 @@ describe('image confirmation concurrency (PostgreSQL)', () => {
       createUpload(album.id),
       createUpload(album.id),
     ]);
-    const service = createService();
+    const { service } = createService();
 
     const results = await Promise.allSettled([
       service.confirmUpload({ uploadId: first.id }),
@@ -270,7 +388,7 @@ describe('image confirmation concurrency (PostgreSQL)', () => {
       createUpload(album.id),
       createUpload(album.id),
     ]);
-    const service = createService();
+    const { service } = createService();
 
     const results = await Promise.allSettled([
       service.confirmUpload({ uploadId: first.id }),

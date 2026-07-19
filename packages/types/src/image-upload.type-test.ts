@@ -73,6 +73,16 @@ const arbitraryError: UploadErrorResponse = {
 };
 void arbitraryError;
 
+const albumCleanupPending: UploadErrorResponse = {
+  statusCode: 409,
+  code: 'album_cleanup_pending',
+  message: 'cleanup pending',
+};
+void albumCleanupPending;
+
+const presignFailure: UploadFailureCode = 'upload_presign_failed';
+void presignFailure;
+
 function assertNever(value: never): never {
   throw new Error(String(value));
 }
@@ -86,6 +96,7 @@ function handleError(error: UploadErrorResponse): string {
     case 'upload_request_conflict':
     case 'policy_refresh_required':
     case 'upload_capacity_exceeded':
+    case 'album_cleanup_pending':
     case 'upload_rate_limited':
     case 'upload_presign_disabled':
     case 'upload_rate_limit_unavailable':
@@ -116,6 +127,7 @@ function handleFailure(code: UploadFailureCode): string {
     case 'image_metadata_not_allowed':
     case 'upload_abandoned':
     case 'upload_expired':
+    case 'upload_presign_failed':
     case 'upload_digest_mismatch':
     case 'upload_source_changed':
     case 'upload_decode_failed':

@@ -18,26 +18,45 @@ describe('ImagesService deletion guard and queue', () => {
           }),
       },
     };
+    prisma.$transaction = jest.fn(
+      async (work: (client: typeof prisma) => unknown) => work(prisma),
+    );
+    prisma.$executeRawUnsafe = jest.fn();
+    const storage = {
+      createUploadObjectKey: jest.fn().mockReturnValue('uploads/id/x.jpg'),
+      createFinalObjectKey: jest.fn().mockReturnValue('albums/album-1/x.jpg'),
+    };
     const service = new ImagesService(
       prisma,
-      {} as any,
+      storage as any,
       {} as any,
       imagePresenter as any,
     );
 
     await expect(
-      service.getUploadUrl({
-        albumId: 'album-1',
-        filename: 'x.jpg',
-        contentType: 'image/jpeg',
-        fileSize: 1,
-      }),
+      service.getUploadUrl(
+        {
+          clientRequestId: '00000000-0000-4000-8000-000000000001',
+          albumId: 'album-1',
+          filename: 'x.jpg',
+          contentType: 'image/jpeg',
+          fileSize: 1,
+          processedSha256: 'a'.repeat(64),
+          policyVersion: 'web-v1-policy',
+        },
+        '00000000-0000-4000-8000-000000000002',
+      ),
     ).rejects.toBeInstanceOf(ConflictException);
   });
 
   it('queues an R2 object, clears cover, and decrements album count without deleting from R2 inline', async () => {
     const tx: any = {
       imageObjectDeletion: { upsert: jest.fn() },
+      imageUploadPromotion: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+      imageUpload: { updateMany: jest.fn() },
+      imageUploadIdempotency: { updateMany: jest.fn() },
       image: { delete: jest.fn() },
       album: { update: jest.fn() },
     };
@@ -68,7 +87,14 @@ describe('ImagesService deletion guard and queue', () => {
 
     expect(tx.imageObjectDeletion.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
-        create: expect.objectContaining({ provider: 'r2', status: 'pending' }),
+        create: expect.objectContaining({
+          provider: 'r2',
+          status: 'pending',
+          authority: 'legacy_image',
+          objectKeyHash: expect.stringMatching(/^[0-9a-f]{64}$/),
+          legacyImageSnapshotSha256: expect.stringMatching(/^[0-9a-f]{64}$/),
+          providerDisposition: null,
+        }),
       }),
     );
     expect(tx.album.update).toHaveBeenCalledWith({
@@ -80,5 +106,64 @@ describe('ImagesService deletion guard and queue', () => {
       data: { imageCount: { decrement: 1 } },
     });
     expect(storage.deleteObject).not.toHaveBeenCalled();
+  });
+
+  it('stamps committed result tombstones and current-result deletion authority atomically', async () => {
+    const tx: any = {
+      imageObjectDeletion: { upsert: jest.fn() },
+      imageUploadPromotion: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'promotion-1',
+          committedResultImageId: 'image-1',
+          disposition: 'committed',
+        }),
+      },
+      imageUpload: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
+      imageUploadIdempotency: {
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      image: { delete: jest.fn() },
+      album: { update: jest.fn() },
+    };
+    const prisma: any = {
+      image: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'image-1',
+          albumId: 'album-1',
+          r2ObjectKey: 'albums/album-1/photo.jpg',
+          album: { coverImageId: null },
+        }),
+      },
+      $transaction: jest.fn(async (work: (client: typeof tx) => unknown) =>
+        work(tx),
+      ),
+    };
+
+    const service = new ImagesService(
+      prisma,
+      { deleteObject: jest.fn() } as any,
+      {} as any,
+      imagePresenter as any,
+    );
+    await service.remove('image-1');
+
+    expect(tx.imageObjectDeletion.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          authority: 'current_result',
+          objectKeyHash: expect.stringMatching(/^[0-9a-f]{64}$/),
+          legacyImageSnapshotSha256: null,
+          providerDisposition: null,
+        }),
+      }),
+    );
+    expect(tx.imageUpload.updateMany).toHaveBeenCalledWith({
+      where: { resultImageId: 'image-1' },
+      data: { resultDeletedAt: expect.any(Date) },
+    });
+    expect(tx.imageUploadIdempotency.updateMany).toHaveBeenCalledWith({
+      where: { resultImageId: 'image-1' },
+      data: { resultDeletedAt: expect.any(Date) },
+    });
   });
 });

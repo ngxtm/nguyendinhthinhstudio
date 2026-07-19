@@ -8,7 +8,12 @@ import {
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { randomUUID } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
+import {
+  assertPresignedUrlMatchesExpiry,
+  remainingPresignSeconds,
+  truncateToWholeSecond,
+} from './image-upload-presign-expiry';
 
 @Injectable()
 export class StorageService {
@@ -64,7 +69,34 @@ export class StorageService {
     return uploadUrl;
   }
 
+  async signFixedExpiryPut(
+    objectKey: string,
+    contentType: string,
+    fileSize: number,
+    persistedExpiry: Date,
+    now: Date = new Date(),
+  ): Promise<string> {
+    const signingDate = truncateToWholeSecond(now);
+    const expiresIn = remainingPresignSeconds(signingDate, persistedExpiry);
+    const command = new PutObjectCommand({
+      Bucket: this.bucketname,
+      Key: objectKey,
+      ContentType: contentType,
+      ContentLength: fileSize,
+    });
+    const signedUrl = await getSignedUrl(this.s3, command, {
+      expiresIn,
+      signingDate,
+    });
+    assertPresignedUrlMatchesExpiry(signedUrl, persistedExpiry);
+    return signedUrl;
+  }
+
   async deleteObject(objectKey: string): Promise<void> {
+    const objectKeyHash = createHash('sha256')
+      .update(objectKey)
+      .digest('hex')
+      .slice(0, 12);
     const deleteObjectCommand = new DeleteObjectCommand({
       Bucket: this.bucketname,
       Key: objectKey,
@@ -72,9 +104,9 @@ export class StorageService {
 
     try {
       await this.s3.send(deleteObjectCommand);
-      this.logger.log(`Deleted object: ${objectKey}`);
+      this.logger.log(`Object deleted: keyHash=${objectKeyHash}`);
     } catch (error) {
-      this.logger.error(`Failed to delete object: ${objectKey}`, error);
+      this.logger.error(`Object deletion failed: keyHash=${objectKeyHash}`);
       throw error;
     }
   }

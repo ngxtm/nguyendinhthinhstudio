@@ -1,4 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
+import { createImageUploadRequestFingerprint } from './image-upload-fingerprint';
 import { ImagesService } from './images.service';
 
 const ALBUM_ID = '00000000-0000-4000-8000-000000000001';
@@ -7,6 +8,10 @@ const SECOND_UPLOAD_ID = '00000000-0000-4000-8000-000000000003';
 const UPLOAD_KEY = `uploads/${UPLOAD_ID}/portrait.jpg`;
 const FINAL_KEY = `albums/${ALBUM_ID}/00000000-0000-4000-8000-000000000004-portrait.jpg`;
 const NOW = new Date('2026-07-12T12:00:00.000Z');
+const ADMIN_ID = '00000000-0000-4000-8000-000000000005';
+const CLIENT_REQUEST_ID = '00000000-0000-4000-8000-000000000006';
+const POLICY_VERSION = 'web-v1-policy';
+const PROCESSED_SHA256 = 'a'.repeat(64);
 
 type UploadRow = {
   id: string;
@@ -22,13 +27,25 @@ type UploadRow = {
   expiresAt: Date;
   consumedAt: Date | null;
   createdAt: Date;
+  clientRequestId?: string | null;
+  createdByAdminId?: string | null;
+  presignExpiresAt?: Date | null;
+  finalizationLeaseToken?: string | null;
+  resultImageId?: string | null;
+  resultDeletedAt?: Date | null;
+  terminalAt?: Date | null;
+  resultRetentionExpiresAt?: Date | null;
+  failureCode?: string | null;
 };
 
 const uploadRequest = {
+  clientRequestId: CLIENT_REQUEST_ID,
   albumId: ALBUM_ID,
   filename: 'portrait.jpg',
   contentType: 'image/jpeg',
   fileSize: 1024,
+  processedSha256: PROCESSED_SHA256,
+  policyVersion: POLICY_VERSION,
 };
 
 const activeUpload = (overrides: Partial<UploadRow> = {}): UploadRow => ({
@@ -45,6 +62,9 @@ const activeUpload = (overrides: Partial<UploadRow> = {}): UploadRow => ({
   expiresAt: new Date(NOW.getTime() + 60 * 60 * 1000),
   consumedAt: null,
   createdAt: NOW,
+  clientRequestId: CLIENT_REQUEST_ID,
+  createdByAdminId: ADMIN_ID,
+  presignExpiresAt: new Date(NOW.getTime() + 60 * 60 * 1000),
   ...overrides,
 });
 
@@ -57,7 +77,9 @@ describe('ImagesService read presentation', () => {
     ];
     harness.prisma.image.findMany.mockResolvedValueOnce(rows);
 
-    await expect(harness.createService().findByAlbum(ALBUM_ID)).resolves.toEqual([
+    await expect(
+      harness.createService().findByAlbum(ALBUM_ID),
+    ).resolves.toEqual([
       { id: 'image-1', thumbnailUrl: 'presented://image-1' },
       { id: 'image-2', thumbnailUrl: 'presented://image-2' },
     ]);
@@ -90,6 +112,11 @@ function createHarness(session = activeUpload()) {
       }),
       delete: jest.fn(),
     },
+    imageUploadIdempotency: {
+      findUnique: jest.fn().mockResolvedValue(null),
+      create: jest.fn().mockImplementation(async ({ data }: any) => data),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+    },
     imageUpload: {
       create: jest.fn().mockImplementation(async ({ data }: any) => {
         rows.upload = { ...data };
@@ -105,6 +132,7 @@ function createHarness(session = activeUpload()) {
     },
     image: {
       count: jest.fn().mockResolvedValue(0),
+      findUnique: jest.fn().mockResolvedValue(null),
       findMany: jest.fn().mockResolvedValue([]),
       findFirst: jest.fn().mockResolvedValue({ orderIndex: 0 }),
       create: jest.fn().mockImplementation(async ({ data }: any) => {
@@ -121,6 +149,9 @@ function createHarness(session = activeUpload()) {
   const storage: any = {
     createUploadObjectKey: jest.fn().mockReturnValue(UPLOAD_KEY),
     createFinalObjectKey: jest.fn().mockReturnValue(FINAL_KEY),
+    signFixedExpiryPut: jest
+      .fn()
+      .mockResolvedValue('https://r2.example.test/presigned-temporary-upload'),
     getPresignedUploadUrl: jest.fn().mockImplementation((...args: unknown[]) =>
       Promise.resolve(
         args.length === 3
@@ -144,6 +175,13 @@ function createHarness(session = activeUpload()) {
       xlargeUrl: 'https://img.example.test/xlarge',
     }),
   };
+  const policy: any = {
+    policyVersion: POLICY_VERSION,
+    getPolicy: jest.fn(() => ({
+      policyVersion: POLICY_VERSION,
+      policy: { maxStoredBytes: 5_242_880 },
+    })),
+  };
   const imagePresenter: any = {
     presentImage: jest.fn((image: Record<string, unknown>) => ({
       ...image,
@@ -157,8 +195,15 @@ function createHarness(session = activeUpload()) {
     storage,
     imageUrl,
     imagePresenter,
+    policy,
     createService: () =>
-      new (ImagesService as any)(prisma, storage, imageUrl, imagePresenter),
+      new (ImagesService as any)(
+        prisma,
+        storage,
+        imageUrl,
+        imagePresenter,
+        policy,
+      ),
   };
 }
 
@@ -177,8 +222,10 @@ describe('ImagesService upload sessions', () => {
     const harness = createHarness();
 
     await expect(
-      harness.createService().getUploadUrl(uploadRequest),
+      harness.createService().getUploadUrl(uploadRequest, ADMIN_ID),
     ).resolves.toEqual({
+      outcome: 'ready',
+      statusCode: 200,
       uploadUrl: 'https://r2.example.test/presigned-temporary-upload',
       uploadId: expect.any(String),
       expiresAt: new Date(NOW.getTime() + 60 * 60 * 1000).toISOString(),
@@ -202,14 +249,480 @@ describe('ImagesService upload sessions', () => {
         contentType: 'image/jpeg',
         fileSize: 1024,
         status: 'pending',
+        clientRequestId: CLIENT_REQUEST_ID,
+        createdByAdminId: ADMIN_ID,
+        policyVersion: POLICY_VERSION,
+        policySnapshot: { maxStoredBytes: 5_242_880 },
+        processedSha256: PROCESSED_SHA256,
         expiresAt: new Date(NOW.getTime() + 60 * 60 * 1000),
       }),
     });
-    expect(harness.storage.getPresignedUploadUrl).toHaveBeenCalledWith(
+    expect(harness.prisma.imageUploadIdempotency.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        clientRequestId: CLIENT_REQUEST_ID,
+        createdByAdminId: ADMIN_ID,
+        uploadId: expect.any(String),
+        requestFingerprint: expect.stringMatching(/^[0-9a-f]{64}$/),
+      }),
+    });
+    expect(harness.storage.signFixedExpiryPut).toHaveBeenCalledWith(
       UPLOAD_KEY,
       'image/jpeg',
       1024,
+      new Date(NOW.getTime() + 60 * 60 * 1000),
+      NOW,
     );
+  });
+
+  it('uses the transaction clock for first expiry and a fresh post-transaction signing clock', async () => {
+    const harness = createHarness();
+    harness.prisma.$transaction.mockImplementationOnce(
+      async (work: (tx: typeof harness.prisma) => unknown) => {
+        jest.setSystemTime(new Date('2026-07-12T12:00:05.000Z'));
+        const result = await work(harness.prisma);
+        jest.setSystemTime(new Date('2026-07-12T12:00:15.000Z'));
+        return result;
+      },
+    );
+
+    await expect(
+      harness.createService().getUploadUrl(uploadRequest, ADMIN_ID),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        outcome: 'ready',
+        expiresAt: '2026-07-12T13:00:05.000Z',
+      }),
+    );
+    expect(harness.storage.signFixedExpiryPut).toHaveBeenCalledWith(
+      UPLOAD_KEY,
+      'image/jpeg',
+      1024,
+      new Date('2026-07-12T13:00:05.000Z'),
+      new Date('2026-07-12T12:00:15.000Z'),
+    );
+  });
+
+  it('reuses one session and immutable expiry for a same-fingerprint retry', async () => {
+    const harness = createHarness();
+    await harness.createService().getUploadUrl(uploadRequest, ADMIN_ID);
+    const requestFingerprint = createImageUploadRequestFingerprint({
+      clientRequestId: CLIENT_REQUEST_ID,
+      createdByAdminId: ADMIN_ID,
+      albumId: ALBUM_ID,
+      normalizedFilename: 'portrait.jpg',
+      canonicalMime: 'image/jpeg',
+      fileSize: 1024,
+      processedSha256: PROCESSED_SHA256,
+      policyVersion: POLICY_VERSION,
+    });
+    harness.prisma.imageUploadIdempotency.findUnique.mockResolvedValue({
+      clientRequestId: CLIENT_REQUEST_ID,
+      createdByAdminId: ADMIN_ID,
+      uploadId: harness.rows.upload.id,
+      requestFingerprint,
+    });
+
+    await expect(
+      harness.createService().getUploadUrl(uploadRequest, ADMIN_ID),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        outcome: 'ready',
+        uploadId: harness.rows.upload.id,
+        expiresAt: '2026-07-12T13:00:00.000Z',
+      }),
+    );
+    expect(harness.prisma.imageUpload.create).toHaveBeenCalledTimes(1);
+    expect(harness.prisma.imageUploadIdempotency.create).toHaveBeenCalledTimes(
+      1,
+    );
+    expect(harness.storage.signFixedExpiryPut).toHaveBeenCalledTimes(2);
+    expect(harness.storage.signFixedExpiryPut.mock.calls[1][3]).toEqual(
+      new Date('2026-07-12T13:00:00.000Z'),
+    );
+  });
+
+  it('rejects owner or fingerprint mismatch without revealing the existing record', async () => {
+    const harness = createHarness();
+    harness.prisma.imageUploadIdempotency.findUnique.mockResolvedValue({
+      clientRequestId: CLIENT_REQUEST_ID,
+      createdByAdminId: 'different-admin',
+      uploadId: 'secret-existing-upload',
+      requestFingerprint: 'f'.repeat(64),
+    });
+
+    await expect(
+      harness.createService().getUploadUrl(uploadRequest, ADMIN_ID),
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({ code: 'upload_request_conflict' }),
+    });
+    expect(harness.prisma.imageUpload.create).not.toHaveBeenCalled();
+    expect(harness.storage.signFixedExpiryPut).not.toHaveBeenCalled();
+  });
+
+  it('counts completed images plus unexpired pending and every finalizing reservation', async () => {
+    const harness = createHarness();
+    harness.prisma.image.count.mockResolvedValue(49);
+    harness.prisma.imageUpload.count.mockResolvedValue(1);
+
+    await expect(
+      harness.createService().getUploadUrl(uploadRequest, ADMIN_ID),
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({ code: 'upload_capacity_exceeded' }),
+    });
+    expect(harness.prisma.imageUpload.count).toHaveBeenCalledWith({
+      where: {
+        albumId: ALBUM_ID,
+        OR: [
+          {
+            status: 'pending',
+            expiresAt: { gt: NOW },
+          },
+          { status: 'finalizing' },
+        ],
+      },
+    });
+    expect(harness.prisma.imageUpload.create).not.toHaveBeenCalled();
+  });
+
+  it('terminalizes an existing pending retry at expiry without signing', async () => {
+    const harness = createHarness();
+    const requestFingerprint = createImageUploadRequestFingerprint({
+      clientRequestId: CLIENT_REQUEST_ID,
+      createdByAdminId: ADMIN_ID,
+      albumId: ALBUM_ID,
+      normalizedFilename: 'portrait.jpg',
+      canonicalMime: 'image/jpeg',
+      fileSize: 1024,
+      processedSha256: PROCESSED_SHA256,
+      policyVersion: POLICY_VERSION,
+    });
+    harness.prisma.imageUploadIdempotency.findUnique.mockResolvedValue({
+      clientRequestId: CLIENT_REQUEST_ID,
+      createdByAdminId: ADMIN_ID,
+      uploadId: UPLOAD_ID,
+      requestFingerprint,
+    });
+    harness.prisma.imageUpload.findUnique.mockResolvedValue({
+      ...activeUpload(),
+      clientRequestId: CLIENT_REQUEST_ID,
+      createdByAdminId: ADMIN_ID,
+      processedSha256: PROCESSED_SHA256,
+      policyVersion: POLICY_VERSION,
+      presignExpiresAt: NOW,
+      expiresAt: NOW,
+    });
+
+    await expect(
+      harness.createService().getUploadUrl(uploadRequest, ADMIN_ID),
+    ).resolves.toMatchObject({
+      outcome: 'failed',
+      code: 'upload_failed',
+      failureCode: 'upload_expired',
+      uploadId: UPLOAD_ID,
+    });
+    expect(harness.storage.signFixedExpiryPut).not.toHaveBeenCalled();
+    expect(harness.prisma.imageUpload.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: UPLOAD_ID,
+        createdByAdminId: ADMIN_ID,
+        status: 'pending',
+        presignExpiresAt: NOW,
+      },
+      data: expect.objectContaining({
+        status: 'failed',
+        failureCode: 'upload_expired',
+        temporaryCleanupState: 'pending',
+        temporaryCleanupNextAttemptAt: NOW,
+      }),
+    });
+  });
+
+  it('atomically terminalizes only its pending session and idempotency outcome when signing fails', async () => {
+    const harness = createHarness();
+    harness.storage.signFixedExpiryPut.mockRejectedValueOnce(
+      new Error('provider unavailable'),
+    );
+
+    await expect(
+      harness.createService().getUploadUrl(uploadRequest, ADMIN_ID),
+    ).resolves.toEqual({
+      outcome: 'failed',
+      statusCode: 409,
+      code: 'upload_failed',
+      message: 'Upload session has failed',
+      failureCode: 'upload_presign_failed',
+      uploadId: expect.any(String),
+    });
+    expect(harness.prisma.$transaction).toHaveBeenNthCalledWith(
+      2,
+      expect.any(Function),
+      { isolationLevel: 'Serializable' },
+    );
+    expect(harness.prisma.imageUpload.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: expect.any(String),
+        createdByAdminId: ADMIN_ID,
+        status: 'pending',
+        presignExpiresAt: new Date('2026-07-12T13:00:00.000Z'),
+      },
+      data: expect.objectContaining({
+        status: 'failed',
+        failureCode: 'upload_presign_failed',
+        terminalAt: NOW,
+        resultRetentionExpiresAt: new Date('2026-08-11T12:00:00.000Z'),
+        temporaryCleanupState: 'pending',
+        temporaryCleanupNextAttemptAt: NOW,
+      }),
+    });
+    expect(
+      harness.prisma.imageUploadIdempotency.updateMany,
+    ).toHaveBeenCalledWith({
+      where: {
+        clientRequestId: CLIENT_REQUEST_ID,
+        createdByAdminId: ADMIN_ID,
+        uploadId: expect.any(String),
+        terminalOutcome: null,
+      },
+      data: {
+        terminalOutcome: 'failed',
+        failureCode: 'upload_presign_failed',
+        terminalAt: NOW,
+        resultRetentionExpiresAt: new Date('2026-08-11T12:00:00.000Z'),
+      },
+    });
+  });
+
+  it('re-reads and returns a concurrent finalizing winner when signing-failure CAS loses', async () => {
+    const harness = createHarness();
+    harness.storage.signFixedExpiryPut.mockRejectedValueOnce(
+      new Error('provider unavailable'),
+    );
+    harness.prisma.imageUpload.updateMany.mockImplementationOnce(async () => {
+      harness.rows.upload = {
+        ...harness.rows.upload,
+        status: 'finalizing',
+        finalizationStartedAt: NOW,
+      };
+      return { count: 0 };
+    });
+
+    await expect(
+      harness.createService().getUploadUrl(uploadRequest, ADMIN_ID),
+    ).resolves.toEqual({
+      outcome: 'finalizing',
+      statusCode: 409,
+      code: 'upload_finalizing',
+      message: 'Upload session is being finalized',
+      retryAfter: '2026-07-12T12:10:00.000Z',
+      uploadId: expect.any(String),
+    });
+    expect(
+      harness.prisma.imageUploadIdempotency.updateMany,
+    ).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['pending', { outcome: 'pending', statusCode: 200 }],
+    ['finalizing', { outcome: 'finalizing', statusCode: 409 }],
+    ['failed', { outcome: 'failed', statusCode: 409 }],
+  ])('returns the closed %s status outcome', async (status, expected) => {
+    const harness = createHarness(
+      activeUpload({
+        status: status as UploadRow['status'],
+        finalizationStartedAt: status === 'finalizing' ? NOW : null,
+        ...(status === 'failed'
+          ? { failureCode: 'upload_abandoned', terminalAt: NOW }
+          : {}),
+      } as Partial<UploadRow>),
+    );
+
+    await expect(
+      harness.createService().getUploadStatus(UPLOAD_ID, ADMIN_ID),
+    ).resolves.toEqual(expect.objectContaining(expected));
+  });
+
+  it('returns the same non-enumerating envelope for an unknown or foreign-owned session', async () => {
+    const unknown = createHarness();
+    unknown.prisma.imageUpload.findUnique.mockResolvedValueOnce(null);
+    const foreign = createHarness({
+      ...activeUpload(),
+      createdByAdminId: 'another-admin',
+    } as UploadRow);
+
+    for (const harness of [unknown, foreign]) {
+      await expect(
+        harness.createService().getUploadStatus(UPLOAD_ID, ADMIN_ID),
+      ).rejects.toMatchObject({
+        response: {
+          statusCode: 404,
+          code: 'upload_not_found',
+          message: 'Upload session was not found',
+        },
+      });
+    }
+  });
+
+  it('replays consumed, deleted, unavailable, and gone outcomes from durable result facts', async () => {
+    const retainedUntil = new Date('2026-08-11T12:00:00.000Z');
+    const consumed = createHarness({
+      ...activeUpload(),
+      status: 'consumed',
+      createdByAdminId: ADMIN_ID,
+      resultImageId: 'image-1',
+      terminalAt: NOW,
+      resultRetentionExpiresAt: retainedUntil,
+    } as UploadRow);
+    consumed.prisma.image.findUnique.mockResolvedValueOnce({
+      id: 'image-1',
+      thumbnailUrl: 'stored://one',
+    });
+    await expect(
+      consumed.createService().getUploadStatus(UPLOAD_ID, ADMIN_ID),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        outcome: 'consumed',
+        resultImageId: 'image-1',
+        retentionExpiresAt: retainedUntil.toISOString(),
+        image: expect.objectContaining({ id: 'image-1' }),
+      }),
+    );
+
+    const deleted = createHarness({
+      ...consumed.rows.upload,
+      resultDeletedAt: NOW,
+    } as UploadRow);
+    await expect(
+      deleted.createService().getUploadStatus(UPLOAD_ID, ADMIN_ID),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        outcome: 'deleted',
+        code: 'upload_result_deleted',
+      }),
+    );
+
+    const unavailable = createHarness(consumed.rows.upload as UploadRow);
+    unavailable.prisma.image.findUnique.mockResolvedValueOnce(null);
+    await expect(
+      unavailable.createService().getUploadStatus(UPLOAD_ID, ADMIN_ID),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        outcome: 'unavailable',
+        code: 'upload_result_unavailable',
+      }),
+    );
+
+    jest.setSystemTime(retainedUntil);
+    await expect(
+      consumed.createService().getUploadStatus(UPLOAD_ID, ADMIN_ID),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        outcome: 'gone',
+        code: 'upload_session_gone',
+      }),
+    );
+  });
+
+  it('returns gone for idempotent presign at the retained-result boundary without replacement or signing', async () => {
+    const retainedUntil = new Date('2026-07-12T12:00:00.000Z');
+    const harness = createHarness({
+      ...activeUpload(),
+      status: 'consumed',
+      createdByAdminId: ADMIN_ID,
+      resultImageId: 'image-1',
+      terminalAt: new Date('2026-06-12T12:00:00.000Z'),
+      resultRetentionExpiresAt: retainedUntil,
+    } as UploadRow);
+    const requestFingerprint = createImageUploadRequestFingerprint({
+      clientRequestId: CLIENT_REQUEST_ID,
+      createdByAdminId: ADMIN_ID,
+      albumId: ALBUM_ID,
+      normalizedFilename: 'portrait.jpg',
+      canonicalMime: 'image/jpeg',
+      fileSize: 1024,
+      processedSha256: PROCESSED_SHA256,
+      policyVersion: POLICY_VERSION,
+    });
+    harness.prisma.imageUploadIdempotency.findUnique.mockResolvedValueOnce({
+      clientRequestId: CLIENT_REQUEST_ID,
+      createdByAdminId: ADMIN_ID,
+      uploadId: UPLOAD_ID,
+      requestFingerprint,
+      terminalOutcome: 'consumed',
+    });
+
+    await expect(
+      harness.createService().getUploadUrl(uploadRequest, ADMIN_ID),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        outcome: 'gone',
+        code: 'upload_session_gone',
+      }),
+    );
+    expect(harness.prisma.imageUpload.create).not.toHaveBeenCalled();
+    expect(harness.storage.signFixedExpiryPut).not.toHaveBeenCalled();
+  });
+
+  it('abandons only an owned pending session and atomically records cleanup and idempotency outcome', async () => {
+    const harness = createHarness({
+      ...activeUpload(),
+      createdByAdminId: ADMIN_ID,
+      clientRequestId: CLIENT_REQUEST_ID,
+      presignExpiresAt: new Date('2026-07-12T13:00:00.000Z'),
+    } as UploadRow);
+
+    await expect(
+      harness.createService().abandonUpload(UPLOAD_ID, ADMIN_ID),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        outcome: 'abandoned',
+        code: 'upload_abandoned',
+      }),
+    );
+    expect(harness.prisma.imageUpload.updateMany).toHaveBeenCalledWith({
+      where: expect.objectContaining({
+        id: UPLOAD_ID,
+        createdByAdminId: ADMIN_ID,
+        status: 'pending',
+      }),
+      data: expect.objectContaining({
+        status: 'failed',
+        failureCode: 'upload_abandoned',
+        temporaryCleanupState: 'pending',
+        temporaryCleanupNextAttemptAt: NOW,
+      }),
+    });
+    expect(
+      harness.prisma.imageUploadIdempotency.updateMany,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          terminalOutcome: 'failed',
+          failureCode: 'upload_abandoned',
+        }),
+      }),
+    );
+    expect(harness.rows.upload.presignExpiresAt).toEqual(
+      new Date('2026-07-12T13:00:00.000Z'),
+    );
+  });
+
+  it.each([
+    ['finalizing', { outcome: 'finalizing', code: 'upload_finalizing' }],
+    ['consumed', { outcome: 'consumed', code: 'upload_consumed' }],
+    ['failed', { outcome: 'abandoned', code: 'upload_abandoned' }],
+  ])('returns the stable %s abandon winner', async (status, expected) => {
+    const harness = createHarness({
+      ...activeUpload(),
+      status: status as UploadRow['status'],
+      createdByAdminId: ADMIN_ID,
+      failureCode: status === 'failed' ? 'upload_abandoned' : null,
+      finalizationStartedAt: status === 'finalizing' ? NOW : null,
+    } as UploadRow);
+
+    await expect(
+      harness.createService().abandonUpload(UPLOAD_ID, ADMIN_ID),
+    ).resolves.toEqual(expect.objectContaining(expected));
+    expect(harness.prisma.imageUpload.updateMany).not.toHaveBeenCalled();
   });
 
   it('survives a new ImagesService instance by loading and consuming the persisted session', async () => {

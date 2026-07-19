@@ -11,7 +11,11 @@ export class ImageDeletionService {
 
   async processPending(limit = 100) {
     const rows = await this.prisma.imageObjectDeletion.findMany({
-      where: { provider: 'r2', status: 'pending' },
+      where: {
+        provider: 'r2',
+        status: 'pending',
+        authority: { in: ['current_result', 'legacy_image'] },
+      },
       orderBy: { createdAt: 'asc' },
       take: limit,
     });

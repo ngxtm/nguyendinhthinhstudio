@@ -510,10 +510,18 @@ export class AlbumsService {
               status: { in: ['pending', 'finalizing'] },
             },
           });
-          if (activeUploads > 0) {
-            throw new ConflictException(
-              'Album is locked for deletion; retry after active uploads finish or expire',
-            );
+          const pendingPromotions = await tx.imageUploadPromotion.count({
+            where: {
+              albumId: id,
+              disposition: { in: ['pending', 'cleanup_required'] },
+            },
+          });
+          if (activeUploads > 0 || pendingPromotions > 0) {
+            throw new ConflictException({
+              statusCode: 409,
+              code: 'album_cleanup_pending',
+              message: 'Album cleanup is still pending',
+            });
           }
 
           for (const image of album.images) {
@@ -537,10 +545,10 @@ export class AlbumsService {
               update: {},
             });
           }
-          await tx.imageUpload.deleteMany({
-            where: { albumId: id, status: { in: ['consumed', 'failed'] } },
+          await tx.album.update({
+            where: { id },
+            data: { deleteStatus: 'deleted' },
           });
-          await tx.album.delete({ where: { id } });
           return album.images.length;
         },
         { isolationLevel: 'Serializable' as any },
