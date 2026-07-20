@@ -5,6 +5,7 @@
 
 import { apiClient, adminApiClient, uploadFile } from './client';
 import type { Image } from './albums';
+import type { ConfirmResponse, PolicyResponse, PresignResponse, UploadPresignRequest, UploadSessionStatusResponse, AbandonResponse } from '@ndt/types';
 
 export interface UploadUrlResponse {
   uploadUrl: string;
@@ -17,6 +18,43 @@ export interface UploadRequestDto {
   filename: string;
   fileSize: number;
   contentType: string;
+}
+
+export class UploadApiError extends Error {
+  constructor(readonly code: string, readonly retryAfter?: string) { super(code); }
+}
+
+function assertOutcome<T extends { outcome?: unknown }>(value: unknown, allowed: readonly string[]): T {
+  if (!value || typeof value !== 'object' || !allowed.includes(String((value as any).outcome))) throw new UploadApiError('unexpected_upload_response');
+  return value as T;
+}
+
+export async function loadUploadPolicy(): Promise<PolicyResponse> {
+  const response = await adminApiClient<unknown>('/images/upload-policy');
+  const value = response as any;
+  if (!value || typeof value.policyVersion !== 'string' || !value.policy) throw new UploadApiError('unexpected_upload_response');
+  return value as PolicyResponse;
+}
+
+export async function requestUploadUrl(request: UploadPresignRequest): Promise<PresignResponse> {
+  const response = await adminApiClient<unknown>('/images/upload-url', { method: 'POST', body: JSON.stringify(request) });
+  return assertOutcome<PresignResponse>(response, ['ready', 'finalizing', 'consumed', 'failed', 'gone', 'deleted', 'unavailable']);
+}
+
+export async function confirmImageUpload(uploadId: string): Promise<ConfirmResponse> {
+  return assertOutcome<ConfirmResponse>(await adminApiClient<unknown>('/images/confirm-upload', { method: 'POST', body: JSON.stringify({ uploadId }) }), ['finalizing', 'consumed', 'failed', 'gone', 'deleted', 'unavailable', 'retryable']);
+}
+
+export async function getUploadStatus(uploadId: string): Promise<UploadSessionStatusResponse> {
+  return assertOutcome<UploadSessionStatusResponse>(await adminApiClient<unknown>(`/images/upload-sessions/${encodeURIComponent(uploadId)}`), ['pending', 'finalizing', 'consumed', 'failed', 'gone', 'deleted', 'unavailable']);
+}
+
+export async function abandonImageUpload(uploadId: string): Promise<AbandonResponse> {
+  return assertOutcome<AbandonResponse>(await adminApiClient<unknown>(`/images/upload-sessions/${encodeURIComponent(uploadId)}/abandon`, { method: 'POST' }), ['abandoned', 'finalizing', 'consumed', 'failed', 'gone', 'deleted', 'unavailable']);
+}
+
+export function createClientRequestId(): string {
+  return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
 /**

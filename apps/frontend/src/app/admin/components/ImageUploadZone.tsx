@@ -9,6 +9,8 @@ import { useState, useRef, useCallback } from 'react';
 import { Upload, X, FileImage, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { uploadImage } from '@/lib/api';
+import { ImageUploadProgress } from './ImageUploadProgress';
+import { ImageUploadErrors } from './ImageUploadErrors';
 
 interface Props {
   albumId: string;
@@ -322,10 +324,10 @@ export default function ImageUploadZone({ albumId, onUploadComplete }: Props) {
           {dragActive ? 'Thả file vào đây' : 'Kéo thả hoặc click để chọn ảnh'}
         </p>
         <p className="text-sm text-gray-500">
-          Hỗ trợ: JPG, PNG, WebP, GIF - Tối đa 100MB/ảnh
+          Hỗ trợ: JPG, PNG, WebP - Tối đa 100MB/ảnh
         </p>
         <p className="text-xs text-gray-400 mt-1">
-          ✨ Ảnh lớn hơn 10MB sẽ tự động được nén để tối ưu upload
+          Ảnh sẽ được kiểm tra và tối ưu theo policy trước khi upload
         </p>
 
         <input
@@ -428,16 +430,15 @@ export default function ImageUploadZone({ albumId, onUploadComplete }: Props) {
                   {/* Status Text - Simple */}
                   {fileItem.status === 'uploading' && (
                     <p className="mt-1 text-sm text-blue-600 font-medium">
-                      Đang upload...
+                      Đang xử lý...
                     </p>
+                  )}
+                  {(fileItem.status === 'pending' || fileItem.status === 'uploading') && (
+                    <ImageUploadProgress progress={fileItem.progress} state={fileItem.status === 'uploading' ? 'Đang upload' : 'Đang chờ'} />
                   )}
 
                   {/* Error Message */}
-                  {fileItem.error && (
-                    <p className="mt-1 text-sm text-red-600">
-                      ❌ {fileItem.error}
-                    </p>
-                  )}
+                  {fileItem.error && <ImageUploadErrors code={fileItem.error} onRetry={() => handleRetryFile(index)} onRemove={() => removeFile(index)} />}
                 </div>
 
                 {/* Status Icon */}
