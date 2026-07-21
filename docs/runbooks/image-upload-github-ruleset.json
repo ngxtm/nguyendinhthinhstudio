@@ -16,9 +16,7 @@
                 "required_status_checks": [
                     { "context": "backend-image-upload" },
                     { "context": "image-upload-packaging" },
-                    { "context": "frontend-playwright-chromium" },
-                    { "context": "frontend-stable-chrome" },
-                    { "context": "frontend-image-memory" }
+                    { "context": "frontend-playwright-chromium" }
                 ],
                 "strict_required_status_checks_policy": true,
                 "do_not_enforce_on_create": false

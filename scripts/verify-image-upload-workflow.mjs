@@ -50,9 +50,10 @@ const required = [
     'backend-image-upload',
     'image-upload-packaging',
     'frontend-playwright-chromium',
-    'frontend-stable-chrome',
-    'frontend-image-memory',
 ];
+for (const id of ['frontend-stable-chrome', 'frontend-image-memory']) {
+    if (jobs.has(id)) fail(`${id} must remain a manual release gate, not a GitHub Actions job`);
+}
 
 const staging = jobs.get('image-upload-staging');
 if (!staging) fail('missing image-upload-staging job');
@@ -96,18 +97,6 @@ requireFragments(jobs.get('frontend-playwright-chromium'), 'frontend-playwright-
     'npx --no-install playwright install --with-deps chromium',
     '--project=chromium',
 ]);
-requireFragments(jobs.get('frontend-stable-chrome'), 'frontend-stable-chrome', [
-    'chrome-for-testing-public',
-    'CFT_EXECUTABLE_PATH',
-    '--project=stable-chrome',
-]);
-requireFragments(jobs.get('frontend-image-memory'), 'frontend-image-memory', [
-    'generate-image-upload-memory-fixture.ts',
-    'IMAGE_UPLOAD_MEMORY_FIXTURE',
-    'image-upload-memory.benchmark.ts',
-    '--project=chromium',
-]);
-
 const cftVersion = /CHROME_FOR_TESTING_VERSION:\s*["']?([0-9]+(?:\.[0-9]+){3})["']?/.exec(source);
 if (!cftVersion || Number(cftVersion[1].split('.')[0]) < 136) {
     fail('Chrome for Testing must be pinned to a four-part version >=136');
@@ -147,7 +136,7 @@ const frontendPackage = JSON.parse(read('apps/frontend/package.json'));
 if (frontendPackage.scripts?.['test:focused'] !== 'node --import tsx --test') {
     fail('frontend test:focused must be exactly node --import tsx --test');
 }
-for (const id of ['frontend-playwright-chromium', 'frontend-stable-chrome']) {
+for (const id of ['frontend-playwright-chromium']) {
     const body = jobs.get(id);
     if (/\bnode\s+--test\b/.test(body)) {
         fail(`${id} must not use bare node --test`);
@@ -176,5 +165,5 @@ for (const label of ['optimizedDeltaBytes', 'controlDeltaBytes', 'ratio']) {
     if (!benchmark.includes(label)) fail(`memory benchmark must emit ${label}`);
 }
 
-assert.equal(required.length, 5);
-process.stdout.write('image-upload workflow contract: 5 required jobs verified\n');
+assert.equal(required.length, 3);
+process.stdout.write('image-upload workflow contract: 3 required jobs verified\n');

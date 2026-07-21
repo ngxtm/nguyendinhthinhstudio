@@ -244,7 +244,7 @@ Staging uses long-lived, explicitly non-production R2 and scoped credentials. Ea
 
 A single `test:staging:run` orchestrator owns provisioned run state and executes migration, backend suites, frontend suites, real CopyObject settlement, response-loss polling recovery, promotion-conflict tests, imgproxy rendering, smoke uploads, and cleanup of both exact run-scoped prefixes in `try/finally`. CI adds an `always()` cleanup step as a second safety net.
 
-The live staging job is invoked explicitly through a protected staging environment, is serialized with a CI concurrency group so shared R2 staging prefixes cannot be mutated by competing runs, and always executes the idempotent cleanup fallback. It is separate from the five required pull-request checks. Every object mutation is matched to the current run namespace under the canonical source and destination prefixes.
+The live staging job is invoked explicitly through a protected staging environment, is serialized with a CI concurrency group so shared R2 staging prefixes cannot be mutated by competing runs, and always executes the idempotent cleanup fallback. It is separate from the three required pull-request checks. Every object mutation is matched to the current run namespace under the canonical source and destination prefixes.
 
 Required staging cases include:
 
@@ -274,7 +274,7 @@ The shared policy package emits and the Docker smoke checks the actual files:
 
 Both production images test package resolution through public exports. The backend image also contains the compiled reconciler and cutover entrypoints.
 
-GitHub ruleset verification lists rulesets, fetches the selected ruleset by ID, and validates the exact target ref, active enforcement, required contexts, and bypass actors. Required contexts and effective workflow job names are `backend-image-upload`, `image-upload-packaging`, `frontend-playwright-chromium`, `frontend-stable-chrome`, and `frontend-image-memory`. A branch-protection 404 is acceptable only after ruleset verification succeeds. Backend image-upload coverage is exposed through closed package scripts for the explicit unit and integration path lists, with one aggregate CI script; a bare generic Jest invocation is not sufficient evidence. The memory job generates a deterministic non-sensitive large-image fixture in CI; the local professional photo is optional visual-quality evidence only.
+GitHub ruleset verification lists rulesets, fetches the selected ruleset by ID, and validates the exact target ref, active enforcement, required contexts, and bypass actors. Required contexts and effective workflow job names are `backend-image-upload`, `image-upload-packaging`, and `frontend-playwright-chromium`. A branch-protection 404 is acceptable only after ruleset verification succeeds. Backend image-upload coverage is exposed through closed package scripts for the explicit unit and integration path lists, with one aggregate CI script; a bare generic Jest invocation is not sufficient evidence. Pinned stable-Chrome compatibility and the deterministic non-sensitive large-image memory benchmark remain manual release gates rather than per-PR GitHub Actions jobs; the local professional photo is optional visual-quality evidence only.
 
 The memory fixture is an 8192×8192 RGB JPEG generated with xorshift32 seed `0x4e445431`, the exact pixel formula and Sharp options defined in Stage 08, and expected SHA-256 `1ac11dd1c64d39e79bdd3682bb11871ee2619b07a86fb923ba8412ab6dc3d581` with Sharp 0.35.3. The benchmark serves COOP/COEP headers and uses `performance.measureUserAgentSpecificMemory()` in three separate paired browser processes. Each optimized/control process measures baseline, holds its defined steady-state resources, invokes CDP `HeapProfiler.collectGarbage`, waits two animation frames plus 250 ms, and measures again. Missing/rejected/non-finite metrics, a post-measurement below baseline, fixture byte/digest drift, or reuse of a browser process fails closed.
 
@@ -612,11 +612,11 @@ Required automated coverage includes:
 
 - deterministic policy hash and package ESM/CommonJS export resolution;
 - JPEG/PNG/WebP conformance, terminal bytes, CRC/padding, metadata/ICC, deterministic fuzzing, and bounded-memory behavior;
-- browser capability, orientation corner signatures, target-size decode, one encode, resource ownership, cancellation, response loss, and three-context memory benchmark;
+- browser capability, orientation corner signatures, target-size decode, one encode, resource ownership, cancellation, response loss, and three-pair manual memory benchmark;
 - current-only request validation, owner isolation, idempotent presign/confirm/status/abandon with non-extending absolute PUT expiry across response-loss retries, exact per-admin/per-route PostgreSQL throttling and maintenance/validation order, explicit fingerprint/owner conflict errors, failure behavior, and resets, 30-day result retention, 49/50 admission races, and presigned PUT rejection for wrong Content-Length, wrong Content-Type, required-header mismatch, wrong key, and expiry;
 - tokenized lease contention, stale reclaim, digest/source-ETag mismatch, canonical quoted/unquoted ETag vectors, immediate CopyObject-response settlement, CopyObject response loss with destination-HEAD settlement after 30 seconds, crash-before-call recovery from persisted inspected facts, create-only retry, destination-condition 412, source-condition 412, and all three durable operator resolutions for a destination conflict;
 - legitimate result deletion with a durable object-deletion tombstone, cleanup authority, duplicate polling observations re-entering every current state, restart before/after polling settlement, consumed-session DeleteObject timeout, abandon followed by a late valid PUT, and final absent HEAD only after presign expiry plus clock skew;
-- empty/upgrade migration, pre-migration legacy ambiguity classification, one-shot cutover bridge, dedicated advisory-lock loss, heartbeat freshness, all five reconciler loops, role-secret isolation, Docker runtime artifacts, exact R2/CORS/polling readback, all five required ruleset contexts, deterministic CI memory fixture, real staging R2/imgproxy, operator-only smoke ingress, cold cutover, and roll-forward drill.
+- empty/upgrade migration, pre-migration legacy ambiguity classification, one-shot cutover bridge, dedicated advisory-lock loss, heartbeat freshness, all five reconciler loops, role-secret isolation, Docker runtime artifacts, exact R2/CORS/polling readback, all three required ruleset contexts, deterministic manual-release memory fixture, real staging R2/imgproxy, operator-only smoke ingress, cold cutover, and roll-forward drill.
 
 Every stage runs focused tests, relevant full suites/builds, and `git diff --check`. Provider tests use explicitly non-production resources and fail when credentials or identities can match production.
 
@@ -646,7 +646,7 @@ The design is complete when:
 - legacy pre-dispatch rows do not receive invented promotion records; every ambiguous legacy row has one revalidated signed row disposition, the audit is bound to the exact quiesced backup, and legacy ambiguity is zero before migration;
 - the exact CORS policy, role-separated R2 identities, and 30-second polling configuration are read back and exercised;
 - staging exercises real R2 CopyObject, response-loss polling recovery, and cleanup behavior;
-- backend, packaging, both browser jobs, and deterministic memory benchmark are required checks;
+- backend, packaging, and bundled-Chromium browser coverage are required checks; pinned stable Chrome and the deterministic memory benchmark are manual release gates;
 - Docker smoke tests use real build artifacts;
 - general upload ingress opens only after operator-only acceptance passes;
 - production cutover and incident recovery are roll-forward only.

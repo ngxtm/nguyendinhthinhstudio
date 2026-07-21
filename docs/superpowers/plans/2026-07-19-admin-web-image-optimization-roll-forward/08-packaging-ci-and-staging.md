@@ -117,15 +117,13 @@ The script parses the workflow and requires jobs named exactly:
 backend-image-upload
 image-upload-packaging
 frontend-playwright-chromium
-frontend-stable-chrome
-frontend-image-memory
 ```
 
-Each required job must also set its effective workflow `name` to the exact context above. Add backend package scripts named exactly `test:image-upload:unit`, `test:image-upload:integration`, and `test:image-upload:ci`; the first two contain closed explicit committed test-path lists and the aggregate script invokes both. The verifier must prove from each job's `run` steps that `backend-image-upload` executes `npm run test:image-upload:ci --workspace=backend`, reject a bare generic Jest invocation as sufficient coverage, prove `test:focused` invokes `node --import tsx --test` and receives explicit frontend test paths rather than inheriting the full-suite glob, and reject bare `node --test` because it cannot resolve the workspace's extensionless TypeScript imports. It also proves `image-upload-packaging` builds both production images and validates Compose, each browser job executes its required Playwright project, and `frontend-image-memory` generates then benchmarks the deterministic fixture. No required job may use job/step `continue-on-error`, a change-based conditional skip, or an unpinned browser channel. The benchmark must emit absolute memory delta, control delta, and relative ratio.
+Each required job must also set its effective workflow `name` to the exact context above. Add backend package scripts named exactly `test:image-upload:unit`, `test:image-upload:integration`, and `test:image-upload:ci`; the first two contain closed explicit committed test-path lists and the aggregate script invokes both. The verifier must prove from each job's `run` steps that `backend-image-upload` executes `npm run test:image-upload:ci --workspace=backend`, reject a bare generic Jest invocation as sufficient coverage, prove `test:focused` invokes `node --import tsx --test` and receives explicit frontend test paths rather than inheriting the full-suite glob, and reject bare `node --test` because it cannot resolve the workspace's extensionless TypeScript imports. It also proves `image-upload-packaging` builds both production images and validates Compose, and that the required browser job executes bundled Chromium. No required job may use job/step `continue-on-error`, a change-based conditional skip, or an unpinned browser channel. `frontend-stable-chrome` and `frontend-image-memory` must not exist as workflow jobs; their test/config assets remain manual release gates, and the benchmark must still emit absolute memory delta, control delta, and relative ratio.
 
 - [x] **Step 2: Add pinned browsers and fail-closed projects**
 
-Use Playwright bundled Chromium and a Chrome for Testing version pinned in workflow config with major at least 136. Missing binary, failed capability probe, skipped required project, or a required job that never executes its contract command fails the workflow verifier and the job.
+Use Playwright bundled Chromium in required CI and keep a Chrome for Testing version pinned in workflow config with major at least 136 for the manual stable-Chrome release gate. Missing bundled Chromium, failed capability probe, skipped required Chromium project, or a required job that never executes its contract command fails the workflow verifier and the job. Missing `CFT_EXECUTABLE_PATH` fails the manual stable-Chrome project closed.
 
 - [x] **Step 3: Implement the benchmark gate**
 
@@ -176,7 +174,7 @@ assert.equal(
 );
 ```
 
-Do not call `withMetadata`; the output must contain no optional metadata. With the pinned Sharp build, require exactly 53,114,115 bytes and SHA-256 `1ac11dd1c64d39e79bdd3682bb11871ee2619b07a86fb923ba8412ab6dc3d581`. Any byte count or digest drift fails and prints the observed values. The generator refuses repository output paths and prints only the temp path, byte count, and digest; `frontend-image-memory` passes that path to the benchmark.
+Do not call `withMetadata`; the output must contain no optional metadata. With the pinned Sharp build, require exactly 53,114,115 bytes and SHA-256 `1ac11dd1c64d39e79bdd3682bb11871ee2619b07a86fb923ba8412ab6dc3d581`. Any byte count or digest drift fails and prints the observed values. The generator refuses repository output paths and prints only the temp path, byte count, and digest; the manual release command passes that path to the benchmark.
 
 Serve the benchmark with `Cross-Origin-Opener-Policy: same-origin` and `Cross-Origin-Embedder-Policy: require-corp`; assert `crossOriginIsolated === true`. For each of three pairs, launch separate browser processes for optimized and full-decode control; do not reuse a Playwright browser/context. In each process, fetch and retain the same fixture ArrayBuffer, run CDP `HeapProfiler.collectGarbage`, wait two animation frames plus 250 ms, and take the baseline with `performance.measureUserAgentSpecificMemory()`. The optimized process executes the production target-size path and holds its final output Blob and bounded thumbnail. The control process decodes without target sizing and holds the full decoded frame. Repeat garbage collection/wait/measurement, then compute `delta=after.bytes-before.bytes`.
 
@@ -195,12 +193,14 @@ optimized memory delta <= 0.50 × full-decode control delta
 node scripts/verify-image-upload-workflow.mjs
 npm test --workspace=frontend
 npm exec --workspace=frontend -- playwright -- test test/image-upload.browser.spec.ts --project=chromium
+$env:CFT_EXECUTABLE_PATH = "<path-to-pinned-Chrome-for-Testing-148.0.7778.96/chrome.exe>"
+npm exec --workspace=frontend -- playwright -- test test/image-upload.browser.spec.ts --project=stable-chrome
 $env:IMAGE_UPLOAD_MEMORY_FIXTURE = Join-Path $env:TEMP "ndt-image-upload-memory-fixture.jpg"
 npm exec --workspace=backend -- tsx -- test/generate-image-upload-memory-fixture.ts --output $env:IMAGE_UPLOAD_MEMORY_FIXTURE
 npm exec --workspace=frontend -- playwright -- test test/benchmark/image-upload-memory.benchmark.ts --project=chromium
 ```
 
-Expected: the five-job workflow contract, frontend tests, bundled Chromium, deterministic fixture digest check, and memory thresholds pass.
+Expected: the three-job required workflow contract and bundled Chromium pass in CI; the explicit local commands also prove pinned stable-Chrome compatibility, the deterministic fixture digest, and memory thresholds before release.
 
 ### Task 3: Apply and prove the GitHub ruleset
 
@@ -218,9 +218,7 @@ The payload targets `refs/heads/main`, uses `enforcement=active`, has no bypass 
 [
     { "context": "backend-image-upload" },
     { "context": "image-upload-packaging" },
-    { "context": "frontend-playwright-chromium" },
-    { "context": "frontend-stable-chrome" },
-    { "context": "frontend-image-memory" }
+    { "context": "frontend-playwright-chromium" }
 ]
 ```
 
@@ -403,7 +401,7 @@ Before cleanup require exact CORS readback, no unresolved run promotion, no open
 
 In `finally`, delete only `uploads/staging/{runId}/` and `albums/staging/{runId}/`, stop/drop the disposable database, and update the receipt. Do not delete the long-lived Queue, DLQ, consumer, rule, deny-canary bucket, or credentials. A cleanup rerun derives scope from the retained run ID/receipt and exits 0 only after both prefixes and run messages are absent.
 
-CI adds a sixth, non-ruleset staging job that runs only for explicit `workflow_dispatch`, targets a protected `staging` environment, and is serialized independently from the five required pull-request jobs:
+CI adds a fourth, non-ruleset staging job that runs only for explicit `workflow_dispatch`, targets a protected `staging` environment, and is serialized independently from the three required pull-request jobs:
 
 ```yaml
 image-upload-staging:
@@ -420,7 +418,7 @@ image-upload-staging:
       run: npm run test:staging:cleanup --workspace=backend
 ```
 
-The protected environment owns the staging secrets and requires operator approval before release. The workflow verifier permits this explicit event guard only for `image-upload-staging`; none of the five ruleset-required jobs may be conditionally skipped.
+The protected environment owns the staging secrets and requires operator approval before release. The workflow verifier permits this explicit event guard only for `image-upload-staging`; none of the three ruleset-required jobs may be conditionally skipped.
 
 - [ ] **Step 6: Verify orchestrator tests**
 

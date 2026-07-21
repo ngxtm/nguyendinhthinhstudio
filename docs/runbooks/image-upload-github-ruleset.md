@@ -1,6 +1,6 @@
 # Image-upload GitHub ruleset
 
-This runbook installs and verifies the `main-image-upload-required-checks` repository ruleset for `refs/heads/main`. It has active enforcement, no bypass actors, strict status-check freshness, and exactly the five image-upload workflow contexts in the reviewed JSON payload.
+This runbook installs and verifies the `main-image-upload-required-checks` repository ruleset for `refs/heads/main`. It has active enforcement, no bypass actors, strict status-check freshness, and exactly three image-upload workflow contexts in the reviewed JSON payload. Stable Chrome and the deterministic memory benchmark remain manual release gates so they do not consume the repository's limited GitHub Actions minutes on every pull request.
 
 ## Safety boundary
 

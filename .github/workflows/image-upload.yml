@@ -84,49 +84,6 @@ jobs:
             - run: npx --no-install playwright test test/image-upload.browser.spec.ts --project=chromium
               working-directory: apps/frontend
 
-    frontend-stable-chrome:
-        name: frontend-stable-chrome
-        runs-on: ubuntu-24.04
-        timeout-minutes: 20
-        steps:
-            - uses: actions/checkout@v4
-            - uses: actions/setup-node@v4
-              with:
-                  node-version: '24.14.0'
-                  cache: npm
-            - run: npm ci
-            - run: npm run build --workspace=@ndt/image-upload-policy
-            - run: npm run test:focused --workspace=frontend -- test/image-upload-capability.test.ts test/image-upload-policy.test.ts
-            - run: npx --no-install playwright install-deps chromium
-              working-directory: apps/frontend
-            - name: Install pinned Chrome for Testing
-              run: |
-                  curl --fail --location --retry 3 \
-                    --output "$RUNNER_TEMP/chrome-for-testing.zip" \
-                    "https://storage.googleapis.com/chrome-for-testing-public/${CHROME_FOR_TESTING_VERSION}/linux64/chrome-linux64.zip"
-                  unzip -q "$RUNNER_TEMP/chrome-for-testing.zip" -d "$RUNNER_TEMP/chrome-for-testing"
-                  echo "CFT_EXECUTABLE_PATH=$RUNNER_TEMP/chrome-for-testing/chrome-linux64/chrome" >> "$GITHUB_ENV"
-            - run: npx --no-install playwright test test/image-upload.browser.spec.ts --project=stable-chrome
-              working-directory: apps/frontend
-
-    frontend-image-memory:
-        name: frontend-image-memory
-        runs-on: ubuntu-24.04
-        timeout-minutes: 30
-        steps:
-            - uses: actions/checkout@v4
-            - uses: actions/setup-node@v4
-              with:
-                  node-version: '24.14.0'
-                  cache: npm
-            - run: npm ci
-            - run: npm run build --workspace=@ndt/image-upload-policy
-            - run: npx --no-install playwright install --with-deps chromium
-              working-directory: apps/frontend
-            - run: npm exec --workspace=backend -- tsx -- test/generate-image-upload-memory-fixture.ts --output "$RUNNER_TEMP/ndt-image-upload-memory-fixture.jpg"
-            - run: IMAGE_UPLOAD_MEMORY_FIXTURE="$RUNNER_TEMP/ndt-image-upload-memory-fixture.jpg" npx --no-install playwright test test/benchmark/image-upload-memory.benchmark.ts --project=chromium
-              working-directory: apps/frontend
-
     image-upload-staging:
         name: image-upload-staging
         if: github.event_name == 'workflow_dispatch'

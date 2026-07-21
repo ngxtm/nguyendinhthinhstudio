@@ -11,8 +11,6 @@ const REQUIRED_CONTEXTS = [
     'backend-image-upload',
     'image-upload-packaging',
     'frontend-playwright-chromium',
-    'frontend-stable-chrome',
-    'frontend-image-memory',
 ];
 const root = resolve(import.meta.dirname, '..');
 const payloadPath = resolve(root, 'docs/runbooks/image-upload-github-ruleset.json');
