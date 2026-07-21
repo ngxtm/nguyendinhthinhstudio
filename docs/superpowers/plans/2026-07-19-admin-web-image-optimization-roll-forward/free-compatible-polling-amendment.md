@@ -260,11 +260,13 @@ npm run build --workspace=backend
 git diff --check
 ```
 
-- [ ] **Step 5: Run live staging only after explicit mutation approval**
+- [x] **Step 5: Run live staging only after explicit mutation approval**
 
 Prove real R2 PUT/COPY/HEAD/DELETE, response-loss polling recovery, create-only overwrite denial, allowed/denied CORS, imgproxy rendering, and exact cleanup. Store only sanitized receipt hashes and IDs.
 
-- [ ] **Step 6: Mark the Queue deletion reminder ready**
+Fresh evidence: GitHub Actions run `29847372686` on commit `1b1f04a31ce706da4d5b850187a04f29c5387854` completed all four jobs successfully. Its sanitized provider evidence recorded `deny=4/4`, create-only denial, exact response-loss HEAD settlement after 31,407 ms, allowed/denied CORS, read-only imgproxy rendering, and successful idempotent cleanup.
+
+- [x] **Step 6: Mark the Queue deletion reminder ready**
 
 After repository/workflow scans show no runtime dependency and live staging passes, instruct the account operator to delete:
 
@@ -274,6 +276,8 @@ ndt-studio-image-upload-staging-dlq
 ```
 
 Never delete them earlier; this step requires a fresh zero-reference scan.
+
+Fresh scan classification: remaining Queue/Event Notification strings are limited to fail-closed obsolete-variable guards and their tests, schema-absence assertions, and explicit historical/removal documentation. No active runtime, workflow, deployment, or provider-settlement dependency remains.
 
 ### Task A5: Stage 09 — cut over with polling gates
 
@@ -303,7 +307,7 @@ Production mutation still requires the explicit approvals already required by St
 
 ### Task A6: Plan and repository consistency gate
 
-- [ ] **Step 1: Verify no normative Queue/Event Notification dependency remains**
+- [x] **Step 1: Verify no normative Queue/Event Notification dependency remains**
 
 Run:
 
@@ -311,12 +315,12 @@ Run:
 rg -n -i "NDT_.*QUEUE|IMAGE_UPLOAD_.*QUEUE|EVENT_RULE_ID|providerEvent|cloudflare-queue|DLQ|event notification" apps .github scripts docker-compose.yml docs/runbooks
 ```
 
-Expected: no runtime/workflow/runbook dependency; only explicit historical/supersession text may remain under this plan directory.
+Expected: no active runtime, workflow, deployment, runbook procedure, or provider-settlement dependency. Matches may remain only in fail-closed obsolete-variable guards and their tests, schema-absence assertions, and explicit historical/supersession/removal text.
 
 - [x] **Step 2: Run repository verification**
 
 Run all Stage 08 Task 6 gates, Docker rebuilds, Compose verification, workflow/ruleset verifiers, and `git diff --check`.
 
-- [ ] **Step 3: Tick replacement tasks immediately after fresh evidence**
+- [x] **Step 3: Tick replacement tasks immediately after fresh evidence**
 
 Do not reuse Queue-era test results. Each task above is checked only after its polling-specific command passes.

@@ -420,7 +420,7 @@ image-upload-staging:
 
 The protected environment owns the staging secrets and requires operator approval before release. The workflow verifier permits this explicit event guard only for `image-upload-staging`; none of the three ruleset-required jobs may be conditionally skipped.
 
-- [ ] **Step 6: Verify orchestrator tests**
+- [x] **Step 6: Verify orchestrator tests**
 
 ```powershell
 npm run test:integration --workspace=backend -- run-image-upload-staging.integration-spec.ts
@@ -431,7 +431,7 @@ Expected: injected failures clean up locally; the real run passes and leaves no 
 
 ### Task 6: Stage gate and commit
 
-- [ ] **Step 1: Run packaging and CI checks**
+- [x] **Step 1: Run packaging and CI checks**
 
 ```powershell
 node scripts/verify-image-upload-workflow.mjs
@@ -444,7 +444,7 @@ git diff --check
 
 Expected: workflow/ruleset contracts, images, Compose, and diff checks pass.
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```powershell
 git add .github apps/backend/Dockerfile apps/backend/package.json apps/backend/src/images/docker-runtime-contract.spec.ts apps/backend/src/images/staging-resource-contract.spec.ts apps/backend/src/scripts apps/backend/test apps/frontend/Dockerfile apps/frontend/package.json docker-compose.yml docs/runbooks scripts .gitignore package-lock.json
