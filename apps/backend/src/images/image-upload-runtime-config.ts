@@ -19,13 +19,10 @@ type RuntimeFingerprint = Readonly<{
   presignEnabled: boolean;
   presignClockSkewSeconds: number;
   rateLimitCleanupBatch: number;
+  reconcileGraceMs?: number;
+  reconcileCadenceMs?: number;
   r2Bucket: string;
   canonicalPrefix: string;
-  cloudflareAccountId?: string;
-  queueId?: string;
-  dlqId?: string;
-  sourceConsumerId?: string;
-  dlqConsumerId?: string;
   trustedProxyCount?: number;
 }>;
 
@@ -39,6 +36,8 @@ export type ImageUploadRuntimeConfig = Readonly<{
   presignEnabled: boolean;
   presignClockSkewSeconds: number;
   rateLimitCleanupBatch: number;
+  reconcileGraceMs: number;
+  reconcileCadenceMs: number;
   policyVersion: string;
   r2Endpoint: string;
   r2Bucket: string;
@@ -77,30 +76,32 @@ const roleRequired = {
   reconciler: [
     'IMAGE_UPLOAD_RECONCILER_R2_ACCESS_KEY_ID',
     'IMAGE_UPLOAD_RECONCILER_R2_SECRET_ACCESS_KEY',
-    'IMAGE_UPLOAD_CLOUDFLARE_ACCOUNT_ID',
-    'IMAGE_UPLOAD_QUEUE_ID',
-    'IMAGE_UPLOAD_DLQ_ID',
-    'IMAGE_UPLOAD_SOURCE_CONSUMER_ID',
-    'IMAGE_UPLOAD_DLQ_CONSUMER_ID',
-    'IMAGE_UPLOAD_QUEUE_TOKEN',
+    'IMAGE_UPLOAD_RECONCILE_GRACE_MS',
+    'IMAGE_UPLOAD_RECONCILE_CADENCE_MS',
   ],
   cutover: [
     'IMAGE_UPLOAD_CUTOVER_R2_ACCESS_KEY_ID',
     'IMAGE_UPLOAD_CUTOVER_R2_SECRET_ACCESS_KEY',
-    'IMAGE_UPLOAD_CLOUDFLARE_ACCOUNT_ID',
-    'IMAGE_UPLOAD_QUEUE_ID',
-    'IMAGE_UPLOAD_DLQ_ID',
-    'IMAGE_UPLOAD_SOURCE_CONSUMER_ID',
-    'IMAGE_UPLOAD_DLQ_CONSUMER_ID',
-    'IMAGE_UPLOAD_CUTOVER_QUEUE_TOKEN',
     'IMAGE_UPLOAD_OPERATOR_TOKEN',
   ],
 } as const satisfies Record<ImageUploadProcessRole, readonly string[]>;
 
 const parentOnlyVariables = [
+  'NDT_STAGING_OPERATOR_TOKEN',
+  'NDT_STAGING_CF_READ_TOKEN',
+] as const;
+
+const obsoleteVariables = [
+  'IMAGE_UPLOAD_QUEUE_ID',
+  'IMAGE_UPLOAD_DLQ_ID',
+  'IMAGE_UPLOAD_SOURCE_CONSUMER_ID',
+  'IMAGE_UPLOAD_DLQ_CONSUMER_ID',
+  'IMAGE_UPLOAD_QUEUE_TOKEN',
+  'IMAGE_UPLOAD_CUTOVER_QUEUE_TOKEN',
   'NDT_STAGING_QUEUE_TOKEN',
   'NDT_STAGING_CUTOVER_QUEUE_TOKEN',
-  'NDT_STAGING_CF_READ_TOKEN',
+  'NDT_STAGING_EVENT_RULE_ID',
+  'NDT_PRODUCTION_EVENT_RULE_ID',
 ] as const;
 
 const roleForbidden = {
@@ -119,6 +120,9 @@ const roleForbidden = {
     'IMAGE_UPLOAD_OPERATOR_TOKEN',
     'IMAGE_UPLOAD_API_R2_ACCESS_KEY_ID',
     'IMAGE_UPLOAD_API_R2_SECRET_ACCESS_KEY',
+    'IMGPROXY_BASE_URL',
+    'IMGPROXY_KEY',
+    'IMGPROXY_SALT',
     'IMAGE_UPLOAD_CUTOVER_R2_ACCESS_KEY_ID',
     'IMAGE_UPLOAD_CUTOVER_R2_SECRET_ACCESS_KEY',
     ...parentOnlyVariables,
@@ -127,6 +131,9 @@ const roleForbidden = {
     'IMAGE_UPLOAD_QUEUE_TOKEN',
     'IMAGE_UPLOAD_API_R2_ACCESS_KEY_ID',
     'IMAGE_UPLOAD_API_R2_SECRET_ACCESS_KEY',
+    'IMGPROXY_BASE_URL',
+    'IMGPROXY_KEY',
+    'IMGPROXY_SALT',
     'IMAGE_UPLOAD_RECONCILER_R2_ACCESS_KEY_ID',
     'IMAGE_UPLOAD_RECONCILER_R2_SECRET_ACCESS_KEY',
     ...parentOnlyVariables,
@@ -244,6 +251,12 @@ export function parseImageUploadRuntimeConfig(
 ): ImageUploadRuntimeConfig {
   const role = validateRole(env, expectedRole);
 
+  for (const key of obsoleteVariables) {
+    if (env[key] !== undefined) {
+      throw new TypeError(`${key} is obsolete for free-compatible polling`);
+    }
+  }
+
   for (const key of roleForbidden[role]) {
     if (env[key] !== undefined) {
       throw new TypeError(`${key} is forbidden for ${role}`);
@@ -293,6 +306,14 @@ export function parseImageUploadRuntimeConfig(
     100,
     10_000,
   );
+  const reconcileGraceMs =
+    role === 'reconciler'
+      ? integer(env, 'IMAGE_UPLOAD_RECONCILE_GRACE_MS', 30_000, 30_000)
+      : 30_000;
+  const reconcileCadenceMs =
+    role === 'reconciler'
+      ? integer(env, 'IMAGE_UPLOAD_RECONCILE_CADENCE_MS', 5_000, 5_000)
+      : 5_000;
 
   const policyVersion = required(env, 'IMAGE_UPLOAD_POLICY_VERSION');
   if (policyVersion !== INITIAL_IMAGE_UPLOAD_POLICY_VERSION) {
@@ -305,11 +326,6 @@ export function parseImageUploadRuntimeConfig(
     'DATABASE_URL',
     'IMAGE_UPLOAD_R2_ENDPOINT',
     'IMAGE_UPLOAD_R2_BUCKET',
-    'IMAGE_UPLOAD_CLOUDFLARE_ACCOUNT_ID',
-    'IMAGE_UPLOAD_QUEUE_ID',
-    'IMAGE_UPLOAD_DLQ_ID',
-    'IMAGE_UPLOAD_SOURCE_CONSUMER_ID',
-    'IMAGE_UPLOAD_DLQ_CONSUMER_ID',
   ];
   for (const key of environmentBoundKeys) {
     if (env[key] !== undefined) {
@@ -327,14 +343,6 @@ export function parseImageUploadRuntimeConfig(
     );
   }
 
-  const queueId = env.IMAGE_UPLOAD_QUEUE_ID;
-  const dlqId = env.IMAGE_UPLOAD_DLQ_ID;
-  if (queueId !== undefined && queueId === dlqId) {
-    throw new TypeError(
-      'IMAGE_UPLOAD_DLQ_ID must differ from IMAGE_UPLOAD_QUEUE_ID',
-    );
-  }
-
   const fingerprint: RuntimeFingerprint = Object.freeze({
     role,
     policyVersion,
@@ -346,20 +354,12 @@ export function parseImageUploadRuntimeConfig(
     presignEnabled,
     presignClockSkewSeconds,
     rateLimitCleanupBatch,
+    ...(role === 'reconciler'
+      ? { reconcileGraceMs, reconcileCadenceMs }
+      : {}),
     r2Bucket: values.IMAGE_UPLOAD_R2_BUCKET,
     canonicalPrefix,
     ...(role === 'api' ? { trustedProxyCount: proxies.length } : {}),
-    ...(env.IMAGE_UPLOAD_CLOUDFLARE_ACCOUNT_ID
-      ? { cloudflareAccountId: env.IMAGE_UPLOAD_CLOUDFLARE_ACCOUNT_ID }
-      : {}),
-    ...(queueId ? { queueId } : {}),
-    ...(dlqId ? { dlqId } : {}),
-    ...(env.IMAGE_UPLOAD_SOURCE_CONSUMER_ID
-      ? { sourceConsumerId: env.IMAGE_UPLOAD_SOURCE_CONSUMER_ID }
-      : {}),
-    ...(env.IMAGE_UPLOAD_DLQ_CONSUMER_ID
-      ? { dlqConsumerId: env.IMAGE_UPLOAD_DLQ_CONSUMER_ID }
-      : {}),
   });
 
   return Object.freeze({
@@ -372,6 +372,8 @@ export function parseImageUploadRuntimeConfig(
     presignEnabled,
     presignClockSkewSeconds,
     rateLimitCleanupBatch,
+    reconcileGraceMs,
+    reconcileCadenceMs,
     policyVersion,
     r2Endpoint: values.IMAGE_UPLOAD_R2_ENDPOINT,
     r2Bucket: values.IMAGE_UPLOAD_R2_BUCKET,

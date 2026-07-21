@@ -9,7 +9,7 @@ export class ImageDeletionService {
     private readonly storage: StorageService,
   ) {}
 
-  async processPending(limit = 100) {
+  async processPending(limit = 100, signal?: AbortSignal) {
     const rows = await this.prisma.imageObjectDeletion.findMany({
       where: {
         provider: 'r2',
@@ -23,7 +23,20 @@ export class ImageDeletionService {
     let failed = 0;
     for (const row of rows) {
       try {
-        await this.storage.deleteObject(row.objectKey);
+        if (signal?.aborted) {
+          const error = new Error('image deletion aborted');
+          error.name = 'AbortError';
+          throw error;
+        }
+        await this.storage.deleteObject(row.objectKey, {
+          parentSignal: signal,
+        });
+        const identity = await this.storage.headObjectIdentity(row.objectKey, {
+          parentSignal: signal,
+        });
+        if (identity !== null) {
+          throw new Error('image object remains after deletion');
+        }
         const deletedAt = new Date();
         await this.prisma.$transaction(async (transaction) => {
           await transaction.imageObjectDeletion.update({
@@ -51,16 +64,23 @@ export class ImageDeletionService {
         });
         deleted++;
       } catch (error) {
-        const message =
-          error instanceof Error
-            ? error.message.slice(0, 500)
-            : 'Object deletion failed';
+        if (
+          signal?.aborted ||
+          (error as { name?: string })?.name === 'AbortError'
+        ) {
+          throw error;
+        }
+        const category =
+          error instanceof Error &&
+          error.message === 'image object remains after deletion'
+            ? 'object_still_present'
+            : 'storage_retryable';
         await this.prisma.imageObjectDeletion.update({
           where: { id: row.id },
           data: {
             status: 'pending',
             attempts: { increment: 1 },
-            lastError: message,
+            lastError: category,
           },
         });
         failed++;

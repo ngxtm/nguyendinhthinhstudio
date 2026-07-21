@@ -76,10 +76,11 @@ CREATE TABLE "ImageUploadPromotion" (
   "copyResponseObservedAt" TIMESTAMP(3),
   "copyResponseEtag" TEXT,
   "providerSettlementObservedAt" TIMESTAMP(3),
-  "providerEventId" TEXT,
-  "providerEventObservedAt" TIMESTAMP(3),
-  "settlementSource" TEXT,
-  "providerObjectEtag" TEXT,
+  "destinationHeadObservedAt" TIMESTAMP(3),
+  "destinationHeadEtag" TEXT,
+  "destinationHeadBytes" INTEGER,
+  "destinationHeadMime" TEXT,
+  "destinationHeadMetadataSha256" TEXT,
   "dispatchAttempts" INTEGER NOT NULL DEFAULT 0,
   "lastDispatchAttemptAt" TIMESTAMP(3),
   "nextReconcileAt" TIMESTAMP(3),
@@ -109,25 +110,21 @@ CREATE INDEX "ImageUploadPromotion_albumId_disposition_idx"
 CREATE TABLE "ImageUploadPromotionConflict" (
   "id" TEXT NOT NULL,
   "promotionId" TEXT NOT NULL,
-  "providerEventId" TEXT NOT NULL,
   "accountId" TEXT NOT NULL,
   "bucket" TEXT NOT NULL,
   "sourceObjectKeyHash" TEXT NOT NULL,
   "destinationObjectKeyHash" TEXT NOT NULL,
-  "eventTime" TIMESTAMP(3) NOT NULL,
-  "eventEnvelopeSha256" TEXT NOT NULL,
-  "providerObjectEtag" TEXT NOT NULL,
-  "rejectionDispatchRejectedAt" TIMESTAMP(3) NOT NULL,
-  "rejectionReason" TEXT NOT NULL,
-  "rejectionObservedSourceEtag" TEXT,
-  "rejectionFirstDestinationAbsentAt" TIMESTAMP(3) NOT NULL,
-  "rejectionDestinationAbsentVerifiedAt" TIMESTAMP(3) NOT NULL,
-  "rejectionEvidenceSha256" TEXT NOT NULL,
+  "expectedDestinationEtag" TEXT NOT NULL,
+  "observedDestinationEtag" TEXT,
+  "observedDestinationBytes" INTEGER,
+  "observedDestinationMime" TEXT,
+  "destinationMetadataSha256" TEXT NOT NULL,
+  "mismatchReason" TEXT NOT NULL,
+  "conflictEvidenceSha256" TEXT NOT NULL,
   "state" TEXT NOT NULL,
   "resolution" TEXT,
   "operatorIdentityFingerprint" TEXT,
   "approvalDigest" TEXT,
-  "observedDestinationEtag" TEXT,
   "openedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "resolvedAt" TIMESTAMP(3),
   "finalAbsentVerifiedAt" TIMESTAMP(3),
@@ -135,125 +132,10 @@ CREATE TABLE "ImageUploadPromotionConflict" (
   CONSTRAINT "ImageUploadPromotionConflict_pkey" PRIMARY KEY ("id")
 );
 
-CREATE UNIQUE INDEX "ImageUploadPromotionConflict_promotionId_providerEventId_key"
-  ON "ImageUploadPromotionConflict"("promotionId", "providerEventId");
+CREATE UNIQUE INDEX "ImageUploadPromotionConflict_promotionId_key"
+  ON "ImageUploadPromotionConflict"("promotionId");
 CREATE INDEX "ImageUploadPromotionConflict_state_openedAt_idx"
   ON "ImageUploadPromotionConflict"("state", "openedAt");
-
-CREATE TABLE "ImageUploadProviderEventQuarantine" (
-  "id" TEXT NOT NULL,
-  "providerEventId" TEXT,
-  "messageId" TEXT NOT NULL,
-  "sourceQueueId" TEXT NOT NULL,
-  "currentQueueId" TEXT NOT NULL,
-  "latestLocationObservationSha256" TEXT,
-  "leaseId" TEXT NOT NULL,
-  "leaseDeadline" TIMESTAMP(3) NOT NULL,
-  "attempts" INTEGER NOT NULL,
-  "bodySha256" TEXT NOT NULL,
-  "eventEnvelopeSha256" TEXT,
-  "quarantineFingerprintSha256" TEXT NOT NULL,
-  "reason" TEXT NOT NULL,
-  "firstObservedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  "lastObservedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  "state" TEXT NOT NULL,
-  "resolutionAttemptId" TEXT,
-  "latestResolutionAttemptId" TEXT,
-  "latestResolutionEvidenceSha256" TEXT,
-  "resolution" TEXT,
-  "resolutionStartedAt" TIMESTAMP(3),
-  "acknowledgedLocationCount" INTEGER,
-  "resolutionScanCompletedAt" TIMESTAMP(3),
-  "operatorIdentityFingerprint" TEXT,
-  "approvalDigest" TEXT,
-  "replayQueueId" TEXT,
-  "replayRequestId" TEXT,
-  "replayMessageId" TEXT,
-  "replayRequestedAt" TIMESTAMP(3),
-  "acknowledgedAt" TIMESTAMP(3),
-  "resolvedAt" TIMESTAMP(3),
-  CONSTRAINT "ImageUploadProviderEventQuarantine_pkey" PRIMARY KEY ("id")
-);
-
-CREATE UNIQUE INDEX "ImageUploadProviderEventQuarantine_providerEventId_key"
-  ON "ImageUploadProviderEventQuarantine"("providerEventId");
-CREATE UNIQUE INDEX "ImageUploadProviderEventQuarantine_replayRequestId_key"
-  ON "ImageUploadProviderEventQuarantine"("replayRequestId");
-CREATE UNIQUE INDEX "ImageUploadProviderEventQuarantine_quarantineFingerprintSha256_key"
-  ON "ImageUploadProviderEventQuarantine"("quarantineFingerprintSha256");
-CREATE INDEX "ImageUploadProviderEventQuarantine_state_lastObservedAt_idx"
-  ON "ImageUploadProviderEventQuarantine"("state", "lastObservedAt");
-
-CREATE TABLE "ImageUploadProviderEventQuarantineLocation" (
-  "id" TEXT NOT NULL,
-  "quarantineId" TEXT NOT NULL,
-  "queueKind" TEXT NOT NULL,
-  "queueId" TEXT NOT NULL,
-  "messageId" TEXT NOT NULL,
-  "replayRequestId" TEXT,
-  "leaseId" TEXT NOT NULL,
-  "leaseDeadline" TIMESTAMP(3) NOT NULL,
-  "attempts" INTEGER NOT NULL,
-  "observedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  "locationObservationSha256" TEXT NOT NULL,
-  CONSTRAINT "ImageUploadProviderEventQuarantineLocation_pkey" PRIMARY KEY ("id")
-);
-
-CREATE UNIQUE INDEX "ImageUploadProviderEventQuarantineLocation_locationObservationSha256_key"
-  ON "ImageUploadProviderEventQuarantineLocation"("locationObservationSha256");
-CREATE UNIQUE INDEX "ImageUploadProviderEventQuarantineLocation_quarantineId_locationObservationSha256_key"
-  ON "ImageUploadProviderEventQuarantineLocation"("quarantineId", "locationObservationSha256");
-CREATE INDEX "ImageUploadProviderEventQuarantineLocation_quarantineId_observedAt_idx"
-  ON "ImageUploadProviderEventQuarantineLocation"("quarantineId", "observedAt");
-
-CREATE TABLE "ImageUploadProviderEventQuarantineAction" (
-  "id" TEXT NOT NULL,
-  "quarantineId" TEXT NOT NULL,
-  "resolutionAttemptId" TEXT NOT NULL,
-  "locationObservationSha256" TEXT NOT NULL,
-  "action" TEXT NOT NULL,
-  "queueKind" TEXT NOT NULL,
-  "queueId" TEXT NOT NULL,
-  "messageId" TEXT NOT NULL,
-  "replayRequestId" TEXT,
-  "leaseId" TEXT NOT NULL,
-  "actionEvidenceSha256" TEXT NOT NULL,
-  "providerOutcome" TEXT,
-  "observedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  "actionSha256" TEXT NOT NULL,
-  CONSTRAINT "ImageUploadProviderEventQuarantineAction_pkey" PRIMARY KEY ("id")
-);
-
-CREATE UNIQUE INDEX "ImageUploadProviderEventQuarantineAction_actionSha256_key"
-  ON "ImageUploadProviderEventQuarantineAction"("actionSha256");
-CREATE INDEX "ImageUploadProviderEventQuarantineAction_quarantineId_resolutionAttemptId_observedAt_idx"
-  ON "ImageUploadProviderEventQuarantineAction"("quarantineId", "resolutionAttemptId", "observedAt");
-
-CREATE TABLE "ImageUploadProviderEventQuarantineResolution" (
-  "id" TEXT NOT NULL,
-  "quarantineId" TEXT NOT NULL,
-  "resolution" TEXT NOT NULL,
-  "operatorIdentityFingerprint" TEXT NOT NULL,
-  "approvalDigest" TEXT NOT NULL,
-  "resolutionStartedAt" TIMESTAMP(3) NOT NULL,
-  "acknowledgedLocationCount" INTEGER NOT NULL,
-  "resolutionScanCompletedAt" TIMESTAMP(3) NOT NULL,
-  "replayQueueId" TEXT,
-  "replayRequestId" TEXT,
-  "replayMessageId" TEXT,
-  "replayRequestedAt" TIMESTAMP(3),
-  "acknowledgedAt" TIMESTAMP(3) NOT NULL,
-  "resolvedAt" TIMESTAMP(3) NOT NULL,
-  "resolutionEvidenceSha256" TEXT NOT NULL,
-  CONSTRAINT "ImageUploadProviderEventQuarantineResolution_pkey" PRIMARY KEY ("id")
-);
-
-CREATE UNIQUE INDEX "ImageUploadProviderEventQuarantineResolution_quarantineId_id_key"
-  ON "ImageUploadProviderEventQuarantineResolution"("quarantineId", "id");
-CREATE UNIQUE INDEX "ImageUploadProviderEventQuarantineResolution_resolutionEvidenceSha256_key"
-  ON "ImageUploadProviderEventQuarantineResolution"("resolutionEvidenceSha256");
-CREATE INDEX "ImageUploadProviderEventQuarantineResolution_quarantineId_resolvedAt_idx"
-  ON "ImageUploadProviderEventQuarantineResolution"("quarantineId", "resolvedAt");
 
 CREATE TABLE "ImageUploadRateLimitEvent" (
   "id" BIGSERIAL NOT NULL,
@@ -274,7 +156,6 @@ CREATE TABLE "ImageUploadReconcilerHeartbeat" (
   "buildFingerprint" TEXT NOT NULL,
   "lockAcquiredAt" TIMESTAMP(3) NOT NULL,
   "heartbeatAt" TIMESTAMP(3) NOT NULL,
-  "queueSettlementCompletedAt" TIMESTAMP(3),
   "pendingSessionExpiryCompletedAt" TIMESTAMP(3),
   "promotionRecoveryCompletedAt" TIMESTAMP(3),
   "temporaryCleanupCompletedAt" TIMESTAMP(3),
@@ -326,16 +207,17 @@ ALTER TABLE "ImageUploadPromotion"
       (
         ("copyResponseObservedAt" IS NOT NULL AND "copyResponseEtag" IS NOT NULL) OR
         (
-          "providerEventId" IS NOT NULL AND
-          "providerEventObservedAt" IS NOT NULL AND
-          "settlementSource" IS NOT NULL AND
-          "providerObjectEtag" IS NOT NULL
+          "destinationHeadObservedAt" IS NOT NULL AND
+          "destinationHeadEtag" IS NOT NULL AND
+          "destinationHeadBytes" IS NOT NULL AND
+          "destinationHeadMime" IS NOT NULL AND
+          "destinationHeadMetadataSha256" IS NOT NULL
         )
       ) AND
       (
         "copyResponseEtag" IS NULL OR
-        "providerObjectEtag" IS NULL OR
-        "copyResponseEtag" = "providerObjectEtag"
+        "destinationHeadEtag" IS NULL OR
+        "copyResponseEtag" = "destinationHeadEtag"
       )
     )
   ),
@@ -344,18 +226,20 @@ ALTER TABLE "ImageUploadPromotion"
     (("copyResponseObservedAt" IS NULL) = ("copyResponseEtag" IS NULL)) AND
     ("copyResponseObservedAt" IS NULL OR "copyState" = 'provider_settled')
   ),
-  ADD CONSTRAINT "ImageUploadPromotion_event_evidence_check"
+  ADD CONSTRAINT "ImageUploadPromotion_destination_head_pair_check"
   CHECK (
     (
-      "providerEventId" IS NULL AND
-      "providerEventObservedAt" IS NULL AND
-      "settlementSource" IS NULL AND
-      "providerObjectEtag" IS NULL
+      "destinationHeadObservedAt" IS NULL AND
+      "destinationHeadEtag" IS NULL AND
+      "destinationHeadBytes" IS NULL AND
+      "destinationHeadMime" IS NULL AND
+      "destinationHeadMetadataSha256" IS NULL
     ) OR (
-      "providerEventId" IS NOT NULL AND
-      "providerEventObservedAt" IS NOT NULL AND
-      "settlementSource" IS NOT NULL AND
-      "providerObjectEtag" IS NOT NULL AND
+      "destinationHeadObservedAt" IS NOT NULL AND
+      "destinationHeadEtag" IS NOT NULL AND
+      "destinationHeadBytes" IS NOT NULL AND
+      "destinationHeadMime" IS NOT NULL AND
+      "destinationHeadMetadataSha256" IS NOT NULL AND
       "copyState" = 'provider_settled'
     )
   ),
@@ -368,10 +252,11 @@ ALTER TABLE "ImageUploadPromotion"
       "providerSettlementObservedAt" IS NULL AND
       "copyResponseObservedAt" IS NULL AND
       "copyResponseEtag" IS NULL AND
-      "providerEventId" IS NULL AND
-      "providerEventObservedAt" IS NULL AND
-      "settlementSource" IS NULL AND
-      "providerObjectEtag" IS NULL AND
+      "destinationHeadObservedAt" IS NULL AND
+      "destinationHeadEtag" IS NULL AND
+      "destinationHeadBytes" IS NULL AND
+      "destinationHeadMime" IS NULL AND
+      "destinationHeadMetadataSha256" IS NULL AND
       "committedResultImageId" IS NULL AND
       "firstDestinationAbsentAt" IS NOT NULL AND
       "destinationAbsentVerifiedAt" IS NOT NULL AND
@@ -395,10 +280,6 @@ ALTER TABLE "ImageUploadPromotion"
       "dispatchRejectionObservedSourceEtag" IS NULL
     )
   );
-
-CREATE UNIQUE INDEX "ImageUploadPromotion_settlement_event_key"
-  ON "ImageUploadPromotion"("settlementSource", "providerEventId")
-  WHERE "settlementSource" IS NOT NULL AND "providerEventId" IS NOT NULL;
 
 ALTER TABLE "ImageUpload"
   ADD CONSTRAINT "ImageUpload_temporary_cleanup_state_check"
@@ -466,187 +347,14 @@ ALTER TABLE "ImageObjectDeletion"
     )
   );
 
-ALTER TABLE "ImageUploadProviderEventQuarantineLocation"
-  ADD CONSTRAINT "ImageUploadProviderEventQuarantineLocation_kind_check"
-  CHECK ("queueKind" IN ('source', 'dlq')),
-  ADD CONSTRAINT "ImageUploadProviderEventQuarantineLocation_attempts_check"
-  CHECK ("attempts" >= 1);
-
-ALTER TABLE "ImageUploadProviderEventQuarantineAction"
-  ADD CONSTRAINT "ImageUploadProviderEventQuarantineAction_kind_check"
-  CHECK ("queueKind" IN ('source', 'dlq')),
-  ADD CONSTRAINT "ImageUploadProviderEventQuarantineAction_action_check"
-  CHECK ("action" IN ('ack_requested', 'ack_succeeded', 'replay_publish_requested', 'replay_published')),
-  ADD CONSTRAINT "ImageUploadProviderEventQuarantineAction_replay_identity_check"
-  CHECK (
-    ("action" = 'ack_requested' AND "providerOutcome" IS NULL) OR
-    (
-      "action" = 'replay_publish_requested' AND
-      "replayRequestId" IS NOT NULL AND
-      "providerOutcome" IS NULL
-    ) OR (
-      "action" = 'ack_succeeded' AND
-      "providerOutcome" IN ('acknowledged', 'already_absent')
-    ) OR (
-      "action" = 'replay_published' AND
-      "replayRequestId" IS NOT NULL AND
-      "providerOutcome" IN ('published', 'adopted_after_uncertain_publish')
-    )
-  ),
-  ADD CONSTRAINT "ImageUploadProviderEventQuarantineAction_location_check"
-  CHECK ("locationObservationSha256" IS NOT NULL);
-
-ALTER TABLE "ImageUploadProviderEventQuarantineLocation"
-  ADD CONSTRAINT "ImageUploadProviderEventQuarantineLocation_quarantine_fk"
-  FOREIGN KEY ("quarantineId")
-  REFERENCES "ImageUploadProviderEventQuarantine"("id")
-  ON DELETE RESTRICT;
-
-ALTER TABLE "ImageUploadProviderEventQuarantineAction"
-  ADD CONSTRAINT "ImageUploadProviderEventQuarantineAction_location_fk"
-  FOREIGN KEY ("quarantineId", "locationObservationSha256")
-  REFERENCES "ImageUploadProviderEventQuarantineLocation"("quarantineId", "locationObservationSha256")
-  ON DELETE RESTRICT;
-
-ALTER TABLE "ImageUploadProviderEventQuarantineResolution"
-  ADD CONSTRAINT "ImageUploadProviderEventQuarantineResolution_quarantine_fk"
-  FOREIGN KEY ("quarantineId")
-  REFERENCES "ImageUploadProviderEventQuarantine"("id")
-  ON DELETE RESTRICT,
-  ADD CONSTRAINT "ImageUploadProviderEventQuarantineResolution_resolution_check"
-  CHECK (
-    (
-      "resolution" = 'quarantined_ack' AND
-      "replayQueueId" IS NULL AND
-      "replayRequestId" IS NULL AND
-      "replayMessageId" IS NULL AND
-      "replayRequestedAt" IS NULL
-    ) OR (
-      "resolution" = 'replay_requested' AND
-      "replayQueueId" IS NOT NULL AND
-      "replayRequestId" IS NOT NULL AND
-      "replayMessageId" IS NOT NULL AND
-      "replayRequestedAt" IS NOT NULL AND
-      "resolutionStartedAt" <= "replayRequestedAt" AND
-      "replayRequestedAt" <= "resolutionScanCompletedAt"
-    )
-  ),
-  ADD CONSTRAINT "ImageUploadProviderEventQuarantineResolution_count_check"
-  CHECK ("acknowledgedLocationCount" >= 0),
-  ADD CONSTRAINT "ImageUploadProviderEventQuarantineResolution_time_order_check"
-  CHECK (
-    "resolutionStartedAt" <= "resolutionScanCompletedAt" AND
-    "resolutionScanCompletedAt" <= "acknowledgedAt" AND
-    "acknowledgedAt" <= "resolvedAt" AND
-    (
-      "replayRequestedAt" IS NULL OR (
-        "resolutionStartedAt" <= "replayRequestedAt" AND
-        "replayRequestedAt" <= "acknowledgedAt"
-      )
-    )
-  );
-
-ALTER TABLE "ImageUploadProviderEventQuarantine"
-  ADD CONSTRAINT "ImageUploadProviderEventQuarantine_state_check"
-  CHECK ("state" IN ('open', 'resolving', 'resolved')),
-  ADD CONSTRAINT "ImageUploadProviderEventQuarantine_reason_check"
-  CHECK ("reason" IN ('malformed_event', 'unmatched_event')),
-  ADD CONSTRAINT "ImageUploadProviderEventQuarantine_envelope_evidence_check"
-  CHECK (
-    (
-      "reason" = 'malformed_event' AND
-      "eventEnvelopeSha256" IS NULL AND
-      "providerEventId" IS NULL
-    ) OR (
-      "reason" = 'unmatched_event' AND
-      "eventEnvelopeSha256" IS NOT NULL AND
-      "providerEventId" IS NOT NULL
-    )
-  ),
-  ADD CONSTRAINT "ImageUploadProviderEventQuarantine_resolution_check"
-  CHECK (
-    (
-      "state" = 'open' AND
-      "resolutionAttemptId" IS NULL AND
-      "resolution" IS NULL AND
-      "resolutionStartedAt" IS NULL AND
-      "acknowledgedLocationCount" IS NULL AND
-      "resolutionScanCompletedAt" IS NULL AND
-      "operatorIdentityFingerprint" IS NULL AND
-      "approvalDigest" IS NULL AND
-      "replayQueueId" IS NULL AND
-      "replayRequestId" IS NULL AND
-      "replayMessageId" IS NULL AND
-      "replayRequestedAt" IS NULL AND
-      "acknowledgedAt" IS NULL AND
-      "resolvedAt" IS NULL
-    ) OR (
-      "state" = 'resolving' AND
-      "resolutionAttemptId" IS NOT NULL AND
-      "resolution" IN ('quarantined_ack', 'replay_requested') AND
-      "resolutionStartedAt" IS NOT NULL AND
-      "operatorIdentityFingerprint" IS NOT NULL AND
-      "approvalDigest" IS NOT NULL AND
-      "acknowledgedAt" IS NULL AND
-      "resolvedAt" IS NULL
-    ) OR (
-      "state" = 'resolved' AND
-      "resolutionAttemptId" IS NOT NULL AND
-      "latestResolutionAttemptId" = "resolutionAttemptId" AND
-      "latestResolutionEvidenceSha256" IS NOT NULL AND
-      "resolution" = 'quarantined_ack' AND
-      "resolutionStartedAt" IS NOT NULL AND
-      "acknowledgedLocationCount" >= 0 AND
-      "resolutionScanCompletedAt" IS NOT NULL AND
-      "operatorIdentityFingerprint" IS NOT NULL AND
-      "approvalDigest" IS NOT NULL AND
-      "replayQueueId" IS NULL AND
-      "replayRequestId" IS NULL AND
-      "replayMessageId" IS NULL AND
-      "replayRequestedAt" IS NULL AND
-      "acknowledgedAt" IS NOT NULL AND
-      "resolvedAt" IS NOT NULL
-    ) OR (
-      "state" = 'resolved' AND
-      "resolutionAttemptId" IS NOT NULL AND
-      "latestResolutionAttemptId" = "resolutionAttemptId" AND
-      "latestResolutionEvidenceSha256" IS NOT NULL AND
-      "resolution" = 'replay_requested' AND
-      "resolutionStartedAt" IS NOT NULL AND
-      "acknowledgedLocationCount" >= 0 AND
-      "resolutionScanCompletedAt" IS NOT NULL AND
-      "operatorIdentityFingerprint" IS NOT NULL AND
-      "approvalDigest" IS NOT NULL AND
-      "replayQueueId" IS NOT NULL AND
-      "replayRequestId" IS NOT NULL AND
-      "replayMessageId" IS NOT NULL AND
-      "replayRequestedAt" IS NOT NULL AND
-      "resolutionStartedAt" <= "replayRequestedAt" AND
-      "replayRequestedAt" <= "resolutionScanCompletedAt" AND
-      "acknowledgedAt" IS NOT NULL AND
-      "resolvedAt" IS NOT NULL
-    )
-  ),
-  ADD CONSTRAINT "ImageUploadProviderEventQuarantine_attempts_check"
-  CHECK ("attempts" >= 1);
-
 ALTER TABLE "ImageUploadPromotionConflict"
   ADD CONSTRAINT "ImageUploadPromotionConflict_state_check"
   CHECK ("state" IN ('open', 'resolved')),
-  ADD CONSTRAINT "ImageUploadPromotionConflict_rejection_snapshot_check"
+  ADD CONSTRAINT "ImageUploadPromotionConflict_mismatch_check"
   CHECK (
-    "rejectionReason" IN ('source_missing', 'source_etag_mismatch') AND
-    "rejectionDestinationAbsentVerifiedAt" > "rejectionFirstDestinationAbsentAt" AND
-    "rejectionDispatchRejectedAt" >= "rejectionDestinationAbsentVerifiedAt" AND
-    (
-      (
-        "rejectionReason" = 'source_missing' AND
-        "rejectionObservedSourceEtag" IS NULL
-      ) OR (
-        "rejectionReason" = 'source_etag_mismatch' AND
-        "rejectionObservedSourceEtag" IS NOT NULL
-      )
-    )
+    "mismatchReason" IN ('destination_etag_mismatch', 'destination_metadata_mismatch') AND
+    "expectedDestinationEtag" IS NOT NULL AND
+    "destinationMetadataSha256" IS NOT NULL
   ),
   ADD CONSTRAINT "ImageUploadPromotionConflict_resolution_check"
   CHECK (
@@ -656,16 +364,9 @@ ALTER TABLE "ImageUploadPromotionConflict"
       "resolvedAt" IS NULL
     ) OR (
       "state" = 'resolved' AND
-      "resolution" IN ('confirmed_absent_ack', 'cleanup_authorized', 'committed_authorized') AND
+      "resolution" IN ('confirmed_absent', 'cleanup_authorized', 'committed_authorized') AND
       "resolvedAt" IS NOT NULL AND
       "operatorIdentityFingerprint" IS NOT NULL AND
       "approvalDigest" IS NOT NULL
     )
   );
-
-ALTER TABLE "ImageUploadProviderEventQuarantine"
-  ADD CONSTRAINT "ImageUploadProviderEventQuarantine_latest_resolution_fk"
-  FOREIGN KEY ("id", "latestResolutionAttemptId")
-  REFERENCES "ImageUploadProviderEventQuarantineResolution"("quarantineId", "id")
-  ON DELETE NO ACTION
-  DEFERRABLE INITIALLY DEFERRED;

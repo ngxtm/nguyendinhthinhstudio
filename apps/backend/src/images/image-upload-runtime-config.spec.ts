@@ -36,12 +36,8 @@ const reconciler = {
   IMAGE_UPLOAD_PROCESS_ROLE: 'reconciler',
   IMAGE_UPLOAD_RECONCILER_R2_ACCESS_KEY_ID: 'reconciler-access-key',
   IMAGE_UPLOAD_RECONCILER_R2_SECRET_ACCESS_KEY: 'reconciler-secret-key',
-  IMAGE_UPLOAD_CLOUDFLARE_ACCOUNT_ID: 'production-account-id',
-  IMAGE_UPLOAD_QUEUE_ID: 'production-source-queue-id',
-  IMAGE_UPLOAD_DLQ_ID: 'production-dlq-id',
-  IMAGE_UPLOAD_SOURCE_CONSUMER_ID: 'production-source-consumer-id',
-  IMAGE_UPLOAD_DLQ_CONSUMER_ID: 'production-dlq-consumer-id',
-  IMAGE_UPLOAD_QUEUE_TOKEN: 'queue-token',
+  IMAGE_UPLOAD_RECONCILE_GRACE_MS: '30000',
+  IMAGE_UPLOAD_RECONCILE_CADENCE_MS: '5000',
 };
 
 const cutover = {
@@ -49,12 +45,6 @@ const cutover = {
   IMAGE_UPLOAD_PROCESS_ROLE: 'cutover',
   IMAGE_UPLOAD_CUTOVER_R2_ACCESS_KEY_ID: 'cutover-access-key',
   IMAGE_UPLOAD_CUTOVER_R2_SECRET_ACCESS_KEY: 'cutover-secret-key',
-  IMAGE_UPLOAD_CLOUDFLARE_ACCOUNT_ID: 'production-account-id',
-  IMAGE_UPLOAD_QUEUE_ID: 'production-source-queue-id',
-  IMAGE_UPLOAD_DLQ_ID: 'production-dlq-id',
-  IMAGE_UPLOAD_SOURCE_CONSUMER_ID: 'production-source-consumer-id',
-  IMAGE_UPLOAD_DLQ_CONSUMER_ID: 'production-dlq-consumer-id',
-  IMAGE_UPLOAD_CUTOVER_QUEUE_TOKEN: 'cutover-queue-token',
   IMAGE_UPLOAD_OPERATOR_TOKEN: 'operator-token',
 };
 
@@ -78,6 +68,9 @@ describe('parseImageUploadRuntimeConfig', () => {
         decodePermitsPerProcess: 2,
         r2ControlTimeoutSeconds: 30,
         r2ReadTimeoutSeconds: 60,
+        ...(role === 'reconciler'
+          ? { reconcileGraceMs: 30_000, reconcileCadenceMs: 5_000 }
+          : {}),
         ...(role === 'api' ? { trustedProxyCount: 2 } : {}),
       });
       expect(JSON.stringify(config.fingerprint)).not.toMatch(
@@ -105,8 +98,14 @@ describe('parseImageUploadRuntimeConfig', () => {
 
   const forbidden = {
     api: [
+      'IMAGE_UPLOAD_QUEUE_ID',
+      'IMAGE_UPLOAD_DLQ_ID',
+      'IMAGE_UPLOAD_SOURCE_CONSUMER_ID',
+      'IMAGE_UPLOAD_DLQ_CONSUMER_ID',
       'IMAGE_UPLOAD_QUEUE_TOKEN',
       'IMAGE_UPLOAD_CUTOVER_QUEUE_TOKEN',
+      'NDT_STAGING_EVENT_RULE_ID',
+      'NDT_PRODUCTION_EVENT_RULE_ID',
       'IMAGE_UPLOAD_OPERATOR_TOKEN',
       'IMAGE_UPLOAD_RECONCILER_R2_ACCESS_KEY_ID',
       'IMAGE_UPLOAD_RECONCILER_R2_SECRET_ACCESS_KEY',
@@ -117,7 +116,14 @@ describe('parseImageUploadRuntimeConfig', () => {
       'NDT_STAGING_CF_READ_TOKEN',
     ],
     reconciler: [
+      'IMAGE_UPLOAD_QUEUE_ID',
+      'IMAGE_UPLOAD_DLQ_ID',
+      'IMAGE_UPLOAD_SOURCE_CONSUMER_ID',
+      'IMAGE_UPLOAD_DLQ_CONSUMER_ID',
+      'IMAGE_UPLOAD_QUEUE_TOKEN',
       'IMAGE_UPLOAD_CUTOVER_QUEUE_TOKEN',
+      'NDT_STAGING_EVENT_RULE_ID',
+      'NDT_PRODUCTION_EVENT_RULE_ID',
       'IMAGE_UPLOAD_OPERATOR_TOKEN',
       'IMAGE_UPLOAD_API_R2_ACCESS_KEY_ID',
       'IMAGE_UPLOAD_API_R2_SECRET_ACCESS_KEY',
@@ -128,7 +134,14 @@ describe('parseImageUploadRuntimeConfig', () => {
       'NDT_STAGING_CF_READ_TOKEN',
     ],
     cutover: [
+      'IMAGE_UPLOAD_QUEUE_ID',
+      'IMAGE_UPLOAD_DLQ_ID',
+      'IMAGE_UPLOAD_SOURCE_CONSUMER_ID',
+      'IMAGE_UPLOAD_DLQ_CONSUMER_ID',
       'IMAGE_UPLOAD_QUEUE_TOKEN',
+      'IMAGE_UPLOAD_CUTOVER_QUEUE_TOKEN',
+      'NDT_STAGING_EVENT_RULE_ID',
+      'NDT_PRODUCTION_EVENT_RULE_ID',
       'IMAGE_UPLOAD_API_R2_ACCESS_KEY_ID',
       'IMAGE_UPLOAD_API_R2_SECRET_ACCESS_KEY',
       'IMAGE_UPLOAD_RECONCILER_R2_ACCESS_KEY_ID',
@@ -176,10 +189,8 @@ describe('parseImageUploadRuntimeConfig', () => {
       { ...api, IMAGE_UPLOAD_CANONICAL_PREFIX: 'albums/run/' },
       'IMAGE_UPLOAD_CANONICAL_PREFIX',
     ],
-    [
-      { ...reconciler, IMAGE_UPLOAD_DLQ_ID: reconciler.IMAGE_UPLOAD_QUEUE_ID },
-      'IMAGE_UPLOAD_DLQ_ID',
-    ],
+    [{ ...reconciler, IMAGE_UPLOAD_RECONCILE_GRACE_MS: '29999' }, 'GRACE'],
+    [{ ...reconciler, IMAGE_UPLOAD_RECONCILE_CADENCE_MS: '5001' }, 'CADENCE'],
   ])('fails startup validation before external work: %s', (env, message) => {
     const provider = jest.fn();
     expect(() => {
@@ -203,7 +214,8 @@ describe('parseImageUploadRuntimeConfig', () => {
   it.each([
     ['api', api, 'IMAGE_UPLOAD_API_R2_SECRET_ACCESS_KEY'],
     ['api', api, 'IMAGE_UPLOAD_TRUSTED_PROXY_ALLOWLIST'],
-    ['reconciler', reconciler, 'IMAGE_UPLOAD_QUEUE_TOKEN'],
+    ['reconciler', reconciler, 'IMAGE_UPLOAD_RECONCILE_GRACE_MS'],
+    ['reconciler', reconciler, 'IMAGE_UPLOAD_RECONCILE_CADENCE_MS'],
     ['cutover', cutover, 'IMAGE_UPLOAD_OPERATOR_TOKEN'],
   ] as const)('requires %s variable %s', (role, env, key) => {
     const missing = { ...env };

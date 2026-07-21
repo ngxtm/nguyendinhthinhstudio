@@ -28,11 +28,12 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@ndt/types": "^0.1.0",
-    "@playwright/test": "^1.52.0",
+    "@playwright/test": "1.60.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^24.13.3",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "esbuild": "^0.25.10",
     "eslint": "^9",
     "eslint-config-next": "^16.2.6",
     "eslint-config-prettier": "^10.1.5",

@@ -22,6 +22,9 @@
 - Create: `packages/image-upload-policy/scripts/write-cjs-package.mjs`
 - Create: `packages/image-upload-policy/src/index.ts`
 - Create: `packages/image-upload-policy/test/package-exports.test.ts`
+- Modify: `apps/backend/package.json`
+- Modify: `apps/frontend/package.json`
+- Modify: `packages/types/package.json`
 - Modify: `package-lock.json`
 
 - [ ] **Step 1: Write the failing package-resolution test**
@@ -32,8 +35,6 @@ Create subprocess cases equivalent to:
 const cases = [
     ['import', `import('@ndt/image-upload-policy')`],
     ['require', `require('@ndt/image-upload-policy')`],
-    ['fixtures-import', `import('@ndt/image-upload-policy/fixtures')`],
-    ['fixtures-require', `require('@ndt/image-upload-policy/fixtures')`],
 ];
 ```
 
@@ -53,6 +54,9 @@ Use:
 
 ```json
 {
+    "name": "@ndt/image-upload-policy",
+    "version": "0.1.0",
+    "private": true,
     "type": "module",
     "scripts": {
         "build": "npm run build:types && npm run build:esm && npm run build:cjs && node scripts/write-cjs-package.mjs",
@@ -66,17 +70,52 @@ Use:
             "types": "./dist/index.d.ts",
             "import": "./dist/esm/index.js",
             "require": "./dist/cjs/index.js"
-        },
-        "./fixtures": {
-            "types": "./dist/fixtures.d.ts",
-            "import": "./dist/esm/fixtures.js",
-            "require": "./dist/cjs/fixtures.js"
         }
     }
 }
 ```
 
 `write-cjs-package.mjs` writes exactly `{ "type": "commonjs" }` to `dist/cjs/package.json`.
+
+Declare the workspace edges explicitly so npm links matching local versions and Turbo can order `^build`:
+
+In `apps/backend/package.json`, merge:
+
+```json
+{
+    "dependencies": {
+        "@ndt/image-upload-policy": "^0.1.0"
+    },
+    "devDependencies": {
+        "@ndt/types": "^0.1.0"
+    }
+}
+```
+
+In `apps/frontend/package.json`, merge the same direct edges:
+
+```json
+{
+    "dependencies": {
+        "@ndt/image-upload-policy": "^0.1.0"
+    },
+    "devDependencies": {
+        "@ndt/types": "^0.1.0"
+    }
+}
+```
+
+In `packages/types/package.json`, declare the type source it imports:
+
+```json
+{
+    "dependencies": {
+        "@ndt/image-upload-policy": "^0.1.0"
+    }
+}
+```
+
+Use standard matching semver rather than `workspace:*`: npm 11 links matching workspace versions and records ordinary ranges. Run `npm install` once after all three manifests exist and commit the resulting lockfile edges. The package-resolution test reads all three consumer manifests, asserts every direct edge, then creates `createRequire()` instances rooted at `apps/backend/package.json` and `apps/frontend/package.json`; each must resolve the public roots `@ndt/image-upload-policy` and `@ndt/types` under the repository `packages/` directory. Add `npx turbo run build --dry=json` and assert the policy build is a dependency of both application builds.
 
 - [ ] **Step 4: Build and verify the real artifact set**
 
@@ -93,7 +132,7 @@ $required = @(
 $required | ForEach-Object { if (-not (Test-Path -LiteralPath $_)) { throw "missing artifact: $_" } }
 ```
 
-Expected: all commands exit 0. Do not require `dist/index.js`; no build emits it.
+Expected: all commands exit 0. Do not require `dist/index.js`; no build emits it. Do not declare or test the `./fixtures` export yet: Stage 02 adds it atomically with the real fixture module so Stage 01 never advertises missing files.
 
 ### Task 2: Define the deterministic current policy
 
@@ -101,6 +140,7 @@ Expected: all commands exit 0. Do not require `dist/index.js`; no build emits it
 
 - Create: `packages/image-upload-policy/src/policy.ts`
 - Create: `packages/image-upload-policy/src/policy-hash.ts`
+- Create: `packages/image-upload-policy/src/error-codes.ts`
 - Create: `packages/image-upload-policy/test/policy-hash.test.ts`
 - Modify: `packages/image-upload-policy/src/index.ts`
 
@@ -114,16 +154,55 @@ const expected = {
     softTargetBytes: 3_145_728,
     maxStoredBytes: 5_242_880,
     maxSourceBytes: 104_857_600,
+    maxSourceDimension: 16_384,
+    maxSourcePixels: 80_000_000,
+    preflightWorkingBytes: 8_388_608,
+    maxDecodedPixels: 7_000_000,
+    maxConcurrentDecodedSurfaces: 2,
     maxWidth: 2560,
     maxHeight: 2560,
-    maxDecodedPixels: 7_000_000,
     webpQuality: 0.84,
     normalizedColorSpace: 'srgb',
+    allowedStoredMimes: ['image/jpeg', 'image/png', 'image/webp'],
+    maxPagesOrFrames: 1,
     metadataRulesetVersion: 'web-metadata-v1',
-};
+    maxDecompressedIccBytes: 1_048_576,
+    allowedIccSha256: [],
+} as const satisfies ImageUploadPolicy;
 ```
 
-Also test sorted/deduplicated digest lists, rejected non-finite numbers, stable object-key ordering, and a stable `web-v1-<64 lowercase hex>` version.
+Use the exact UTF-8 prefix `NDT_IMAGE_UPLOAD_POLICY\0web-v1\0`, where each `\0` is one NUL byte, followed immediately by the RFC 8785 canonical JSON. The initial canonical JSON is:
+
+```json
+{"allowedIccSha256":[],"allowedStoredMimes":["image/jpeg","image/png","image/webp"],"maxConcurrentDecodedSurfaces":2,"maxDecodedPixels":7000000,"maxDecompressedIccBytes":1048576,"maxHeight":2560,"maxPagesOrFrames":1,"maxSourceBytes":104857600,"maxSourceDimension":16384,"maxSourcePixels":80000000,"maxStoredBytes":5242880,"maxWidth":2560,"metadataRulesetVersion":"web-metadata-v1","minimumChromiumMajor":136,"normalizedColorSpace":"srgb","preflightWorkingBytes":8388608,"softTargetBytes":3145728,"webpQuality":0.84}
+```
+
+Require SHA-256 `18da64f64a7d4a645b549c56ebc5dce84ed830f69defdf8b6d7f2b8d9659baef` and policy version `web-v1-18da64f64a7d4a645b549c56ebc5dce84ed830f69defdf8b6d7f2b8d9659baef`. Also test sorted/deduplicated digest lists, rejected non-finite numbers, rejected missing/unknown fields, and stable object-key ordering. Mutating each of the 18 properties above must change the hash. Presigned PUT lifetime, finalization lease, process roles/counts, decode permits, R2 timeouts, Queue settings, presign enablement, and browser benchmark thresholds must not be properties of `ImageUploadPolicy` and must not change the wire hash.
+
+The failing test requires this exact closed grammar failure contract so `@ndt/types` can compile before Stage 02:
+
+```ts
+export type StoredImageErrorCode =
+    | 'image_truncated'
+    | 'image_bad_length'
+    | 'image_bad_crc'
+    | 'image_bad_padding'
+    | 'image_illegal_order'
+    | 'image_duplicate_record'
+    | 'image_animation_not_allowed'
+    | 'image_multiple_pages_not_allowed'
+    | 'image_unknown_record'
+    | 'image_metadata_budget_exceeded'
+    | 'image_trailing_bytes'
+    | 'image_unsupported_format'
+    | 'image_invalid_dimensions'
+    | 'image_source_dimension_exceeded'
+    | 'image_source_pixels_exceeded'
+    | 'image_invalid_icc'
+    | 'image_metadata_not_allowed';
+```
+
+The test imports the not-yet-created export, exhaustively checks this literal set, and rejects arbitrary strings. Stage 02 grammar results must later import this type and cannot add ad hoc codes.
 
 - [ ] **Step 2: Verify the vectors fail**
 
@@ -135,7 +214,7 @@ Expected: FAIL because policy normalization and hashing are absent.
 
 - [ ] **Step 3: Implement normalization and hashing**
 
-Define an explicit `ImageUploadPolicy`. Hash a schema/version prefix plus RFC 8785 canonical UTF-8 JSON. Include all content/browser compatibility fields. Exclude process role, process count, decode permits, R2 timeouts, presign enablement, Queue settings, and browser benchmark thresholds.
+Create `error-codes.ts` with the exact `StoredImageErrorCode` union from Step 1 and export it from the public root. Define the exact 18-field `ImageUploadPolicy`. Hash the UTF-8 bytes `NDT_IMAGE_UPLOAD_POLICY`, one NUL byte, `web-v1`, one NUL byte, then the RFC 8785 canonical UTF-8 JSON without a delimiter or trailing newline. Reject unknown/missing fields before hashing. Include only the content/browser compatibility fields shown above. Exclude presigned PUT lifetime, finalization lease, process role/count, decode permits, R2 timeouts, presign enablement, Queue settings, and browser benchmark thresholds.
 
 - [ ] **Step 4: Verify stable vectors**
 
@@ -172,7 +251,51 @@ export type UploadPresignRequest = {
 };
 ```
 
-Define closed unions for `PublicImageResponse`, `PolicyResponse`, `PresignResponse`, `ConfirmResponse`, `UploadSessionStatusResponse`, `AbandonResponse`, and `UploadErrorResponse`. Include exact outcomes `pending`, `finalizing`, `consumed`, `failed`, `gone`, `deleted`, and `unavailable` where relevant. The corresponding stable error codes remain `upload_result_deleted` and `upload_result_unavailable`. A consumed response includes the persisted absolute `retentionExpiresAt` for the exact 30-day result window.
+Define closed unions for `PublicImageResponse`, `PolicyResponse`, `PresignResponse`, `ConfirmResponse`, `UploadSessionStatusResponse`, `AbandonResponse`, and `UploadErrorResponse`. Include exact outcomes `pending`, `finalizing`, `consumed`, `failed`, `gone`, `deleted`, and `unavailable` where relevant. The corresponding stable error codes remain `upload_result_deleted` and `upload_result_unavailable`. A ready presign response includes `expiresAt`, which is exactly the persisted `presignExpiresAt` and the signed PUT expiry; a pending status response returns the same session expiry. A consumed response includes the persisted absolute `retentionExpiresAt` for the exact 30-day result window.
+
+Export `StoredImageErrorCode` from `@ndt/image-upload-policy` and define:
+
+```ts
+export type UploadFailureCode =
+    | StoredImageErrorCode
+    | 'upload_abandoned'
+    | 'upload_expired'
+    | 'upload_digest_mismatch'
+    | 'upload_source_changed'
+    | 'upload_decode_failed'
+    | 'upload_dispatch_rejected'
+    | 'upload_cutover_aborted';
+
+export type UploadErrorResponse =
+    | { statusCode: 400; code: 'upload_invalid_request'; message: string }
+    | { statusCode: 401; code: 'upload_authentication_required'; message: string }
+    | { statusCode: 403; code: 'upload_admin_required'; message: string }
+    | { statusCode: 404; code: 'upload_not_found'; message: string }
+    | {
+          statusCode: 409;
+          code: 'upload_request_conflict';
+          message: string;
+      }
+    | {
+          statusCode: 409;
+          code: 'policy_refresh_required' | 'upload_capacity_exceeded';
+          message: string;
+      }
+    | {
+          statusCode: 429;
+          code: 'upload_rate_limited';
+          message: string;
+          retryAfter: string;
+      }
+    | {
+          statusCode: 503;
+          code: 'upload_presign_disabled' | 'upload_rate_limit_unavailable';
+          message: string;
+          retryAfter?: string;
+      };
+```
+
+The type test exhaustively switches on every `code`, including `upload_request_conflict`, proves an arbitrary string is rejected, proves `retryAfter` is required for rate limiting, and proves `failureCode` is `UploadFailureCode` rather than `string`.
 
 The type test must prove there is no request variant without `clientRequestId`, `processedSha256`, or `policyVersion`; do not define `legacy-v0` or `legacy-head-only`.
 

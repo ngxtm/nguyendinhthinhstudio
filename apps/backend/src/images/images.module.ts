@@ -12,15 +12,10 @@ import { ImageUploadPolicyService } from './image-upload-policy.service';
 import { ImageUploadRateLimitService } from './image-upload-rate-limit.service';
 import { ImageInspectionSemaphoreService } from './image-inspection-semaphore.service';
 import { StoredImageInspectorService } from './stored-image-inspector.service';
-import { CloudflareQueueClient } from './cloudflare-queue.client';
 import { PendingUploadExpiryService } from './pending-upload-expiry.service';
-import { R2CopySettlementService } from './r2-copy-settlement.service';
 import { ImageUploadRateLimitCleanupService } from './image-upload-rate-limit-cleanup.service';
-import { ImageUploadProviderEventQuarantineLocationRepository } from './image-upload-provider-event-quarantine-location.repository';
-import { ImageUploadProviderEventQuarantineActionRepository } from './image-upload-provider-event-quarantine-action.repository';
-import { ImageUploadProviderEventQuarantineResolutionRepository } from './image-upload-provider-event-quarantine-resolution.repository';
-import { ImageUploadProviderEventQuarantineLocationRebuilderService } from './image-upload-provider-event-quarantine-location-rebuilder.service';
 import { ImageUploadReconcilerService } from './image-upload-reconciler.service';
+import { ImageUploadPromotionRecoveryService } from './image-upload-promotion-recovery.service';
 import { IMAGE_UPLOAD_CONTROLLER_RUNTIME } from './images.controller';
 import { PrismaModule } from '../prisma/prisma.module';
 import { AuthModule } from '../auth/auth.module';
@@ -40,15 +35,10 @@ import { AuthModule } from '../auth/auth.module';
     ImageUploadRateLimitService,
     ImageInspectionSemaphoreService,
     StoredImageInspectorService,
-    CloudflareQueueClient,
     PendingUploadExpiryService,
-    R2CopySettlementService,
     ImageUploadRateLimitCleanupService,
-    ImageUploadProviderEventQuarantineLocationRepository,
-    ImageUploadProviderEventQuarantineActionRepository,
-    ImageUploadProviderEventQuarantineResolutionRepository,
-    ImageUploadProviderEventQuarantineLocationRebuilderService,
     ImageUploadReconcilerService,
+    ImageUploadPromotionRecoveryService,
     {
       provide: IMAGE_UPLOAD_CONTROLLER_RUNTIME,
       useFactory: () => ({
@@ -67,15 +57,10 @@ import { AuthModule } from '../auth/auth.module';
     ImageUploadRateLimitService,
     ImageInspectionSemaphoreService,
     StoredImageInspectorService,
-    CloudflareQueueClient,
     PendingUploadExpiryService,
-    R2CopySettlementService,
     ImageUploadRateLimitCleanupService,
-    ImageUploadProviderEventQuarantineLocationRepository,
-    ImageUploadProviderEventQuarantineActionRepository,
-    ImageUploadProviderEventQuarantineResolutionRepository,
-    ImageUploadProviderEventQuarantineLocationRebuilderService,
     ImageUploadReconcilerService,
+    ImageUploadPromotionRecoveryService,
   ],
 })
 export class ImagesModule {}

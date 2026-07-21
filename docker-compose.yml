@@ -36,6 +36,7 @@ services:
       - dokploy-network
 
   backend-migrate:
+    image: &backend-image ${BACKEND_IMAGE:?BACKEND_IMAGE is required}
     build: *backend-build
     command:
       - /app/node_modules/.bin/prisma
@@ -51,6 +52,7 @@ services:
       - dokploy-network
 
   backend:
+    image: *backend-image
     build: *backend-build
     depends_on:
       backend-migrate:
@@ -102,6 +104,42 @@ services:
       timeout: 10s
       retries: 5
       start_period: 60s
+    networks:
+      - dokploy-network
+
+  images-upload-reconciler:
+    image: *backend-image
+    command: ["node", "/app/dist/scripts/reconcile-image-uploads.js"]
+    depends_on:
+      backend-migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - IMAGE_UPLOAD_PROCESS_ROLE=reconciler
+      - IMAGE_UPLOAD_BUILD_FINGERPRINT=${BACKEND_IMAGE:?BACKEND_IMAGE is required}
+      - IMAGE_UPLOAD_PROCESS_COUNT=${IMAGE_UPLOAD_RECONCILER_PROCESS_COUNT:-1}
+      - IMAGE_UPLOAD_DECODE_PERMITS_PER_PROCESS=${IMAGE_UPLOAD_DECODE_PERMITS_PER_PROCESS:-2}
+      - IMAGE_UPLOAD_R2_CONTROL_TIMEOUT_SECONDS=${IMAGE_UPLOAD_R2_CONTROL_TIMEOUT_SECONDS:-30}
+      - IMAGE_UPLOAD_R2_READ_TIMEOUT_SECONDS=${IMAGE_UPLOAD_R2_READ_TIMEOUT_SECONDS:-60}
+      - IMAGE_UPLOAD_PRESIGN_ENABLED=false
+      - IMAGE_UPLOAD_PRESIGN_CLOCK_SKEW_SECONDS=${IMAGE_UPLOAD_PRESIGN_CLOCK_SKEW_SECONDS:-60}
+      - IMAGE_UPLOAD_RATE_LIMIT_CLEANUP_BATCH=${IMAGE_UPLOAD_RATE_LIMIT_CLEANUP_BATCH:-1000}
+      - IMAGE_UPLOAD_POLICY_VERSION=${IMAGE_UPLOAD_POLICY_VERSION:?IMAGE_UPLOAD_POLICY_VERSION is required}
+      - IMAGE_UPLOAD_R2_ENDPOINT=${R2_S3_ENDPOINT:?R2_S3_ENDPOINT is required}
+      - IMAGE_UPLOAD_R2_BUCKET=${CLOUDFLARE_R2_BUCKET_NAME:?CLOUDFLARE_R2_BUCKET_NAME is required}
+      - IMAGE_UPLOAD_CANONICAL_PREFIX=albums/
+      - IMAGE_UPLOAD_RECONCILER_R2_ACCESS_KEY_ID=${IMAGE_UPLOAD_RECONCILER_R2_ACCESS_KEY_ID:?IMAGE_UPLOAD_RECONCILER_R2_ACCESS_KEY_ID is required}
+      - IMAGE_UPLOAD_RECONCILER_R2_SECRET_ACCESS_KEY=${IMAGE_UPLOAD_RECONCILER_R2_SECRET_ACCESS_KEY:?IMAGE_UPLOAD_RECONCILER_R2_SECRET_ACCESS_KEY is required}
+      - IMAGE_UPLOAD_RECONCILE_GRACE_MS=${IMAGE_UPLOAD_RECONCILE_GRACE_MS:-30000}
+      - IMAGE_UPLOAD_RECONCILE_CADENCE_MS=${IMAGE_UPLOAD_RECONCILE_CADENCE_MS:-5000}
+      - DATABASE_URL=${DATABASE_URL:?DATABASE_URL is required}
+      - CLOUDFLARE_R2_BUCKET_NAME=${CLOUDFLARE_R2_BUCKET_NAME:?CLOUDFLARE_R2_BUCKET_NAME is required}
+      - R2_ACCESS_KEY_ID=${IMAGE_UPLOAD_RECONCILER_R2_ACCESS_KEY_ID:?IMAGE_UPLOAD_RECONCILER_R2_ACCESS_KEY_ID is required}
+      - R2_SECRET_ACCESS_KEY=${IMAGE_UPLOAD_RECONCILER_R2_SECRET_ACCESS_KEY:?IMAGE_UPLOAD_RECONCILER_R2_SECRET_ACCESS_KEY is required}
+      - R2_S3_ENDPOINT=${R2_S3_ENDPOINT:?R2_S3_ENDPOINT is required}
+    deploy:
+      replicas: 1
     networks:
       - dokploy-network
 

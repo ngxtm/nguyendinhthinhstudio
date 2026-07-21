@@ -14,6 +14,7 @@ function createHarness(
 ) {
   const prisma: any = {
     imageUpload: {
+      count: jest.fn().mockResolvedValue(0),
       findMany: jest
         .fn()
         .mockResolvedValueOnce(options.expired ?? [])
@@ -27,6 +28,7 @@ function createHarness(
   };
   const storage: any = {
     deleteObject: jest.fn().mockResolvedValue(undefined),
+    headObjectIdentity: jest.fn().mockResolvedValue(null),
   };
   return {
     prisma,
@@ -253,14 +255,95 @@ describe('UploadCleanupService', () => {
   });
 
   it('preserves current upload evidence and verifies only temporary cleanup', async () => {
-    const session = { id: 'u-current', status: 'failed', uploadObjectKey: 'uploads/u-current/a.jpg', finalObjectKey: 'albums/a/current.jpg' };
+    const session = { id: 'u-current', status: 'failed', uploadObjectKey: 'uploads/u-current/a.jpg', finalObjectKey: 'albums/a/current.jpg', presignExpiresAt: new Date(NOW.getTime() - 2 * ONE_HOUR_MS), temporaryCleanupState: 'pending', temporaryCleanupAttempts: 0 };
     const { prisma, storage, service } = createHarness({ expired: [session] });
     prisma.imageUpload.updateMany = jest.fn().mockResolvedValue({ count: 1 });
 
     await expect(service.cleanupExpired()).resolves.toEqual(expect.objectContaining({ sessionsDeleted: 0, sessionsVerified: 1 }));
-    expect(storage.deleteObject).toHaveBeenCalledWith(session.uploadObjectKey);
+    expect(storage.deleteObject).toHaveBeenCalledWith(
+      session.uploadObjectKey,
+      expect.objectContaining({ parentSignal: undefined }),
+    );
     expect(storage.deleteObject).not.toHaveBeenCalledWith(session.finalObjectKey);
     expect(prisma.imageUpload.deleteMany).not.toHaveBeenCalled();
     expect(prisma.imageUpload.updateMany).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ temporaryCleanupState: 'verified_deleted', temporaryCleanupVerifiedAt: NOW }) }));
+  });
+
+  it('does not delete or verify current cleanup before presign expiry plus skew', async () => {
+    const session = { id: 'u-future', status: 'failed', uploadObjectKey: 'uploads/u-future/a.jpg', presignExpiresAt: new Date(NOW.getTime() + ONE_HOUR_MS), temporaryCleanupState: 'pending', temporaryCleanupAttempts: 0 };
+    const { prisma, storage, service } = createHarness({ expired: [session] });
+    prisma.imageUpload.updateMany = jest.fn().mockResolvedValue({ count: 1 });
+
+    await service.cleanupExpired();
+
+    expect(storage.deleteObject).not.toHaveBeenCalled();
+    expect(storage.headObjectIdentity).not.toHaveBeenCalled();
+    expect(prisma.imageUpload.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          temporaryCleanupNextAttemptAt: new Date(
+            session.presignExpiresAt.getTime() + 60_000,
+          ),
+        }),
+      }),
+    );
+  });
+
+  it('keeps current cleanup pending until a post-expiry HEAD proves absence', async () => {
+    const session = { id: 'u-present', status: 'consumed', uploadObjectKey: 'uploads/u-present/a.jpg', presignExpiresAt: new Date(NOW.getTime() - 2 * ONE_HOUR_MS), temporaryCleanupState: 'pending', temporaryCleanupAttempts: 1 };
+    const { prisma, storage, service } = createHarness({ expired: [session] });
+    prisma.imageUpload.updateMany = jest.fn().mockResolvedValue({ count: 1 });
+    storage.headObjectIdentity.mockResolvedValue({ etag: 'late-put-etag' });
+
+    await service.cleanupExpired();
+
+    expect(storage.deleteObject).toHaveBeenCalledWith(
+      session.uploadObjectKey,
+      expect.objectContaining({ parentSignal: undefined }),
+    );
+    expect(storage.headObjectIdentity).toHaveBeenCalledWith(
+      session.uploadObjectKey,
+      expect.objectContaining({ parentSignal: undefined }),
+    );
+    expect(prisma.imageUpload.updateMany).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ temporaryCleanupState: 'verified_deleted' }),
+      }),
+    );
+    expect(prisma.imageUpload.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          temporaryCleanupAttempts: 2,
+          temporaryCleanupState: 'pending',
+        }),
+      }),
+    );
+  });
+
+  it('fails closed when current terminal cleanup scheduling facts are null', async () => {
+    const { prisma, storage, service } = createHarness();
+    prisma.imageUpload.updateMany = jest.fn().mockResolvedValue({ count: 1 });
+    prisma.imageUpload.count.mockResolvedValue(1);
+
+    await expect(service.cleanupExpired()).rejects.toThrow(
+      'temporary cleanup scheduling invariant',
+    );
+
+    expect(storage.deleteObject).not.toHaveBeenCalled();
+  });
+
+  it('does not schedule provider retry work after a lock-loss abort', async () => {
+    const session = { id: 'u-abort', status: 'failed', uploadObjectKey: 'uploads/u-abort/a.jpg', presignExpiresAt: new Date(NOW.getTime() - 2 * ONE_HOUR_MS), temporaryCleanupState: 'pending', temporaryCleanupAttempts: 0 };
+    const { prisma, storage, service } = createHarness({ expired: [session] });
+    prisma.imageUpload.updateMany = jest.fn().mockResolvedValue({ count: 1 });
+    storage.deleteObject.mockRejectedValue(
+      Object.assign(new Error('aborted'), { name: 'AbortError' }),
+    );
+
+    await expect(service.cleanupExpired()).rejects.toMatchObject({
+      name: 'AbortError',
+    });
+
+    expect(prisma.imageUpload.updateMany).not.toHaveBeenCalled();
   });
 });

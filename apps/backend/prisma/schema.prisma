@@ -217,10 +217,11 @@ model ImageUploadPromotion {
   copyResponseObservedAt              DateTime?
   copyResponseEtag                    String?
   providerSettlementObservedAt        DateTime?
-  providerEventId                     String?
-  providerEventObservedAt             DateTime?
-  settlementSource                    String?
-  providerObjectEtag                  String?
+  destinationHeadObservedAt           DateTime?
+  destinationHeadEtag                 String?
+  destinationHeadBytes                Int?
+  destinationHeadMime                 String?
+  destinationHeadMetadataSha256       String?
   dispatchAttempts                    Int       @default(0)
   lastDispatchAttemptAt               DateTime?
   nextReconcileAt                     DateTime?
@@ -240,127 +241,29 @@ model ImageUploadPromotion {
 }
 
 model ImageUploadPromotionConflict {
-  id                                   String    @id @default(uuid())
-  promotionId                          String
-  providerEventId                      String
-  accountId                            String
-  bucket                               String
-  sourceObjectKeyHash                  String
-  destinationObjectKeyHash             String
-  eventTime                            DateTime
-  eventEnvelopeSha256                  String
-  providerObjectEtag                   String
-  rejectionDispatchRejectedAt          DateTime
-  rejectionReason                      String
-  rejectionObservedSourceEtag          String?
-  rejectionFirstDestinationAbsentAt    DateTime
-  rejectionDestinationAbsentVerifiedAt DateTime
-  rejectionEvidenceSha256              String
-  state                                String
-  resolution                           String?
-  operatorIdentityFingerprint          String?
-  approvalDigest                       String?
-  observedDestinationEtag              String?
-  openedAt                             DateTime  @default(now())
-  resolvedAt                           DateTime?
-  finalAbsentVerifiedAt                DateTime?
-  updatedAt                            DateTime  @updatedAt
+  id                          String    @id @default(uuid())
+  promotionId                 String    @unique
+  accountId                   String
+  bucket                      String
+  sourceObjectKeyHash         String
+  destinationObjectKeyHash    String
+  expectedDestinationEtag     String
+  observedDestinationEtag     String?
+  observedDestinationBytes    Int?
+  observedDestinationMime     String?
+  destinationMetadataSha256   String
+  mismatchReason              String
+  conflictEvidenceSha256      String
+  state                       String
+  resolution                  String? // confirmed_absent | cleanup_authorized | committed_authorized
+  operatorIdentityFingerprint String?
+  approvalDigest              String?
+  openedAt                    DateTime  @default(now())
+  resolvedAt                  DateTime?
+  finalAbsentVerifiedAt       DateTime?
+  updatedAt                   DateTime  @updatedAt
 
-  @@unique([promotionId, providerEventId])
   @@index([state, openedAt])
-}
-
-model ImageUploadProviderEventQuarantine {
-  id                              String    @id @default(uuid())
-  providerEventId                 String?   @unique
-  messageId                       String
-  sourceQueueId                   String
-  currentQueueId                  String
-  latestLocationObservationSha256 String?
-  leaseId                         String
-  leaseDeadline                   DateTime
-  attempts                        Int
-  bodySha256                      String
-  eventEnvelopeSha256             String?
-  quarantineFingerprintSha256     String    @unique
-  reason                          String
-  firstObservedAt                 DateTime  @default(now())
-  lastObservedAt                  DateTime  @default(now())
-  state                           String
-  resolutionAttemptId             String?
-  latestResolutionAttemptId       String?
-  latestResolutionEvidenceSha256  String?
-  resolution                      String?
-  resolutionStartedAt             DateTime?
-  acknowledgedLocationCount       Int?
-  resolutionScanCompletedAt       DateTime?
-  operatorIdentityFingerprint     String?
-  approvalDigest                  String?
-  replayQueueId                   String?
-  replayRequestId                 String?   @unique
-  replayMessageId                 String?
-  replayRequestedAt               DateTime?
-  acknowledgedAt                  DateTime?
-  resolvedAt                      DateTime?
-
-  @@index([state, lastObservedAt])
-}
-
-model ImageUploadProviderEventQuarantineLocation {
-  id                        String   @id @default(uuid())
-  quarantineId              String
-  queueKind                 String
-  queueId                   String
-  messageId                 String
-  replayRequestId           String?
-  leaseId                   String
-  leaseDeadline             DateTime
-  attempts                  Int
-  observedAt                DateTime @default(now())
-  locationObservationSha256 String   @unique
-
-  @@unique([quarantineId, locationObservationSha256])
-  @@index([quarantineId, observedAt])
-}
-
-model ImageUploadProviderEventQuarantineAction {
-  id                        String   @id @default(uuid())
-  quarantineId              String
-  resolutionAttemptId       String
-  locationObservationSha256 String
-  action                    String
-  queueKind                 String
-  queueId                   String
-  messageId                 String
-  replayRequestId           String?
-  leaseId                   String
-  actionEvidenceSha256      String
-  providerOutcome           String?
-  observedAt                DateTime @default(now())
-  actionSha256              String   @unique
-
-  @@index([quarantineId, resolutionAttemptId, observedAt])
-}
-
-model ImageUploadProviderEventQuarantineResolution {
-  id                          String    @id
-  quarantineId                String
-  resolution                  String
-  operatorIdentityFingerprint String
-  approvalDigest              String
-  resolutionStartedAt         DateTime
-  acknowledgedLocationCount   Int
-  resolutionScanCompletedAt   DateTime
-  replayQueueId               String?
-  replayRequestId             String?
-  replayMessageId             String?
-  replayRequestedAt           DateTime?
-  acknowledgedAt              DateTime
-  resolvedAt                  DateTime
-  resolutionEvidenceSha256    String    @unique
-
-  @@unique([quarantineId, id])
-  @@index([quarantineId, resolvedAt])
 }
 
 model ImageUploadRateLimitEvent {
@@ -379,7 +282,6 @@ model ImageUploadReconcilerHeartbeat {
   buildFingerprint                String
   lockAcquiredAt                  DateTime
   heartbeatAt                     DateTime
-  queueSettlementCompletedAt      DateTime?
   pendingSessionExpiryCompletedAt DateTime?
   promotionRecoveryCompletedAt    DateTime?
   temporaryCleanupCompletedAt     DateTime?

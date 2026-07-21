@@ -200,6 +200,42 @@ describe('StorageService', () => {
     ).rejects.toThrow('Uploaded object ETag is missing');
   });
 
+  it('returns canonical object identity and treats only provider 404 as absent', async () => {
+    const service = new StorageService(config);
+    const send = jest.spyOn((service as any).s3, 'send');
+    send.mockResolvedValueOnce({
+      ETag: '"Case-Sensitive-Etag"',
+      ContentLength: 1024,
+      ContentType: 'image/webp',
+      Metadata: { sha256: 'a'.repeat(64) },
+    });
+
+    await expect(
+      service.headObjectIdentity('albums/album/photo.webp'),
+    ).resolves.toEqual({
+      etag: 'Case-Sensitive-Etag',
+      contentLength: 1024,
+      contentType: 'image/webp',
+      metadata: { sha256: 'a'.repeat(64) },
+    });
+
+    send.mockRejectedValueOnce({
+      name: 'NotFound',
+      $metadata: { httpStatusCode: 404 },
+    });
+    await expect(
+      service.headObjectIdentity('albums/album/missing.webp'),
+    ).resolves.toBeNull();
+
+    send.mockRejectedValueOnce({
+      name: 'ServiceUnavailable',
+      $metadata: { httpStatusCode: 503 },
+    });
+    await expect(
+      service.headObjectIdentity('albums/album/retry.webp'),
+    ).rejects.toMatchObject({ name: 'ServiceUnavailable' });
+  });
+
   it('bounds never-resolving HEAD and DELETE provider calls', async () => {
     jest.useFakeTimers();
     try {
@@ -274,11 +310,13 @@ describe('StorageService', () => {
 
     await expect(
       service.promoteObject({
+        promotionId: 'promotion-1',
         destinationObjectKey: 'albums/album/photo.webp',
         sourceObjectKey: 'uploads/id/photo.webp',
         sourceEtag: 'SourceCase',
         canonicalMime: 'image/webp',
         inspectedSha256: 'a'.repeat(64),
+        inspectedByteSize: 1024,
         inspectedWidth: 1200,
         inspectedHeight: 800,
         policyVersion: 'web-v1-policy',
@@ -297,7 +335,9 @@ describe('StorageService', () => {
         MetadataDirective: 'REPLACE',
         ContentType: 'image/webp',
         Metadata: {
+          'promotion-id': 'promotion-1',
           sha256: 'a'.repeat(64),
+          bytes: '1024',
           width: '1200',
           height: '800',
           policy: 'web-v1-policy',
@@ -327,11 +367,13 @@ describe('StorageService', () => {
         .mockImplementation(() => new Promise(() => undefined));
       const copying = service.promoteObject(
         {
+          promotionId: 'promotion-1',
           destinationObjectKey: 'albums/album/photo.webp',
           sourceObjectKey: 'uploads/id/photo.webp',
           sourceEtag: 'SourceCase',
           canonicalMime: 'image/webp',
           inspectedSha256: 'a'.repeat(64),
+          inspectedByteSize: 1024,
           inspectedWidth: 1200,
           inspectedHeight: 800,
           policyVersion: 'web-v1-policy',

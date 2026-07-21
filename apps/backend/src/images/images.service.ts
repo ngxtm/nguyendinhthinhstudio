@@ -822,16 +822,18 @@ export class ImagesService {
       inspectedHeight: inspected.facts.height,
       policyVersion: upload.policyVersion ?? this.uploadPolicy.policyVersion,
       now,
-      eventGraceMs: 30_000,
+      reconcileGraceMs: 30_000,
     });
 
     let responseEtag: string;
     try {
-      responseEtag = canonicalizeEtag(await this.storage.promoteObject({
+    responseEtag = canonicalizeEtag(await this.storage.promoteObject({
+        promotionId: String((dispatched as { id: string }).id),
         destinationObjectKey: upload.finalObjectKey,
         sourceObjectKey: upload.uploadObjectKey,
         sourceEtag,
         canonicalMime: inspected.facts.mime,
+        inspectedByteSize: inspected.byteSize,
         inspectedSha256: inspected.digestSha256,
         inspectedWidth: inspected.facts.width,
         inspectedHeight: inspected.facts.height,

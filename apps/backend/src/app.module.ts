@@ -3,9 +3,8 @@ import { Module } from '@nestjs/common';
 // production build emits dist/scripts/*.js artifacts.
 import * as ReconcileEntrypoint from './scripts/reconcile-image-uploads';
 import * as ConflictEntrypoint from './scripts/resolve-image-upload-promotion-conflict';
-import * as QuarantineEntrypoint from './scripts/resolve-image-upload-provider-event-quarantine';
 
-export const IMAGE_UPLOAD_ENTRYPOINTS = [ReconcileEntrypoint, ConflictEntrypoint, QuarantineEntrypoint];
+export const IMAGE_UPLOAD_ENTRYPOINTS = [ReconcileEntrypoint, ConflictEntrypoint];
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';

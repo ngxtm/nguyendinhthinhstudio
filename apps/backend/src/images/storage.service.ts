@@ -29,6 +29,8 @@ export type StorageOperationDeadline = Omit<
 };
 
 export type ImageUploadPromotionCopyFacts = {
+  promotionId: string;
+  inspectedByteSize: number;
   destinationObjectKey: string;
   sourceObjectKey: string;
   sourceEtag: string;
@@ -38,6 +40,13 @@ export type ImageUploadPromotionCopyFacts = {
   inspectedHeight: number;
   policyVersion: string;
 };
+
+export type R2ObjectIdentity = Readonly<{
+  etag: string;
+  contentLength: number | undefined;
+  contentType: string | undefined;
+  metadata: Readonly<Record<string, string>>;
+}>;
 
 const DEFAULT_R2_OPERATION_TIMEOUT_MS = 30_000;
 
@@ -162,6 +171,40 @@ export class StorageService {
     }
   }
 
+  async headObjectIdentity(
+    objectKey: string,
+    deadline: StorageOperationDeadline = {},
+  ): Promise<R2ObjectIdentity | null> {
+    try {
+      const result = await this.runR2(
+        (signal) =>
+          this.s3.send(
+            new HeadObjectCommand({ Bucket: this.bucketname, Key: objectKey }),
+            { abortSignal: signal },
+          ),
+        deadline,
+      );
+      if (!result.ETag?.trim()) {
+        throw new Error('R2 object ETag is missing');
+      }
+      return Object.freeze({
+        etag: canonicalizeEtag(result.ETag),
+        contentLength: result.ContentLength,
+        contentType: result.ContentType,
+        metadata: Object.freeze({ ...(result.Metadata ?? {}) }),
+      });
+    } catch (error) {
+      const providerError = error as {
+        name?: string;
+        $metadata?: { httpStatusCode?: number };
+      };
+      if (providerError.$metadata?.httpStatusCode === 404) {
+        return null;
+      }
+      throw error;
+    }
+  }
+
   async verifyObject(
     objectKey: string,
     expected: { contentType: string; fileSize: number },
@@ -257,6 +300,8 @@ export class StorageService {
       ContentType: promotion.canonicalMime,
       Metadata: {
         sha256: promotion.inspectedSha256,
+        'promotion-id': promotion.promotionId,
+        bytes: String(promotion.inspectedByteSize),
         width: String(promotion.inspectedWidth),
         height: String(promotion.inspectedHeight),
         policy: promotion.policyVersion,
