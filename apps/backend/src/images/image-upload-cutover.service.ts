@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 
 export type PollingGateSnapshot = Readonly<{
   observedAt: Date;
@@ -122,6 +122,13 @@ export interface CutoverRepository {
   commitLegacyBridge(
     input: CommitLegacyBridgeInput,
   ): Promise<'applied' | 'already_applied'>;
+  assertPostMigrationSchema(): Promise<void>;
+  ensureTemporaryCleanupPending(
+    uploadId: string,
+    now: Date,
+    presignExpiresAt: Date,
+    cleanupNotBefore: Date,
+  ): Promise<'pending' | 'verified'>;
   markTemporaryCleanupVerified(
     uploadId: string,
     verifiedAt: Date,
@@ -145,11 +152,18 @@ export type CutoverDispositionDecision =
 export type CutoverDispositionReceipt = Readonly<{
   schemaVersion: 'image-upload-cutover-disposition/v1';
   auditReceiptSha256: string;
+  auditReceiptPathSha256: string;
+  auditReceiptDigestSha256: string;
+  auditBackupSha256: string;
   uploadId: string;
   decision: CutoverDispositionDecision;
   rowEvidenceSha256: string;
+  evidenceReceiptPathSha256: string;
   evidenceReceiptSha256: string;
-  operatorFingerprint: string;
+  evidenceCanonicalSha256: string;
+  operatorIdentityFingerprint: string;
+  approvalDigest: string;
+  approvalSignature: string;
   createdAt: string;
   canonicalSha256: string;
 }>;
@@ -171,6 +185,8 @@ type SerializablePollingGateSnapshot = Readonly<
 export type CutoverBackupBinding = Readonly<{
   receiptSha256: string;
   approvalSha256: string;
+  receiptPathSha256: string;
+  approvalPathSha256: string;
   databaseIdentitySha256: string;
   backupSha256: string;
   backupPathSha256: string;
@@ -179,10 +195,13 @@ export type CutoverBackupBinding = Readonly<{
 
 export type CutoverAuditReceipt = Readonly<{
   schemaVersion: 'image-upload-cutover-audit/v1';
+  receiptPathSha256: string;
   generatedAt: string;
   backup: Readonly<{
     receiptSha256: string;
     approvalSha256: string;
+    receiptPathSha256: string;
+    approvalPathSha256: string;
     databaseIdentitySha256: string;
     backupSha256: string;
     backupPathSha256: string;
@@ -379,7 +398,6 @@ function exactDispatchEvidence(
   destination: CutoverObjectIdentity | null,
 ): boolean {
   return (
-    row.image === null &&
     row.status === 'finalizing' &&
     row.sourceEtag !== null &&
     row.finalizationStartedAt !== null &&
@@ -405,10 +423,67 @@ function isPreDispatch(
   );
 }
 
+function requireOperatorIdentityFingerprint(value: string): void {
+  if (!SHA256.test(value)) {
+    throw new Error('operator identity fingerprint must be canonical sha256');
+  }
+}
+
+function requireOperatorToken(value: string | undefined): string {
+  if (!value || value.length < 16) {
+    throw new Error('operator authorization token is invalid');
+  }
+  return value;
+}
+
+function approvalSignature(digest: string, operatorToken: string): string {
+  return createHmac('sha256', operatorToken)
+    .update(digest, 'utf8')
+    .digest('hex');
+}
+
+function equalSha256(left: string, right: string): boolean {
+  if (!SHA256.test(left) || !SHA256.test(right)) return false;
+  return timingSafeEqual(Buffer.from(left, 'hex'), Buffer.from(right, 'hex'));
+}
+
+type DispositionApprovalPayload = Omit<
+  CutoverDispositionReceipt,
+  'approvalDigest' | 'approvalSignature' | 'canonicalSha256'
+>;
+
+function dispositionApprovalPayload(
+  disposition: DispositionApprovalPayload | CutoverDispositionReceipt,
+): DispositionApprovalPayload {
+  return {
+    schemaVersion: disposition.schemaVersion,
+    auditReceiptSha256: disposition.auditReceiptSha256,
+    auditReceiptPathSha256: disposition.auditReceiptPathSha256,
+    auditReceiptDigestSha256: disposition.auditReceiptDigestSha256,
+    auditBackupSha256: disposition.auditBackupSha256,
+    uploadId: disposition.uploadId,
+    decision: disposition.decision,
+    rowEvidenceSha256: disposition.rowEvidenceSha256,
+    evidenceReceiptPathSha256: disposition.evidenceReceiptPathSha256,
+    evidenceReceiptSha256: disposition.evidenceReceiptSha256,
+    evidenceCanonicalSha256: disposition.evidenceCanonicalSha256,
+    operatorIdentityFingerprint: disposition.operatorIdentityFingerprint,
+    createdAt: disposition.createdAt,
+  };
+}
+
+function backupBindingSha256(
+  backup: CutoverAuditReceipt['backup'] | CutoverBackupBinding,
+): string {
+  return canonicalReceiptSha256(backup);
+}
+
 function dispositionFor(
   dispositions: readonly CutoverDispositionReceipt[],
   uploadId: string,
   evidenceSha256: string,
+  expectedBackupSha256: string,
+  operatorToken?: string,
 ): CutoverDispositionReceipt | null {
   const matches = dispositions.filter((entry) => entry.uploadId === uploadId);
   if (matches.length > 1) {
@@ -422,20 +497,54 @@ function dispositionFor(
   ) {
     throw new Error('disposition canonical hash mismatch');
   }
-  requireSha256(disposition.auditReceiptSha256, 'auditReceiptSha256');
+  for (const [field, value] of Object.entries({
+    auditReceiptSha256: disposition.auditReceiptSha256,
+    auditReceiptPathSha256: disposition.auditReceiptPathSha256,
+    auditReceiptDigestSha256: disposition.auditReceiptDigestSha256,
+    auditBackupSha256: disposition.auditBackupSha256,
+    rowEvidenceSha256: disposition.rowEvidenceSha256,
+    evidenceReceiptPathSha256: disposition.evidenceReceiptPathSha256,
+    evidenceReceiptSha256: disposition.evidenceReceiptSha256,
+    evidenceCanonicalSha256: disposition.evidenceCanonicalSha256,
+    approvalDigest: disposition.approvalDigest,
+    approvalSignature: disposition.approvalSignature,
+  })) {
+    requireSha256(value, field);
+  }
+  requireOperatorIdentityFingerprint(disposition.operatorIdentityFingerprint);
   if (disposition.rowEvidenceSha256 !== evidenceSha256) {
     throw new Error('disposition evidence drift');
   }
+  if (disposition.auditBackupSha256 !== expectedBackupSha256) {
+    throw new Error('cross-audit disposition backup binding mismatch');
+  }
   if (
-    !['committed_authorized', 'cleanup_authorized'].includes(
-      disposition.decision,
-    )
+    disposition.decision !== 'committed_authorized' &&
+    disposition.decision !== 'cleanup_authorized'
   ) {
     throw new Error('invalid disposition decision');
   }
-  requireSha256(disposition.evidenceReceiptSha256, 'evidenceReceiptSha256');
-  if (!disposition.operatorFingerprint.trim()) {
-    throw new Error('operator fingerprint is required');
+  const expectedDigest = canonicalReceiptSha256(
+    dispositionApprovalPayload(disposition),
+  );
+  const verifiedOperatorToken = requireOperatorToken(operatorToken);
+  if (
+    !equalSha256(
+      disposition.operatorIdentityFingerprint,
+      sha256(verifiedOperatorToken),
+    )
+  ) {
+    throw new Error('disposition operator identity does not match credential');
+  }
+  const expectedSignature = approvalSignature(
+    expectedDigest,
+    verifiedOperatorToken,
+  );
+  if (
+    !equalSha256(disposition.approvalDigest, expectedDigest) ||
+    !equalSha256(disposition.approvalSignature, expectedSignature)
+  ) {
+    throw new Error('disposition authorization signature mismatch');
   }
   return disposition;
 }
@@ -447,12 +556,14 @@ function assertBackupBinding(
   const expected = {
     receiptSha256: backup.receiptSha256,
     approvalSha256: backup.approvalSha256,
+    receiptPathSha256: backup.receiptPathSha256,
+    approvalPathSha256: backup.approvalPathSha256,
     databaseIdentitySha256: backup.databaseIdentitySha256,
     backupSha256: backup.backupSha256,
     backupPathSha256: backup.backupPathSha256,
     quiescedAt: backup.quiescedAt.toISOString(),
   };
-  for (const value of Object.values(expected).slice(0, 5)) {
+  for (const value of Object.values(expected).slice(0, 7)) {
     requireSha256(value, 'backup binding');
   }
   if (stableJson(receipt.backup) !== stableJson(expected)) {
@@ -535,6 +646,8 @@ export class ImageUploadCutoverService {
     secondSnapshot: PollingGateSnapshot;
     backup: CutoverBackupBinding;
     dispositions: readonly CutoverDispositionReceipt[];
+    receiptPathSha256?: string;
+    operatorToken?: string;
   }): Promise<CutoverAuditReceipt> {
     assertTwoPollingSnapshots(input.firstSnapshot, input.secondSnapshot);
     if (input.secondSnapshot.observedAt.getTime() > input.now.getTime()) {
@@ -547,11 +660,23 @@ export class ImageUploadCutoverService {
         throw new Error('cross-row disposition is not in this audit');
       }
     }
+    const backupReceipt = Object.freeze({
+      receiptSha256: input.backup.receiptSha256,
+      approvalSha256: input.backup.approvalSha256,
+      receiptPathSha256: input.backup.receiptPathSha256,
+      approvalPathSha256: input.backup.approvalPathSha256,
+      databaseIdentitySha256: input.backup.databaseIdentitySha256,
+      backupSha256: input.backup.backupSha256,
+      backupPathSha256: input.backup.backupPathSha256,
+      quiescedAt: input.backup.quiescedAt.toISOString(),
+    });
     const rows = inspected.map(({ inspected: entry }) => {
       const disposition = dispositionFor(
         input.dispositions,
         entry.receipt.uploadId,
         entry.receipt.rowEvidenceSha256,
+        backupBindingSha256(backupReceipt),
+        input.operatorToken,
       );
       return Object.freeze({
         ...entry.receipt,
@@ -567,15 +692,10 @@ export class ImageUploadCutoverService {
     ).length;
     const draft = {
       schemaVersion: 'image-upload-cutover-audit/v1' as const,
+      receiptPathSha256:
+        input.receiptPathSha256 ?? sha256('in-memory-cutover-receipt'),
       generatedAt: input.now.toISOString(),
-      backup: Object.freeze({
-        receiptSha256: input.backup.receiptSha256,
-        approvalSha256: input.backup.approvalSha256,
-        databaseIdentitySha256: input.backup.databaseIdentitySha256,
-        backupSha256: input.backup.backupSha256,
-        backupPathSha256: input.backup.backupPathSha256,
-        quiescedAt: input.backup.quiescedAt.toISOString(),
-      }),
+      backup: backupReceipt,
       pollingSnapshots: Object.freeze([
         snapshotForReceipt(input.firstSnapshot),
         snapshotForReceipt(input.secondSnapshot),
@@ -593,7 +713,8 @@ export class ImageUploadCutoverService {
         unresolvedAmbiguous,
       }),
     };
-    for (const value of Object.values(draft.backup).slice(0, 5)) {
+    requireSha256(draft.receiptPathSha256, 'receiptPathSha256');
+    for (const value of Object.values(draft.backup).slice(0, 7)) {
       requireSha256(value, 'backup binding');
     }
     if (input.backup.quiescedAt.getTime() > input.now.getTime()) {
@@ -609,9 +730,14 @@ export class ImageUploadCutoverService {
     auditReceipt: CutoverAuditReceipt;
     uploadId: string;
     decision: CutoverDispositionDecision;
+    auditReceiptPathSha256: string;
+    auditReceiptDigestSha256: string;
+    evidenceReceiptPathSha256: string;
     evidenceReceiptSha256: string;
+    evidenceCanonicalSha256: string;
     evidenceRowSha256: string;
     operatorFingerprint: string;
+    operatorToken: string;
     now: Date;
   }): CutoverDispositionReceipt {
     this.assertAuditReceipt(input.auditReceipt);
@@ -628,19 +754,45 @@ export class ImageUploadCutoverService {
     if (row.rowEvidenceSha256 !== input.evidenceRowSha256) {
       throw new Error('disposition evidence drift');
     }
-    requireSha256(input.evidenceReceiptSha256, 'evidenceReceiptSha256');
-    if (!input.operatorFingerprint.trim()) {
-      throw new Error('operator fingerprint is required');
+    for (const [field, value] of Object.entries({
+      auditReceiptPathSha256: input.auditReceiptPathSha256,
+      auditReceiptDigestSha256: input.auditReceiptDigestSha256,
+      evidenceReceiptPathSha256: input.evidenceReceiptPathSha256,
+      evidenceReceiptSha256: input.evidenceReceiptSha256,
+      evidenceCanonicalSha256: input.evidenceCanonicalSha256,
+    })) {
+      requireSha256(value, field);
     }
-    const draft = {
+    if (input.auditReceiptPathSha256 !== input.auditReceipt.receiptPathSha256) {
+      throw new Error('audit receipt path binding mismatch');
+    }
+    requireOperatorIdentityFingerprint(input.operatorFingerprint);
+    const operatorToken = requireOperatorToken(input.operatorToken);
+    if (!equalSha256(input.operatorFingerprint, sha256(operatorToken))) {
+      throw new Error('operator identity does not match credential');
+    }
+    const authorization = {
       schemaVersion: 'image-upload-cutover-disposition/v1' as const,
       auditReceiptSha256: input.auditReceipt.canonicalSha256,
+      auditReceiptPathSha256: input.auditReceiptPathSha256,
+      auditReceiptDigestSha256: input.auditReceiptDigestSha256,
+      auditBackupSha256: backupBindingSha256(input.auditReceipt.backup),
       uploadId: input.uploadId,
       decision: input.decision,
       rowEvidenceSha256: row.rowEvidenceSha256,
+      evidenceReceiptPathSha256: input.evidenceReceiptPathSha256,
       evidenceReceiptSha256: input.evidenceReceiptSha256,
-      operatorFingerprint: input.operatorFingerprint,
+      evidenceCanonicalSha256: input.evidenceCanonicalSha256,
+      operatorIdentityFingerprint: input.operatorFingerprint,
       createdAt: input.now.toISOString(),
+    };
+    const approvalDigest = canonicalReceiptSha256(
+      dispositionApprovalPayload(authorization),
+    );
+    const draft = {
+      ...authorization,
+      approvalDigest,
+      approvalSignature: approvalSignature(approvalDigest, operatorToken),
     };
     return Object.freeze({
       ...draft,
@@ -676,6 +828,7 @@ export class ImageUploadCutoverService {
     if (receipt.schemaVersion !== 'image-upload-cutover-audit/v1') {
       throw new Error('audit receipt schema is invalid');
     }
+    requireSha256(receipt.receiptPathSha256, 'receiptPathSha256');
     if (canonicalReceiptSha256(receipt) !== receipt.canonicalSha256) {
       throw new Error('audit receipt canonical hash mismatch');
     }
@@ -691,6 +844,7 @@ export class ImageUploadCutoverService {
     approval: CutoverAuditApproval;
     backup: CutoverBackupBinding;
     dispositions: readonly CutoverDispositionReceipt[];
+    operatorToken?: string;
     presignClockSkewSeconds: number;
   }): Promise<{
     failed: number;
@@ -705,6 +859,7 @@ export class ImageUploadCutoverService {
       canonicalReceiptSha256(input.approval) !==
         input.approval.canonicalSha256 ||
       input.approval.receiptSha256 !== input.receipt.canonicalSha256 ||
+      input.approval.receiptPathSha256 !== input.receipt.receiptPathSha256 ||
       !input.approval.operatorFingerprint.trim() ||
       !Number.isFinite(approvedAt.getTime()) ||
       approvedAt < new Date(input.receipt.generatedAt) ||
@@ -721,6 +876,8 @@ export class ImageUploadCutoverService {
     ) {
       throw new Error('presign clock skew is invalid');
     }
+
+    await this.repository.assertPostMigrationSchema();
 
     const inspected = await this.inspectRows();
     const byId = new Map(inspected.map((entry) => [entry.row.id, entry]));
@@ -754,7 +911,9 @@ export class ImageUploadCutoverService {
         );
         const expected =
           receiptRow.classification === 'existing_image_authority'
-            ? 'preserved'
+            ? state === 'preserved' || state === 'bridged'
+              ? state
+              : 'preserved'
             : receiptRow.classification === 'legacy_dispatch_evidence' ||
                 input.dispositions.some(
                   (entry) =>
@@ -773,6 +932,8 @@ export class ImageUploadCutoverService {
         input.dispositions,
         receiptRow.uploadId,
         receiptRow.rowEvidenceSha256,
+        backupBindingSha256(input.receipt.backup),
+        input.operatorToken,
       );
       if (
         (receiptRow.dispositionSha256 ?? null) !==
@@ -804,6 +965,15 @@ export class ImageUploadCutoverService {
       ) {
         throw new Error(
           'committed disposition has no destination HEAD evidence',
+        );
+      }
+      if (
+        (receiptRow.classification === 'legacy_dispatch_evidence' ||
+          disposition?.decision === 'committed_authorized') &&
+        !exactImageAuthority(current.row)
+      ) {
+        throw new Error(
+          'legacy bridge requires exact pre-existing Image authority',
         );
       }
       actions.push({
@@ -846,12 +1016,11 @@ export class ImageUploadCutoverService {
           throw new Error(`live object evidence drift for upload ${row.id}`);
         }
       }
-      if (inspected.receipt.classification === 'existing_image_authority') {
-        preserved += 1;
-      } else if (
-        inspected.receipt.classification === 'legacy_dispatch_evidence' ||
-        disposition?.decision === 'committed_authorized'
-      ) {
+      const bridgeAuthorized =
+        exactImageAuthority(row) &&
+        (exactDispatchEvidence(row, inspected.destination) ||
+          disposition?.decision === 'committed_authorized');
+      if (bridgeAuthorized) {
         const result = await this.repository.commitLegacyBridge({
           uploadId: row.id,
           rowEvidenceSha256: inspected.receipt.rowEvidenceSha256,
@@ -873,6 +1042,10 @@ export class ImageUploadCutoverService {
           committedAuthorized: disposition?.decision === 'committed_authorized',
         });
         if (result === 'applied') bridged += 1;
+      } else if (
+        inspected.receipt.classification === 'existing_image_authority'
+      ) {
+        preserved += 1;
       } else {
         const result = await this.repository.failLegacyUpload({
           uploadId: row.id,
@@ -901,11 +1074,27 @@ export class ImageUploadCutoverService {
         }
       }
 
-      await this.objects.delete(row.uploadObjectKey, inspected.source?.etag);
+      const presignExpiresAt = new Date(
+        Math.max(
+          row.expiresAt.getTime(),
+          row.createdAt.getTime() + 60 * 60 * 1000,
+        ),
+      );
+      const cleanupState = await this.repository.ensureTemporaryCleanupPending(
+        row.id,
+        input.now,
+        presignExpiresAt,
+        cleanupNotBefore,
+      );
+      if (cleanupState === 'pending' && inspected.source !== null) {
+        await this.objects.delete(row.uploadObjectKey, inspected.source.etag);
+      }
       if ((await this.objects.head(row.uploadObjectKey)) !== null) {
         throw new Error('temporary cleanup did not reach final absence');
       }
-      await this.repository.markTemporaryCleanupVerified(row.id, input.now);
+      if (cleanupState === 'pending') {
+        await this.repository.markTemporaryCleanupVerified(row.id, input.now);
+      }
       cleaned += 1;
     }
     return { failed, bridged, preserved, cleaned };

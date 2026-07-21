@@ -148,6 +148,12 @@ export function parseCutoverCommand(
   ) {
     throw new Error('--decision is invalid');
   }
+  if (
+    values['--operator-fingerprint'] !== undefined &&
+    !/^[a-f0-9]{64}$/.test(values['--operator-fingerprint'])
+  ) {
+    throw new Error('--operator-fingerprint must be canonical sha256');
+  }
   for (const [key, value] of Object.entries(values)) {
     if (PATH_OPTIONS.has(key)) {
       assertProtectedPath(value);
@@ -183,6 +189,26 @@ function writeExclusiveJson(path: string, value: unknown): void {
     mode: 0o600,
   });
   if (process.platform !== 'win32') chmodSync(path, 0o600);
+}
+
+export class CutoverAuditAmbiguityError extends Error {
+  constructor(readonly receiptSha256: string) {
+    super('cutover audit has unresolved ambiguous rows');
+    this.name = 'CutoverAuditAmbiguityError';
+  }
+}
+
+export function persistAuditReceipt(
+  path: string,
+  receipt: {
+    canonicalSha256: string;
+    summary: { unresolvedAmbiguous: number };
+  },
+): void {
+  writeExclusiveJson(path, receipt);
+  if (receipt.summary.unresolvedAmbiguous > 0) {
+    throw new CutoverAuditAmbiguityError(receipt.canonicalSha256);
+  }
 }
 
 export function verifyBackupEvidence(
@@ -229,6 +255,9 @@ export function verifyBackupEvidence(
     false,
   );
   const backupPathSha256 = digest(protectedBackup);
+  if (approval.backupApprovalPathSha256 !== digest(protectedApproval)) {
+    throw new Error('backup approval path binding mismatch');
+  }
   if (
     approval.backupReceiptPathSha256 !== digest(protectedReceipt) ||
     approval.backupReceiptSha256 !== digest(receiptBytes) ||
@@ -253,6 +282,8 @@ export function verifyBackupEvidence(
   return backupBinding(
     digest(receiptBytes),
     digest(approvalBytes),
+    digest(protectedReceipt),
+    digest(protectedApproval),
     receipt,
     backupPathSha256,
   );
@@ -307,6 +338,9 @@ export async function runCutoverCommand(
 
   if (command.mode === 'approve') {
     const receipt = readJson<CutoverAuditReceipt>(values['--receipt']);
+    if (receipt.receiptPathSha256 !== digest(resolve(values['--receipt']))) {
+      throw new Error('audit receipt path binding mismatch');
+    }
     const service = new ImageUploadCutoverService(null, null);
     const fingerprint =
       values['--operator-fingerprint'] ??
@@ -322,16 +356,28 @@ export async function runCutoverCommand(
   }
 
   if (command.mode === 'disposition') {
-    const receipt = readJson<CutoverAuditReceipt>(values['--audit-receipt']);
+    const auditReceiptBytes = readFileSync(values['--audit-receipt']);
+    const receipt = JSON.parse(
+      auditReceiptBytes.toString('utf8'),
+    ) as CutoverAuditReceipt;
+    const auditReceiptPathSha256 = digest(resolve(values['--audit-receipt']));
+    if (receipt.receiptPathSha256 !== auditReceiptPathSha256) {
+      throw new Error('audit receipt path binding rejects relocated input');
+    }
     const evidenceBytes = readFileSync(values['--evidence-receipt']);
     const evidence = JSON.parse(evidenceBytes.toString('utf8')) as {
+      schemaVersion?: string;
       uploadId?: string;
       rowEvidenceSha256?: string;
+      evidenceReceiptPathSha256?: string;
       canonicalSha256?: string;
     };
     if (
+      evidence.schemaVersion !== 'image-upload-cutover-row-evidence/v1' ||
       evidence.uploadId !== values['--upload-id'] ||
       !evidence.rowEvidenceSha256 ||
+      evidence.evidenceReceiptPathSha256 !==
+        digest(resolve(values['--evidence-receipt'])) ||
       canonicalReceiptSha256(evidence) !== evidence.canonicalSha256
     ) {
       throw new Error('cross-row or drifted evidence receipt');
@@ -341,9 +387,14 @@ export async function runCutoverCommand(
       auditReceipt: receipt,
       uploadId: values['--upload-id'],
       decision: cutoverDispositionDecision(values['--decision']),
+      auditReceiptPathSha256,
+      auditReceiptDigestSha256: digest(auditReceiptBytes),
+      evidenceReceiptPathSha256: evidence.evidenceReceiptPathSha256,
       evidenceReceiptSha256: digest(evidenceBytes),
+      evidenceCanonicalSha256: evidence.canonicalSha256,
       evidenceRowSha256: evidence.rowEvidenceSha256,
       operatorFingerprint: values['--operator-fingerprint'],
+      operatorToken: config.values.IMAGE_UPLOAD_OPERATOR_TOKEN,
       now: new Date(),
     });
     writeExclusiveJson(values['--output'], disposition);
@@ -387,8 +438,10 @@ export async function runCutoverCommand(
         secondSnapshot: second,
         backup,
         dispositions,
+        receiptPathSha256: digest(resolve(values['--receipt'])),
+        operatorToken: config.values.IMAGE_UPLOAD_OPERATOR_TOKEN,
       });
-      writeExclusiveJson(values['--receipt'], receipt);
+      persistAuditReceipt(values['--receipt'], receipt);
       return {
         mode: 'audit',
         receiptSha256: receipt.canonicalSha256,
@@ -407,6 +460,7 @@ export async function runCutoverCommand(
       approval,
       backup,
       dispositions,
+      operatorToken: config.values.IMAGE_UPLOAD_OPERATOR_TOKEN,
       presignClockSkewSeconds: config.presignClockSkewSeconds,
     });
     return { mode: 'apply', ...result };

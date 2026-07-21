@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import {
   ImageUploadCutoverService,
   assertPollingGate,
@@ -9,6 +10,9 @@ import {
   type PollingGateSnapshot,
   type CutoverObjectStore,
 } from './image-upload-cutover.service';
+
+const operatorFingerprint = (token: string) =>
+  createHash('sha256').update(token, 'utf8').digest('hex');
 
 const cleanSnapshot = (
   observedAt = new Date('2026-07-21T00:00:00.000Z'),
@@ -52,6 +56,8 @@ class MemoryRepository implements CutoverRepository {
   rows: LegacyImageUploadRow[];
   failed = new Set<string>();
   bridges = new Set<string>();
+  cleanupPending = new Set<string>();
+  schemaReady = true;
 
   constructor(rows: LegacyImageUploadRow[]) {
     this.rows = rows;
@@ -75,6 +81,7 @@ class MemoryRepository implements CutoverRepository {
       return Promise.resolve('already_applied' as const);
     }
     this.failed.add(input.uploadId);
+    this.cleanupPending.add(input.uploadId);
     return Promise.resolve('applied' as const);
   }
 
@@ -86,11 +93,33 @@ class MemoryRepository implements CutoverRepository {
       return Promise.resolve('already_applied' as const);
     }
     this.bridges.add(input.uploadId);
+    this.cleanupPending.add(input.uploadId);
     return Promise.resolve('applied' as const);
+  }
+
+  assertPostMigrationSchema() {
+    this.calls.push('assertPostMigrationSchema');
+    return this.schemaReady
+      ? Promise.resolve()
+      : Promise.reject(new Error('post-migration schema preflight failed'));
+  }
+
+  ensureTemporaryCleanupPending(uploadId: string) {
+    this.calls.push('ensureTemporaryCleanupPending');
+    if (this.cleanupPending.has(uploadId)) {
+      return Promise.resolve('pending' as const);
+    }
+    this.cleanupPending.add(uploadId);
+    return Promise.resolve('pending' as const);
   }
 
   markTemporaryCleanupVerified(uploadId: string, verifiedAt: Date) {
     this.calls.push('markTemporaryCleanupVerified');
+    if (!this.cleanupPending.has(uploadId)) {
+      return Promise.reject(
+        new Error('temporary cleanup was not durably pending'),
+      );
+    }
     this.failed.add(uploadId);
     expect(verifiedAt).toBeInstanceOf(Date);
     return Promise.resolve();
@@ -110,6 +139,7 @@ class MemoryRepository implements CutoverRepository {
 
 class MemoryObjects implements CutoverObjectStore {
   readonly calls: string[] = [];
+  requirePendingFrom: MemoryRepository | null = null;
   readonly objects = new Map<
     string,
     { etag: string; bytes: number; mime: string; metadataSha256: string }
@@ -120,8 +150,16 @@ class MemoryObjects implements CutoverObjectStore {
     return Promise.resolve(this.objects.get(objectKey) ?? null);
   }
 
-  delete(objectKey: string) {
-    this.calls.push(`delete:${objectKey}`);
+  delete(objectKey: string, expectedEtag?: string) {
+    if (
+      this.requirePendingFrom !== null &&
+      this.requirePendingFrom.cleanupPending.size === 0
+    ) {
+      return Promise.reject(
+        new Error('object mutation happened before durable pending cleanup'),
+      );
+    }
+    this.calls.push(`delete:${objectKey}:${expectedEtag ?? 'unconditional'}`);
     this.objects.delete(objectKey);
     return Promise.resolve();
   }
@@ -130,6 +168,8 @@ class MemoryObjects implements CutoverObjectStore {
 const backup = {
   receiptSha256: 'a'.repeat(64),
   approvalSha256: 'b'.repeat(64),
+  receiptPathSha256: '7'.repeat(64),
+  approvalPathSha256: '8'.repeat(64),
   databaseIdentitySha256: 'c'.repeat(64),
   backupSha256: 'd'.repeat(64),
   backupPathSha256: 'e'.repeat(64),
@@ -256,9 +296,16 @@ describe('image upload cold-cutover service', () => {
       auditReceipt: audit,
       uploadId: row.uploadId,
       decision: 'cleanup_authorized',
+      auditReceiptPathSha256: audit.receiptPathSha256,
+      auditReceiptDigestSha256: '7'.repeat(64),
+      evidenceReceiptPathSha256: '8'.repeat(64),
       evidenceReceiptSha256: '9'.repeat(64),
+      evidenceCanonicalSha256: 'a'.repeat(64),
       evidenceRowSha256: row.rowEvidenceSha256,
-      operatorFingerprint: 'operator-fingerprint',
+      operatorFingerprint: operatorFingerprint(
+        'operator-token-with-meaningful-entropy',
+      ),
+      operatorToken: 'operator-token-with-meaningful-entropy',
       now: new Date('2026-07-21T00:01:00.000Z'),
     });
     expect(disposition.auditReceiptSha256).toBe(audit.canonicalSha256);
@@ -268,9 +315,16 @@ describe('image upload cold-cutover service', () => {
         auditReceipt: audit,
         uploadId: row.uploadId,
         decision: 'cleanup_authorized',
+        auditReceiptPathSha256: audit.receiptPathSha256,
+        auditReceiptDigestSha256: '7'.repeat(64),
+        evidenceReceiptPathSha256: '8'.repeat(64),
         evidenceReceiptSha256: '9'.repeat(64),
+        evidenceCanonicalSha256: 'a'.repeat(64),
         evidenceRowSha256: '8'.repeat(64),
-        operatorFingerprint: 'operator-fingerprint',
+        operatorFingerprint: operatorFingerprint(
+          'operator-token-with-meaningful-entropy',
+        ),
+        operatorToken: 'operator-token-with-meaningful-entropy',
         now: new Date('2026-07-21T00:01:00.000Z'),
       }),
     ).toThrow(/drift/);
@@ -279,9 +333,16 @@ describe('image upload cold-cutover service', () => {
         auditReceipt: audit,
         uploadId: '10000000-0000-4000-8000-000000000099',
         decision: 'cleanup_authorized',
+        auditReceiptPathSha256: audit.receiptPathSha256,
+        auditReceiptDigestSha256: '7'.repeat(64),
+        evidenceReceiptPathSha256: '8'.repeat(64),
         evidenceReceiptSha256: '9'.repeat(64),
+        evidenceCanonicalSha256: 'a'.repeat(64),
         evidenceRowSha256: row.rowEvidenceSha256,
-        operatorFingerprint: 'operator-fingerprint',
+        operatorFingerprint: operatorFingerprint(
+          'operator-token-with-meaningful-entropy',
+        ),
+        operatorToken: 'operator-token-with-meaningful-entropy',
         now: new Date('2026-07-21T00:01:00.000Z'),
       }),
     ).toThrow(/cross-row/);
@@ -340,7 +401,9 @@ describe('image upload cold-cutover service', () => {
       preserved: 0,
       cleaned: 1,
     });
-    const deleteIndex = objects.calls.indexOf(`delete:${row.uploadObjectKey}`);
+    const deleteIndex = objects.calls.indexOf(
+      `delete:${row.uploadObjectKey}:0123456789abcdef0123456789abcdef`,
+    );
     expect(deleteIndex).toBeGreaterThanOrEqual(0);
     expect(objects.calls[deleteIndex + 1]).toBe(`head:${row.uploadObjectKey}`);
     expect(repository.calls).not.toContain('commitLegacyBridge');
@@ -375,7 +438,48 @@ describe('image upload cold-cutover service', () => {
     expect(repository.calls).not.toContain('commitLegacyBridge');
   });
 
-  it('creates a legacy bridge only for exact persisted dispatch and destination HEAD evidence', async () => {
+  it('creates a legacy bridge only when dispatch evidence has exact pre-existing Image authority', async () => {
+    const row = legacyRow({
+      status: 'finalizing',
+      sourceEtag: '0123456789abcdef0123456789abcdef',
+      finalizationStartedAt: new Date('2026-07-20T22:30:00.000Z'),
+      image: {
+        id: '30000000-0000-4000-8000-000000000001',
+        albumId: '20000000-0000-4000-8000-000000000001',
+        r2ObjectKey: 'albums/private/final.webp',
+      },
+    });
+    const repository = new MemoryRepository([row]);
+    const objects = new MemoryObjects();
+    objects.objects.set(row.finalObjectKey, {
+      etag: row.sourceEtag,
+      bytes: row.fileSize,
+      mime: row.contentType,
+      metadataSha256: 'f'.repeat(64),
+    });
+    const service = new ImageUploadCutoverService(repository, objects);
+    const audit = await service.audit({
+      now: new Date('2026-07-21T00:00:30.000Z'),
+      firstSnapshot: cleanSnapshot(),
+      secondSnapshot: cleanSnapshot(new Date('2026-07-21T00:00:30.000Z')),
+      backup,
+      dispositions: [],
+    });
+    expect(audit.rows[0].classification).toBe('existing_image_authority');
+
+    const result = await service.apply({
+      now: new Date('2026-07-21T00:02:00.000Z'),
+      receipt: audit,
+      approval: service.approve(audit, 'operator-fingerprint'),
+      backup,
+      dispositions: [],
+      presignClockSkewSeconds: 60,
+    });
+    expect(result.bridged).toBe(1);
+    expect(repository.calls).toContain('commitLegacyBridge');
+  });
+
+  it('never bridges dispatch evidence without an exact pre-existing Image authority', async () => {
     const row = legacyRow({
       status: 'finalizing',
       sourceEtag: '0123456789abcdef0123456789abcdef',
@@ -397,17 +501,240 @@ describe('image upload cold-cutover service', () => {
       backup,
       dispositions: [],
     });
-    expect(audit.rows[0].classification).toBe('legacy_dispatch_evidence');
 
-    const result = await service.apply({
+    await expect(
+      service.apply({
+        now: new Date('2026-07-21T00:02:00.000Z'),
+        receipt: audit,
+        approval: service.approve(audit, 'a'.repeat(64)),
+        backup,
+        dispositions: [],
+        presignClockSkewSeconds: 60,
+      }),
+    ).rejects.toThrow(/pre-existing Image authority/);
+    expect(repository.calls).not.toContain('commitLegacyBridge');
+  });
+
+  it('runs post-migration schema preflight before any object mutation', async () => {
+    const row = legacyRow();
+    const repository = new MemoryRepository([row]);
+    repository.schemaReady = false;
+    const objects = new MemoryObjects();
+    objects.objects.set(row.uploadObjectKey, {
+      etag: '0123456789abcdef0123456789abcdef',
+      bytes: row.fileSize,
+      mime: row.contentType,
+      metadataSha256: 'f'.repeat(64),
+    });
+    const service = new ImageUploadCutoverService(repository, objects);
+    const audit = await service.audit({
+      now: new Date('2026-07-21T00:00:30.000Z'),
+      firstSnapshot: cleanSnapshot(),
+      secondSnapshot: cleanSnapshot(new Date('2026-07-21T00:00:30.000Z')),
+      backup,
+      dispositions: [],
+    });
+
+    await expect(
+      service.apply({
+        now: new Date('2026-07-21T00:02:00.000Z'),
+        receipt: audit,
+        approval: service.approve(audit, 'a'.repeat(64)),
+        backup,
+        dispositions: [],
+        presignClockSkewSeconds: 60,
+      }),
+    ).rejects.toThrow(/post-migration schema preflight/);
+    expect(objects.calls.some((call) => call.startsWith('delete:'))).toBe(
+      false,
+    );
+  });
+
+  it('cryptographically binds disposition authority to exact audit/evidence paths and digests', async () => {
+    const repository = new MemoryRepository([
+      legacyRow({
+        status: 'consumed',
+        consumedAt: new Date('2026-07-20T22:30:00.000Z'),
+      }),
+    ]);
+    const service = new ImageUploadCutoverService(
+      repository,
+      new MemoryObjects(),
+    );
+    const audit = await service.audit({
+      now: new Date('2026-07-21T00:00:30.000Z'),
+      firstSnapshot: cleanSnapshot(),
+      secondSnapshot: cleanSnapshot(new Date('2026-07-21T00:00:30.000Z')),
+      backup,
+      dispositions: [],
+    });
+    const row = audit.rows[0];
+    const operatorToken = 'operator-token-with-meaningful-entropy';
+    const disposition = service.createDisposition({
+      auditReceipt: audit,
+      uploadId: row.uploadId,
+      decision: 'cleanup_authorized',
+      auditReceiptPathSha256: audit.receiptPathSha256,
+      auditReceiptDigestSha256: '2'.repeat(64),
+      evidenceReceiptPathSha256: '3'.repeat(64),
+      evidenceReceiptSha256: '4'.repeat(64),
+      evidenceCanonicalSha256: '5'.repeat(64),
+      evidenceRowSha256: row.rowEvidenceSha256,
+      operatorFingerprint: operatorFingerprint(operatorToken),
+      operatorToken,
+      now: new Date('2026-07-21T00:01:00.000Z'),
+    });
+
+    expect(disposition).toEqual(
+      expect.objectContaining({
+        auditReceiptPathSha256: audit.receiptPathSha256,
+        auditReceiptDigestSha256: '2'.repeat(64),
+        evidenceReceiptPathSha256: '3'.repeat(64),
+        evidenceReceiptSha256: '4'.repeat(64),
+        evidenceCanonicalSha256: '5'.repeat(64),
+        operatorIdentityFingerprint: operatorFingerprint(operatorToken),
+      }),
+    );
+    expect(disposition.approvalDigest).toMatch(/^[a-f0-9]{64}$/);
+    expect(disposition.approvalSignature).toMatch(/^[a-f0-9]{64}$/);
+
+    const forgedDraft = {
+      ...disposition,
+      auditReceiptPathSha256: '7'.repeat(64),
+    };
+    const forged = {
+      ...forgedDraft,
+      canonicalSha256: canonicalReceiptSha256(forgedDraft),
+    };
+    await expect(
+      service.audit({
+        now: new Date('2026-07-21T00:02:00.000Z'),
+        firstSnapshot: cleanSnapshot(),
+        secondSnapshot: cleanSnapshot(new Date('2026-07-21T00:00:30.000Z')),
+        backup,
+        dispositions: [forged],
+        operatorToken,
+      }),
+    ).rejects.toThrow(/signature|authorization/);
+  });
+
+  it('rejects meaningless operator identity when authorizing a disposition', async () => {
+    const repository = new MemoryRepository([
+      legacyRow({
+        status: 'consumed',
+        consumedAt: new Date('2026-07-20T22:30:00.000Z'),
+      }),
+    ]);
+    const service = new ImageUploadCutoverService(
+      repository,
+      new MemoryObjects(),
+    );
+    const audit = await service.audit({
+      now: new Date('2026-07-21T00:00:30.000Z'),
+      firstSnapshot: cleanSnapshot(),
+      secondSnapshot: cleanSnapshot(new Date('2026-07-21T00:00:30.000Z')),
+      backup,
+      dispositions: [],
+    });
+    expect(() =>
+      service.createDisposition({
+        auditReceipt: audit,
+        uploadId: audit.rows[0].uploadId,
+        decision: 'cleanup_authorized',
+        auditReceiptPathSha256: audit.receiptPathSha256,
+        auditReceiptDigestSha256: '2'.repeat(64),
+        evidenceReceiptPathSha256: '3'.repeat(64),
+        evidenceReceiptSha256: '4'.repeat(64),
+        evidenceCanonicalSha256: '5'.repeat(64),
+        evidenceRowSha256: audit.rows[0].rowEvidenceSha256,
+        operatorFingerprint: 'f'.repeat(64),
+        operatorToken: 'operator-token-with-meaningful-entropy',
+        now: new Date('2026-07-21T00:01:00.000Z'),
+      }),
+    ).toThrow(/operator identity/);
+  });
+
+  it('skips DELETE when audit proves the temporary source is already absent', async () => {
+    const row = legacyRow();
+    const repository = new MemoryRepository([row]);
+    const objects = new MemoryObjects();
+    const service = new ImageUploadCutoverService(repository, objects);
+    const audit = await service.audit({
+      now: new Date('2026-07-21T00:00:30.000Z'),
+      firstSnapshot: cleanSnapshot(),
+      secondSnapshot: cleanSnapshot(new Date('2026-07-21T00:00:30.000Z')),
+      backup,
+      dispositions: [],
+    });
+
+    await service.apply({
       now: new Date('2026-07-21T00:02:00.000Z'),
       receipt: audit,
-      approval: service.approve(audit, 'operator-fingerprint'),
+      approval: service.approve(audit, 'a'.repeat(64)),
       backup,
       dispositions: [],
       presignClockSkewSeconds: 60,
     });
-    expect(result.bridged).toBe(1);
-    expect(repository.calls).toContain('commitLegacyBridge');
+
+    expect(
+      objects.calls.some((call) =>
+        call.startsWith(`delete:${row.uploadObjectKey}`),
+      ),
+    ).toBe(false);
+    expect(objects.calls).toContain(`head:${row.uploadObjectKey}`);
+  });
+
+  it('durably marks retained existing-Image rows pending before temporary deletion', async () => {
+    const row = legacyRow({
+      status: 'consumed',
+      consumedAt: new Date('2026-07-20T22:30:00.000Z'),
+      image: {
+        id: '30000000-0000-4000-8000-000000000001',
+        albumId: '20000000-0000-4000-8000-000000000001',
+        r2ObjectKey: 'albums/private/final.webp',
+      },
+    });
+    const repository = new MemoryRepository([row]);
+    const objects = new MemoryObjects();
+    objects.requirePendingFrom = repository;
+    objects.objects.set(row.uploadObjectKey, {
+      etag: '0123456789abcdef0123456789abcdef',
+      bytes: row.fileSize,
+      mime: row.contentType,
+      metadataSha256: 'f'.repeat(64),
+    });
+    const service = new ImageUploadCutoverService(repository, objects);
+    const audit = await service.audit({
+      now: new Date('2026-07-21T00:00:30.000Z'),
+      firstSnapshot: cleanSnapshot(),
+      secondSnapshot: cleanSnapshot(new Date('2026-07-21T00:00:30.000Z')),
+      backup,
+      dispositions: [],
+    });
+
+    await expect(
+      service.apply({
+        now: new Date('2026-07-21T00:02:00.000Z'),
+        receipt: audit,
+        approval: service.approve(audit, 'a'.repeat(64)),
+        backup,
+        dispositions: [],
+        presignClockSkewSeconds: 60,
+      }),
+    ).resolves.toEqual({
+      failed: 0,
+      bridged: 0,
+      preserved: 1,
+      cleaned: 1,
+    });
+    const pendingIndex = repository.calls.indexOf(
+      'ensureTemporaryCleanupPending',
+    );
+    const deleteIndex = objects.calls.findIndex((call) =>
+      call.startsWith(`delete:${row.uploadObjectKey}`),
+    );
+    expect(pendingIndex).toBeGreaterThanOrEqual(0);
+    expect(deleteIndex).toBeGreaterThanOrEqual(0);
+    expect(repository.calls).toContain('markTemporaryCleanupVerified');
   });
 });

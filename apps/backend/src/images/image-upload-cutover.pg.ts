@@ -32,6 +32,7 @@ export type QuiescedBackupReceipt = Readonly<{
 export type QuiescedBackupApproval = Readonly<{
   schemaVersion: 'image-upload-quiesced-backup-approval/v1';
   backupReceiptPathSha256: string;
+  backupApprovalPathSha256: string;
   backupReceiptSha256: string;
   backupPathSha256: string;
   backupSha256: string;
@@ -293,6 +294,74 @@ export class PgCutoverRepository implements CutoverRepository {
     }
   }
 
+  async assertPostMigrationSchema(): Promise<void> {
+    const required = new Map<string, readonly string[]>([
+      ['Image', ['fileSizeBytes']],
+      [
+        'ImageUpload',
+        [
+          'presignExpiresAt',
+          'finalizationLeaseToken',
+          'resultImageId',
+          'terminalAt',
+          'resultRetentionExpiresAt',
+          'failureCode',
+          'temporaryCleanupState',
+          'temporaryCleanupNextAttemptAt',
+          'temporaryCleanupVerifiedAt',
+          'temporaryCleanupLastErrorCategory',
+        ],
+      ],
+      [
+        'ImageUploadPromotion',
+        [
+          'id',
+          'uploadId',
+          'origin',
+          'albumId',
+          'finalizationLeaseToken',
+          'accountId',
+          'bucket',
+          'sourceObjectKey',
+          'sourceEtag',
+          'destinationObjectKey',
+          'committedResultImageId',
+          'copyState',
+          'disposition',
+          'providerSettlementObservedAt',
+          'destinationHeadObservedAt',
+          'destinationHeadEtag',
+          'destinationHeadBytes',
+          'destinationHeadMime',
+          'destinationHeadMetadataSha256',
+        ],
+      ],
+    ]);
+    const result = await this.pool.query<{
+      tableName: string;
+      columnName: string;
+    }>(
+      `SELECT table_name AS "tableName", column_name AS "columnName"
+       FROM information_schema.columns
+       WHERE table_schema = current_schema()
+         AND table_name = ANY($1::text[])`,
+      [[...required.keys()]],
+    );
+    const actual = new Set(
+      result.rows.map((row) => `${row.tableName}.${row.columnName}`),
+    );
+    const missing = [...required].flatMap(([table, columns]) =>
+      columns
+        .filter((column) => !actual.has(`${table}.${column}`))
+        .map((column) => `${table}.${column}`),
+    );
+    if (missing.length !== 0) {
+      throw new Error(
+        `post-migration schema preflight failed: missing ${missing.join(',')}`,
+      );
+    }
+  }
+
   async failLegacyUpload(
     input: FailLegacyUploadInput,
   ): Promise<'applied' | 'already_applied'> {
@@ -431,42 +500,27 @@ export class PgCutoverRepository implements CutoverRepository {
         throw new Error('legacy bridge projection CAS lost');
       }
 
-      const imageId = recordId(input.receiptSha256, input.uploadId, 'image');
-      const insertedImage = await client.query(
-        `INSERT INTO "Image" (
-           "id", "albumId", "filename", "r2ObjectKey", "uploadStatus",
-           "fileSizeKb", "fileSizeBytes", "createdAt"
-         ) VALUES ($1, $2, $3, $4, 'completed', $5, $6, $7)
-         ON CONFLICT ("r2ObjectKey") DO NOTHING
-         RETURNING "id"`,
-        [
-          imageId,
-          row.albumId,
-          row.filename,
-          row.finalObjectKey,
-          Math.ceil(input.destination.bytes / 1024),
-          input.destination.bytes,
-          input.now,
-        ],
-      );
-      const authority = await client.query<{ id: string; albumId: string }>(
-        `SELECT "id", "albumId" FROM "Image" WHERE "r2ObjectKey" = $1`,
-        [row.finalObjectKey],
-      );
       if (
-        authority.rows.length !== 1 ||
-        authority.rows[0].albumId !== row.albumId
+        row.image === null ||
+        row.image.albumId !== row.albumId ||
+        row.image.r2ObjectKey !== row.finalObjectKey
       ) {
-        throw new Error('legacy bridge Image authority mismatch');
-      }
-      const committedImageId = authority.rows[0].id;
-      if (insertedImage.rowCount === 1) {
-        await client.query(
-          `UPDATE "Album" SET "imageCount" = "imageCount" + 1
-           WHERE "id" = $1`,
-          [row.albumId],
+        throw new Error(
+          'legacy bridge requires exact pre-existing Image authority',
         );
       }
+      const authority = await client.query<{ id: string }>(
+        `SELECT "id" FROM "Image"
+         WHERE "id" = $1 AND "albumId" = $2 AND "r2ObjectKey" = $3
+         FOR SHARE`,
+        [row.image.id, row.albumId, row.finalObjectKey],
+      );
+      if (authority.rows.length !== 1) {
+        throw new Error(
+          'legacy bridge requires exact pre-existing Image authority',
+        );
+      }
+      const committedImageId = authority.rows[0].id;
 
       await client.query(
         `INSERT INTO "ImageUploadPromotion" (
@@ -530,6 +584,65 @@ export class PgCutoverRepository implements CutoverRepository {
     });
   }
 
+  async ensureTemporaryCleanupPending(
+    uploadId: string,
+    now: Date,
+    presignExpiresAt: Date,
+    cleanupNotBefore: Date,
+  ): Promise<'pending' | 'verified'> {
+    if (!Number.isFinite(now.getTime())) {
+      throw new Error('temporary cleanup time is invalid');
+    }
+    return this.withTransaction(async (client) => {
+      const current = await client.query<{
+        status: string;
+        temporaryCleanupState: string | null;
+      }>(
+        `SELECT "status", "temporaryCleanupState"
+         FROM "ImageUpload" WHERE "id" = $1 FOR UPDATE`,
+        [uploadId],
+      );
+      const row = current.rows[0];
+      if (!row || !['failed', 'consumed'].includes(row.status)) {
+        throw new Error('temporary cleanup row is not terminal');
+      }
+      if (row.temporaryCleanupState === 'verified_deleted') {
+        return 'verified';
+      }
+      if (
+        row.temporaryCleanupState !== null &&
+        row.temporaryCleanupState !== 'pending'
+      ) {
+        throw new Error('temporary cleanup state is invalid');
+      }
+      const updated = await client.query(
+        `UPDATE "ImageUpload"
+         SET
+          "presignExpiresAt" = GREATEST(
+            COALESCE("presignExpiresAt", $2::timestamp(3)),
+            $2::timestamp(3)
+          ),
+          "temporaryCleanupState" = 'pending',
+          "temporaryCleanupNextAttemptAt" = $3::timestamp(3),
+          "temporaryCleanupVerifiedAt" = NULL
+         WHERE "id" = $1
+           AND "status" IN ('failed', 'consumed')
+           AND "temporaryCleanupState" IS NOT DISTINCT FROM $4
+         RETURNING "id"`,
+        [
+          uploadId,
+          presignExpiresAt,
+          cleanupNotBefore,
+          row.temporaryCleanupState,
+        ],
+      );
+      if (updated.rowCount !== 1) {
+        throw new Error('temporary cleanup pending CAS lost');
+      }
+      return 'pending';
+    });
+  }
+
   async markTemporaryCleanupVerified(
     uploadId: string,
     verifiedAt: Date,
@@ -547,6 +660,7 @@ export class PgCutoverRepository implements CutoverRepository {
         "temporaryCleanupLastErrorCategory" = NULL
        WHERE "id" = $1
          AND "status" IN ('failed', 'consumed')
+         AND "temporaryCleanupState" = 'pending'
          AND $2::timestamp(3) >= COALESCE(
            "presignExpiresAt",
            GREATEST("expiresAt", "createdAt" + interval '1 hour')
@@ -701,12 +815,16 @@ export class R2CutoverObjectStore implements CutoverObjectStore {
 export function backupBinding(
   receiptSha256: string,
   approvalSha256: string,
+  receiptPathSha256: string,
+  approvalPathSha256: string,
   receipt: QuiescedBackupReceipt,
   backupPathSha256: string,
 ): CutoverBackupBinding {
   return {
     receiptSha256,
     approvalSha256,
+    receiptPathSha256,
+    approvalPathSha256,
     databaseIdentitySha256: receipt.databaseIdentitySha256,
     backupSha256: receipt.backupSha256,
     backupPathSha256,

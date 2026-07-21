@@ -132,6 +132,8 @@ describe('image upload one-shot cold cutover (PostgreSQL)', () => {
     const backup = {
       receiptSha256: 'a'.repeat(64),
       approvalSha256: 'b'.repeat(64),
+      receiptPathSha256: '7'.repeat(64),
+      approvalPathSha256: '8'.repeat(64),
       databaseIdentitySha256: 'c'.repeat(64),
       backupSha256: 'd'.repeat(64),
       backupPathSha256: 'e'.repeat(64),
@@ -158,6 +160,25 @@ describe('image upload one-shot cold cutover (PostgreSQL)', () => {
       },
     ]);
 
+    const approval = service.approve(
+      audit,
+      'a'.repeat(64),
+      new Date('2026-07-21T00:00:31.000Z'),
+    );
+    await expect(
+      service.apply({
+        now: new Date('2026-07-21T00:02:00.000Z'),
+        receipt: audit,
+        approval,
+        backup,
+        dispositions: [],
+        presignClockSkewSeconds: 60,
+      }),
+    ).rejects.toThrow(/post-migration schema preflight/);
+    expect(
+      objects.operations.some((operation) => operation.startsWith('DELETE:')),
+    ).toBe(false);
+
     await pool.query(`
       ALTER TABLE "ImageUpload"
         ADD COLUMN "presignExpiresAt" timestamp(3),
@@ -171,18 +192,31 @@ describe('image upload one-shot cold cutover (PostgreSQL)', () => {
         ADD COLUMN "temporaryCleanupVerifiedAt" timestamp(3),
         ADD COLUMN "temporaryCleanupLastErrorCategory" text;
       CREATE TABLE "ImageUploadPromotion" (
-        "uploadId" text PRIMARY KEY,
-        "finalizationLeaseToken" text NOT NULL,
+        "id" text PRIMARY KEY,
+        "uploadId" text NOT NULL UNIQUE,
         "origin" text NOT NULL,
-        "disposition" text NOT NULL
+        "albumId" text NOT NULL,
+        "finalizationLeaseToken" text NOT NULL,
+        "accountId" text NOT NULL,
+        "bucket" text NOT NULL,
+        "sourceObjectKey" text NOT NULL,
+        "sourceEtag" text,
+        "destinationObjectKey" text NOT NULL UNIQUE,
+        "committedResultImageId" text,
+        "copyState" text NOT NULL,
+        "disposition" text NOT NULL,
+        "providerSettlementObservedAt" timestamp(3),
+        "destinationHeadObservedAt" timestamp(3),
+        "destinationHeadEtag" text,
+        "destinationHeadBytes" integer,
+        "destinationHeadMime" text,
+        "destinationHeadMetadataSha256" text,
+        "dispatchAttempts" integer NOT NULL DEFAULT 0,
+        "reconcileAttempts" integer NOT NULL DEFAULT 0,
+        "createdAt" timestamp(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" timestamp(3) NOT NULL
       );
     `);
-
-    const approval = service.approve(
-      audit,
-      'operator-fingerprint',
-      new Date('2026-07-21T00:00:31.000Z'),
-    );
     const applied = await service.apply({
       now: new Date('2026-07-21T00:02:00.000Z'),
       receipt: audit,
@@ -224,5 +258,68 @@ describe('image upload one-shot cold cutover (PostgreSQL)', () => {
         (operation) => operation === 'DELETE:albums/private/final.webp',
       ),
     ).toHaveLength(0);
+
+    const bridgeRow = {
+      id: '10000000-0000-4000-8000-000000000002',
+      albumId: '20000000-0000-4000-8000-000000000001',
+      uploadObjectKey: 'uploads/private/bridge-source.webp',
+      finalObjectKey: 'albums/private/bridge-final.webp',
+      filename: 'bridge-final.webp',
+      contentType: 'image/webp',
+      fileSize: 321,
+      status: 'finalizing',
+      sourceEtag: 'abcdefabcdefabcdefabcdefabcdefab',
+      finalizationStartedAt: new Date('2026-07-20T22:30:00.000Z'),
+      expiresAt: new Date('2026-07-20T23:00:00.000Z'),
+      consumedAt: null,
+      createdAt: new Date('2026-07-20T22:00:00.000Z'),
+      image: null,
+    };
+    await pool.query(
+      `INSERT INTO "ImageUpload" (
+        "id", "albumId", "uploadObjectKey", "finalObjectKey", "filename",
+        "contentType", "fileSize", "status", "sourceEtag",
+        "finalizationStartedAt", "expiresAt", "createdAt"
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+      [
+        bridgeRow.id,
+        bridgeRow.albumId,
+        bridgeRow.uploadObjectKey,
+        bridgeRow.finalObjectKey,
+        bridgeRow.filename,
+        bridgeRow.contentType,
+        bridgeRow.fileSize,
+        bridgeRow.status,
+        bridgeRow.sourceEtag,
+        bridgeRow.finalizationStartedAt,
+        bridgeRow.expiresAt,
+        bridgeRow.createdAt,
+      ],
+    );
+    await expect(
+      repository.commitLegacyBridge({
+        uploadId: bridgeRow.id,
+        rowEvidenceSha256: '1'.repeat(64),
+        receiptSha256: '2'.repeat(64),
+        finalizationToken: '30000000-0000-5000-8000-000000000001',
+        now: new Date('2026-07-21T00:04:00.000Z'),
+        presignExpiresAt: bridgeRow.expiresAt,
+        cleanupNotBefore: new Date('2026-07-20T23:01:00.000Z'),
+        row: bridgeRow,
+        destination: {
+          etag: bridgeRow.sourceEtag,
+          bytes: bridgeRow.fileSize,
+          mime: bridgeRow.contentType,
+          metadataSha256: '3'.repeat(64),
+        },
+        committedAuthorized: true,
+      }),
+    ).rejects.toThrow(/pre-existing Image authority/);
+    const unexpectedImage = await pool.query<{ count: number }>(
+      `SELECT count(*)::int AS "count" FROM "Image"
+       WHERE "r2ObjectKey" = $1`,
+      [bridgeRow.finalObjectKey],
+    );
+    expect(unexpectedImage.rows[0].count).toBe(0);
   });
 });

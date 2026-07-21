@@ -4,13 +4,21 @@ import {
   parseCutoverCommand,
   verifyBackupEvidence,
 } from './image-upload-cutover';
+import * as cutoverScript from './image-upload-cutover';
 import {
   canonicalReceiptSha256,
   type QuiescedBackupApproval,
   type QuiescedBackupReceipt,
 } from '../images/image-upload-cutover.pg';
 import { createHash } from 'node:crypto';
-import { chmodSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  copyFileSync,
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -85,9 +93,20 @@ describe('image upload cutover command contract', () => {
         '--decision=cleanup_authorized',
         `--evidence-receipt=${outside('e.json')}`,
         `--output=${outside('o.json')}`,
-        '--operator-fingerprint=f',
+        `--operator-fingerprint=${'f'.repeat(64)}`,
       ]),
     ).not.toThrow();
+    expect(() =>
+      parseCutoverCommand([
+        'disposition',
+        `--audit-receipt=${outside('a2.json')}`,
+        '--upload-id=10000000-0000-4000-8000-000000000001',
+        '--decision=cleanup_authorized',
+        `--evidence-receipt=${outside('e2.json')}`,
+        `--output=${outside('o2.json')}`,
+        '--operator-fingerprint=f',
+      ]),
+    ).toThrow(/operator.*fingerprint/i);
     expect(() =>
       parseCutoverCommand([
         'approve',
@@ -128,6 +147,7 @@ describe('image upload cutover command contract', () => {
     const approvalDraft = {
       schemaVersion: 'image-upload-quiesced-backup-approval/v1' as const,
       backupReceiptPathSha256: digest(resolve(receiptPath)),
+      backupApprovalPathSha256: digest(resolve(approvalPath)),
       backupReceiptSha256: digest(readFileSync(receiptPath)),
       backupPathSha256: digest(resolve(backupPath)),
       backupSha256: receipt.backupSha256,
@@ -149,6 +169,19 @@ describe('image upload cutover command contract', () => {
     );
     expect(binding.backupSha256).toBe(receipt.backupSha256);
     expect(binding.backupPathSha256).toBe(digest(resolve(backupPath)));
+    expect(binding.receiptPathSha256).toBe(digest(resolve(receiptPath)));
+    expect(binding.approvalPathSha256).toBe(digest(resolve(approvalPath)));
+
+    const relocatedApproval = join(directory, 'relocated-approval.json');
+    copyFileSync(approvalPath, relocatedApproval);
+    expect(() =>
+      verifyBackupEvidence(
+        receiptPath,
+        relocatedApproval,
+        resolve(__dirname, '../../..'),
+        () => true,
+      ),
+    ).toThrow(/approval path/i);
 
     writeFileSync(backupPath, 'drifted backup bytes', { mode: 0o600 });
     expect(() =>
@@ -159,5 +192,113 @@ describe('image upload cutover command contract', () => {
         () => true,
       ),
     ).toThrow(/backup digest/i);
+  });
+
+  it('writes the diagnostic audit receipt before signaling unresolved ambiguity', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'cutover-audit-output-'));
+    chmodSync(directory, 0o700);
+    const output = join(directory, 'audit.json');
+    const receipt = {
+      schemaVersion: 'image-upload-cutover-audit/v1',
+      summary: { unresolvedAmbiguous: 1 },
+      canonicalSha256: 'a'.repeat(64),
+    };
+    expect(() => cutoverScript.persistAuditReceipt(output, receipt)).toThrow(
+      /ambiguous/i,
+    );
+    expect(existsSync(output)).toBe(true);
+    expect(JSON.parse(readFileSync(output, 'utf8'))).toEqual(receipt);
+  });
+
+  it('rejects relocated audit/evidence inputs when creating a disposition', async () => {
+    const directory = mkdtempSync(join(tmpdir(), 'cutover-disposition-'));
+    chmodSync(directory, 0o700);
+    const canonicalAuditPath = join(directory, 'canonical-audit.json');
+    const relocatedAuditPath = join(directory, 'relocated-audit.json');
+    const evidencePath = join(directory, 'row-evidence.json');
+    const outputPath = join(directory, 'disposition.json');
+    const first = {
+      observedAt: '2026-07-21T00:00:00.000Z',
+      activeUploads: 0,
+      expiredUploads: 0,
+      unresolvedPromotions: 0,
+      invalidResponseHeadSettlement: 0,
+      openConflicts: 0,
+      dueTemporaryCleanup: 0,
+      applicableImageDeletion: 0,
+      invalidLegacyAuthority: 0,
+      corsMismatch: 0,
+    };
+    const rowEvidenceSha256 = '8'.repeat(64);
+    const auditDraft = {
+      schemaVersion: 'image-upload-cutover-audit/v1' as const,
+      receiptPathSha256: digest(resolve(canonicalAuditPath)),
+      generatedAt: '2026-07-21T00:00:30.000Z',
+      backup: {
+        receiptSha256: 'a'.repeat(64),
+        approvalSha256: 'b'.repeat(64),
+        receiptPathSha256: 'c'.repeat(64),
+        approvalPathSha256: 'd'.repeat(64),
+        databaseIdentitySha256: 'e'.repeat(64),
+        backupSha256: 'f'.repeat(64),
+        backupPathSha256: '1'.repeat(64),
+        quiescedAt: '2026-07-20T21:00:00.000Z',
+      },
+      pollingSnapshots: [
+        first,
+        { ...first, observedAt: '2026-07-21T00:00:30.000Z' },
+      ],
+      rows: [
+        {
+          uploadId: '10000000-0000-4000-8000-000000000001',
+          classification: 'legacy_ambiguous',
+          rowEvidenceSha256,
+          sourceIdentitySha256: null,
+          destinationIdentitySha256: null,
+          imageAuthoritySha256: null,
+          dispositionSha256: null,
+        },
+      ],
+      summary: {
+        total: 1,
+        legacyPreDispatch: 0,
+        legacyDispatchEvidence: 0,
+        existingImageAuthority: 0,
+        ambiguous: 1,
+        unresolvedAmbiguous: 1,
+      },
+    };
+    const audit = {
+      ...auditDraft,
+      canonicalSha256: canonicalReceiptSha256(auditDraft),
+    };
+    writeFileSync(relocatedAuditPath, JSON.stringify(audit), { mode: 0o600 });
+    const evidenceDraft = {
+      schemaVersion: 'image-upload-cutover-row-evidence/v1',
+      uploadId: audit.rows[0].uploadId,
+      rowEvidenceSha256,
+      evidenceReceiptPathSha256: digest(resolve(evidencePath)),
+    };
+    const evidence = {
+      ...evidenceDraft,
+      canonicalSha256: canonicalReceiptSha256(evidenceDraft),
+    };
+    writeFileSync(evidencePath, JSON.stringify(evidence), { mode: 0o600 });
+
+    await expect(
+      cutoverScript.runCutoverCommand(
+        [
+          'disposition',
+          `--audit-receipt=${relocatedAuditPath}`,
+          `--upload-id=${audit.rows[0].uploadId}`,
+          '--decision=cleanup_authorized',
+          `--evidence-receipt=${evidencePath}`,
+          `--output=${outputPath}`,
+          `--operator-fingerprint=${'9'.repeat(64)}`,
+        ],
+        env,
+      ),
+    ).rejects.toThrow(/audit.*path|relocat/i);
+    expect(existsSync(outputPath)).toBe(false);
   });
 });
