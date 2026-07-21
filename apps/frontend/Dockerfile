@@ -8,10 +8,14 @@ WORKDIR /app
 
 # Copy root package files
 COPY package.json package-lock.json ./
+COPY apps/backend/package.json ./apps/backend/
 COPY apps/frontend/package.json ./apps/frontend/
 COPY packages/ui/package.json ./packages/ui/
 COPY packages/eslint-config/package.json ./packages/eslint-config/
+COPY packages/image-upload-policy/package.json ./packages/image-upload-policy/
+COPY packages/types/package.json ./packages/types/
 COPY packages/typescript-config/package.json ./packages/typescript-config/
+COPY packages/utils/package.json ./packages/utils/
 
 # Copy prisma schema (required for postinstall script)
 COPY apps/backend/prisma ./apps/backend/prisma/
@@ -39,8 +43,8 @@ ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
 ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
 ENV ADMIN_CSP_REPORT_ONLY=$ADMIN_CSP_REPORT_ONLY
 
-WORKDIR /app/apps/frontend
-RUN npm run build
+RUN npm run build --workspace=@ndt/image-upload-policy
+RUN npm run build --workspace=frontend
 
 # Stage 3: Production - use next start instead of standalone
 FROM base AS runner
@@ -66,8 +70,17 @@ COPY --from=builder --chown=nextjs:nodejs /app/apps/frontend/.next ./apps/fronte
 COPY --from=builder --chown=nextjs:nodejs /app/apps/frontend/public ./apps/frontend/public
 COPY --from=builder --chown=nextjs:nodejs /app/apps/frontend/package.json ./apps/frontend/package.json
 COPY --from=builder --chown=nextjs:nodejs /app/apps/frontend/next.config.mjs ./apps/frontend/next.config.mjs
+COPY --from=builder --chown=nextjs:nodejs /app/packages/image-upload-policy/package.json ./packages/image-upload-policy/package.json
+COPY --from=builder --chown=nextjs:nodejs /app/packages/image-upload-policy/dist ./packages/image-upload-policy/dist
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
+
+# Fail the build if the workspace export targets are absent from the runner.
+RUN test -f /app/packages/image-upload-policy/package.json && \
+    test -f /app/packages/image-upload-policy/dist/esm/index.js && \
+    test -f /app/packages/image-upload-policy/dist/cjs/index.js && \
+    test -f /app/packages/image-upload-policy/dist/index.d.ts && \
+    test -f /app/packages/image-upload-policy/dist/cjs/package.json
 
 USER nextjs
 

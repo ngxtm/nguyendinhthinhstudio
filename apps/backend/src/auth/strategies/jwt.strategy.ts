@@ -2,7 +2,8 @@ import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import passport from 'passport';
 import type { Request } from 'express';
-import { JWT_VERIFIER, JwtVerifier } from '../jwt-verifier.provider';
+import { JWT_VERIFIER } from '../jwt-verifier.provider';
+import type { JwtVerifier } from '../jwt-verifier.provider';
 
 const PassportBaseStrategy =
   passport.Strategy as unknown as new () => passport.Strategy;

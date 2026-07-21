@@ -11,12 +11,16 @@ function isP2034(error: unknown): boolean {
 
 export async function runSerializableWithRetry<T>(
   operation: () => Promise<T>,
+  isAdditionalRetryable: (error: unknown) => boolean = () => false,
 ): Promise<T> {
   for (let attempt = 1; attempt <= SERIALIZABLE_MAX_ATTEMPTS; attempt++) {
     try {
       return await operation();
     } catch (error) {
-      if (!isP2034(error) || attempt === SERIALIZABLE_MAX_ATTEMPTS) {
+      if (
+        (!isP2034(error) && !isAdditionalRetryable(error)) ||
+        attempt === SERIALIZABLE_MAX_ATTEMPTS
+      ) {
         throw error;
       }
     }

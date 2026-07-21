@@ -4,14 +4,21 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
 import * as bodyParser from 'body-parser';
+import { parseImageUploadRuntimeConfig } from './images/image-upload-runtime-config';
 
 async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
-  app.set('trust proxy', true);
+  const imageUploadRuntime = parseImageUploadRuntimeConfig(process.env, 'api');
+  console.log(
+    'Image upload runtime configuration validated',
+    JSON.stringify(imageUploadRuntime.fingerprint),
+  );
 
-  // Increase body size limit for large image uploads (50MB max)
-  app.use(bodyParser.json({ limit: '50mb' }));
-  app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  app.set('trust proxy', imageUploadRuntime.trustedProxyAllowlist);
+
+  // Upload metadata stays bounded; image bytes go directly to R2.
+  app.use(bodyParser.json({ limit: '1mb' }));
+  app.use(bodyParser.urlencoded({ limit: '1mb', extended: true }));
 
   // Enable global validation
   app.useGlobalPipes(
@@ -29,7 +36,9 @@ async function bootstrap() {
   if (process.env.NODE_ENV !== 'production') {
     const config = new DocumentBuilder()
       .setTitle('NDT Studio Gallery API')
-      .setDescription('Backend API for NDT Studio Gallery - Albums, Images, and Authentication')
+      .setDescription(
+        'Backend API for NDT Studio Gallery - Albums, Images, and Authentication',
+      )
       .setVersion('1.0')
       .addBearerAuth(
         {
@@ -52,7 +61,9 @@ async function bootstrap() {
   }
 
   // Enable CORS with environment-based origins for production
-  const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3001'];
+  const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || [
+    'http://localhost:3001',
+  ];
   app.enableCors({
     origin: allowedOrigins,
     methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],

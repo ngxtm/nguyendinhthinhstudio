@@ -66,6 +66,7 @@ describe('ImageDeletionService', () => {
     });
     const storage = {
       deleteObject: jest.fn().mockResolvedValue(undefined),
+      headObjectIdentity: jest.fn().mockResolvedValue(null),
     };
     const service = createService(prisma, storage);
 
@@ -110,6 +111,7 @@ describe('ImageDeletionService', () => {
     });
     const storage = {
       deleteObject: jest.fn().mockResolvedValue(undefined),
+      headObjectIdentity: jest.fn().mockResolvedValue(null),
     };
 
     await expect(
@@ -147,9 +149,71 @@ describe('ImageDeletionService', () => {
 
     expect(prisma.imageObjectDeletion.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { provider: 'r2', status: 'pending' },
+        where: {
+          provider: 'r2',
+          status: 'pending',
+          authority: { in: ['current_result', 'legacy_image'] },
+        },
       }),
     );
     expect(storage.deleteObject).not.toHaveBeenCalled();
+  });
+
+  it('keeps deletion pending while the final HEAD still finds the object', async () => {
+    const prisma = {
+      imageObjectDeletion: {
+        findMany: jest
+          .fn()
+          .mockResolvedValue([
+            { id: 'queue-1', objectKey: 'albums/a/photo.jpg' },
+          ]),
+        update: jest.fn(),
+      },
+    };
+    const storage = {
+      deleteObject: jest.fn().mockResolvedValue(undefined),
+      headObjectIdentity: jest
+        .fn()
+        .mockResolvedValue({ etag: 'still-present' }),
+    };
+
+    await expect(
+      createService(prisma, storage).processPending(),
+    ).resolves.toEqual({ processed: 1, deleted: 0, failed: 1 });
+
+    expect(storage.headObjectIdentity).toHaveBeenCalledWith(
+      'albums/a/photo.jpg',
+      expect.objectContaining({ parentSignal: undefined }),
+    );
+    expect(prisma.imageObjectDeletion.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: 'pending',
+          attempts: { increment: 1 },
+        }),
+      }),
+    );
+  });
+
+  it('does not mutate retry state after the lock signal is aborted', async () => {
+    const prisma = {
+      imageObjectDeletion: {
+        findMany: jest
+          .fn()
+          .mockResolvedValue([
+            { id: 'queue-1', objectKey: 'albums/a/photo.jpg' },
+          ]),
+        update: jest.fn(),
+      },
+    };
+    const storage = { deleteObject: jest.fn() };
+    const lock = new AbortController();
+    lock.abort();
+
+    await expect(
+      createService(prisma, storage).processPending(100, lock.signal),
+    ).rejects.toMatchObject({ name: 'AbortError' });
+
+    expect(prisma.imageObjectDeletion.update).not.toHaveBeenCalled();
   });
 });

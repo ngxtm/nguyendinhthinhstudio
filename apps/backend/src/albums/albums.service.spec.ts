@@ -1,4 +1,3 @@
-import { ConflictException } from '@nestjs/common';
 import { AlbumsService } from './albums.service';
 
 const ALBUM_ID = '00000000-0000-4000-8000-000000000001';
@@ -105,6 +104,7 @@ function createHarness(
     images?: Array<{ id: string; r2ObjectKey: string | null }>;
     lockCount?: number;
     persistedDeleteStatus?: string;
+    pendingPromotions?: number;
   } = {},
 ) {
   const queuedObjects = new Map<string, Record<string, unknown>>();
@@ -119,7 +119,11 @@ function createHarness(
       count: jest.fn().mockResolvedValue(options.activeUploads ?? 0),
       deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
     },
+    imageUploadPromotion: {
+      count: jest.fn().mockResolvedValue(options.pendingPromotions ?? 0),
+    },
     album: {
+      update: jest.fn(),
       findUnique: jest.fn().mockResolvedValue({
         id: ALBUM_ID,
         deleteStatus: 'deleting',
@@ -167,9 +171,12 @@ describe('AlbumsService durable deletion', () => {
       activeUploads: 1,
     });
 
-    await expect(service.remove(ALBUM_ID)).rejects.toBeInstanceOf(
-      ConflictException,
-    );
+    await expect(service.remove(ALBUM_ID)).rejects.toMatchObject({
+      response: {
+        statusCode: 409,
+        code: 'album_cleanup_pending',
+      },
+    });
 
     expect(prisma.album.updateMany).toHaveBeenCalledWith({
       where: { id: ALBUM_ID, deleteStatus: 'active' },
@@ -191,6 +198,17 @@ describe('AlbumsService durable deletion', () => {
     expect(tx.album.delete).not.toHaveBeenCalled();
   });
 
+  it('blocks deletion while a promotion disposition still needs cleanup', async () => {
+    const { service } = createHarness({ pendingPromotions: 1 });
+
+    await expect(service.remove(ALBUM_ID)).rejects.toMatchObject({
+      response: {
+        statusCode: 409,
+        code: 'album_cleanup_pending',
+      },
+    });
+  });
+
   it('queues an image confirmed after the deletion lock by reading a fresh snapshot in the transaction', async () => {
     const { prisma, tx, queuedObjects, service } = createHarness({
       images: [r2Image, lateConfirmedImage],
@@ -210,7 +228,10 @@ describe('AlbumsService durable deletion', () => {
       `r2:${r2Image.r2ObjectKey}`,
       `r2:${lateConfirmedImage.r2ObjectKey}`,
     ]);
-    expect(tx.album.delete).toHaveBeenCalledWith({ where: { id: ALBUM_ID } });
+    expect(tx.album.update).toHaveBeenCalledWith({
+      where: { id: ALBUM_ID },
+      data: { deleteStatus: 'deleted' },
+    });
   });
 
   it('retries a P2034 deletion transaction without creating duplicate queue identities', async () => {
@@ -253,7 +274,10 @@ describe('AlbumsService durable deletion', () => {
       where: { id: ALBUM_ID },
       select: { deleteStatus: true },
     });
-    expect(tx.album.delete).toHaveBeenCalledTimes(1);
+    expect(tx.album.update).toHaveBeenCalledWith({
+      where: { id: ALBUM_ID },
+      data: { deleteStatus: 'deleted' },
+    });
   });
 });
 

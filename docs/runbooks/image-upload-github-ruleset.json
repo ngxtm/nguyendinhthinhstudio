@@ -1,0 +1,28 @@
+{
+    "name": "main-image-upload-required-checks",
+    "target": "branch",
+    "enforcement": "active",
+    "bypass_actors": [],
+    "conditions": {
+        "ref_name": {
+            "include": ["refs/heads/main"],
+            "exclude": []
+        }
+    },
+    "rules": [
+        {
+            "type": "required_status_checks",
+            "parameters": {
+                "required_status_checks": [
+                    { "context": "backend-image-upload" },
+                    { "context": "image-upload-packaging" },
+                    { "context": "frontend-playwright-chromium" },
+                    { "context": "frontend-stable-chrome" },
+                    { "context": "frontend-image-memory" }
+                ],
+                "strict_required_status_checks_policy": true,
+                "do_not_enforce_on_create": false
+            }
+        }
+    ]
+}

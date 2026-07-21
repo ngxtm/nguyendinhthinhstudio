@@ -1,0 +1,25 @@
+{
+  "name": "@ndt/image-upload-policy",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "npm run build:types && npm run build:esm && npm run build:cjs && node scripts/write-cjs-package.mjs",
+    "build:types": "tsc -p tsconfig.types.json",
+    "build:esm": "tsc -p tsconfig.esm.json",
+    "build:cjs": "tsc -p tsconfig.cjs.json",
+    "test": "node --import tsx --test test/**/*.test.ts"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/esm/index.js",
+      "require": "./dist/cjs/index.js"
+    },
+    "./fixtures": {
+      "types": "./dist/fixtures.d.ts",
+      "import": "./dist/esm/fixtures.js",
+      "require": "./dist/cjs/fixtures.js"
+    }
+  }
+}

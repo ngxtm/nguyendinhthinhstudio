@@ -32,6 +32,7 @@ function createImage(overrides: Partial<Image> = {}): Image {
     width: 2400,
     height: 1600,
     fileSizeKb: 512,
+    fileSizeBytes: null,
     createdAt: new Date('2026-07-12T12:00:00.000Z'),
     ...overrides,
   };
@@ -57,13 +58,41 @@ function createHarness(mode?: string) {
 }
 
 describe('ImagePresenterService', () => {
+  it.each(['legacy', 'auto', 'imgproxy'])(
+    'exposes exactly the PublicImageResponse allowlist in %s mode',
+    (mode) => {
+      const { service } = createHarness(mode);
+      const result = service.presentImage(createImage());
+
+      expect(Object.keys(result).sort()).toEqual(
+        [
+          'id',
+          'filename',
+          'width',
+          'height',
+          'altText',
+          'thumbnailUrl',
+          'smallUrl',
+          'mediumUrl',
+          'largeUrl',
+          'xlargeUrl',
+          'orderIndex',
+        ].sort(),
+      );
+      expect(result).not.toHaveProperty('albumId');
+      expect(result).not.toHaveProperty('r2ObjectKey');
+      expect(result).not.toHaveProperty('uploadStatus');
+      expect(result).not.toHaveProperty('fileSizeBytes');
+    },
+  );
+
   it('returns stored variants in legacy mode', () => {
     const { imageUrl, service } = createHarness('legacy');
     const image = createImage();
 
     const result = service.presentImage(image);
 
-    expect(result).toBe(image);
+    expect(result).not.toBe(image);
     expect(result).toMatchObject(storedVariants);
     expect(imageUrl.getVariantUrls).not.toHaveBeenCalled();
   });
@@ -74,7 +103,7 @@ describe('ImagePresenterService', () => {
 
     const result = service.presentImage(image);
 
-    expect(result).toBe(image);
+    expect(result).not.toBe(image);
     expect(result).toMatchObject(storedVariants);
     expect(imageUrl.getVariantUrls).not.toHaveBeenCalled();
   });
@@ -87,7 +116,7 @@ describe('ImagePresenterService', () => {
     const result = service.presentImage(image);
 
     expect(result).not.toBe(image);
-    expect(result).toEqual({ ...image, ...generatedVariants });
+    expect(result).toMatchObject(generatedVariants);
     expect(image).toEqual(snapshot);
     expect(imageUrl.getVariantUrls).toHaveBeenCalledWith(
       'albums/album-1/portrait.jpg',
@@ -121,7 +150,7 @@ describe('ImagePresenterService', () => {
     const { imageUrl, service } = createHarness();
     const image = createImage();
 
-    expect(service.presentImage(image)).toBe(image);
+    expect(service.presentImage(image)).toMatchObject(storedVariants);
     expect(imageUrl.getVariantUrls).not.toHaveBeenCalled();
   });
 });

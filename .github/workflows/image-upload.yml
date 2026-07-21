@@ -1,0 +1,169 @@
+name: image-upload
+
+on:
+    pull_request:
+    push:
+        branches: [main]
+    workflow_dispatch:
+
+permissions:
+    contents: read
+
+env:
+    CHROME_FOR_TESTING_VERSION: '148.0.7778.96'
+
+jobs:
+    backend-image-upload:
+        name: backend-image-upload
+        runs-on: ubuntu-24.04
+        timeout-minutes: 30
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: '24.14.0'
+                  cache: npm
+            - run: npm ci
+            - run: npm run build --workspace=@ndt/image-upload-policy
+            - run: npm run test:image-upload:ci --workspace=backend
+
+    image-upload-packaging:
+        name: image-upload-packaging
+        runs-on: ubuntu-24.04
+        timeout-minutes: 30
+        env:
+            NEXT_PUBLIC_API_URL: http://localhost:3000
+            NEXT_PUBLIC_ADMIN_API_ORIGINS: http://localhost:3001
+            NEXT_PUBLIC_SUPABASE_URL: http://localhost:54321
+            NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
+            BACKEND_IMAGE: ndt-backend:image-upload-ci
+            DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+            DIRECT_URL: postgresql://ci:ci@localhost:5432/ci
+            IMAGE_UPLOAD_POLICY_VERSION: web-v1-18da64f64a7d4a645b549c56ebc5dce84ed830f69defdf8b6d7f2b8d9659baef
+            R2_S3_ENDPOINT: https://ci-placeholder.invalid
+            CLOUDFLARE_R2_BUCKET_NAME: ci-placeholder
+            R2_ACCESS_KEY_ID: ci-placeholder
+            R2_SECRET_ACCESS_KEY: ci-placeholder
+            IMAGE_UPLOAD_TRUSTED_PROXY_ALLOWLIST: 127.0.0.1/32
+            SUPABASE_URL: http://localhost:54321
+            SUPABASE_ANON_KEY: ci-placeholder
+            SUPABASE_JWT_MODE: jwks
+            SUPABASE_JWT_ISSUER: http://localhost:54321/auth/v1
+            SUPABASE_JWKS_URL: http://localhost:54321/auth/v1/.well-known/jwks.json
+            SUPABASE_JWT_ALGORITHMS: ES256
+            IMGPROXY_KEY: 00000000000000000000000000000000
+            IMGPROXY_SALT: 00000000000000000000000000000000
+            IMGPROXY_BASE_URL: http://localhost:8080
+            IMAGE_DELIVERY_MODE: r2
+            ALLOWED_ORIGINS: http://localhost:3001
+            IMAGE_UPLOAD_RECONCILER_R2_ACCESS_KEY_ID: ci-reconciler
+            IMAGE_UPLOAD_RECONCILER_R2_SECRET_ACCESS_KEY: ci-reconciler
+            IMGPROXY_R2_ACCESS_KEY_ID: ci-imgproxy
+            IMGPROXY_R2_SECRET_ACCESS_KEY: ci-imgproxy
+        steps:
+            - uses: actions/checkout@v4
+            - run: docker build -f apps/backend/Dockerfile -t ndt-backend:image-upload-ci .
+            - run: docker build -f apps/frontend/Dockerfile -t ndt-frontend:image-upload-ci .
+            - run: docker compose config --quiet
+
+    frontend-playwright-chromium:
+        name: frontend-playwright-chromium
+        runs-on: ubuntu-24.04
+        timeout-minutes: 20
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: '24.14.0'
+                  cache: npm
+            - run: npm ci
+            - run: npm run build --workspace=@ndt/image-upload-policy
+            - run: npm run test:focused --workspace=frontend -- test/image-upload-capability.test.ts test/image-upload-encoder.test.ts test/image-upload-policy.test.ts test/image-upload-resource-registry.test.ts
+            - run: npm exec --workspace=frontend -- playwright -- install --with-deps chromium
+            - run: npm exec --workspace=frontend -- playwright -- test test/image-upload.browser.spec.ts --project=chromium
+
+    frontend-stable-chrome:
+        name: frontend-stable-chrome
+        runs-on: ubuntu-24.04
+        timeout-minutes: 20
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: '24.14.0'
+                  cache: npm
+            - run: npm ci
+            - run: npm run build --workspace=@ndt/image-upload-policy
+            - run: npm run test:focused --workspace=frontend -- test/image-upload-capability.test.ts test/image-upload-policy.test.ts
+            - run: npm exec --workspace=frontend -- playwright -- install-deps chromium
+            - name: Install pinned Chrome for Testing
+              run: |
+                  curl --fail --location --retry 3 \
+                    --output "$RUNNER_TEMP/chrome-for-testing.zip" \
+                    "https://storage.googleapis.com/chrome-for-testing-public/${CHROME_FOR_TESTING_VERSION}/linux64/chrome-linux64.zip"
+                  unzip -q "$RUNNER_TEMP/chrome-for-testing.zip" -d "$RUNNER_TEMP/chrome-for-testing"
+                  echo "CFT_EXECUTABLE_PATH=$RUNNER_TEMP/chrome-for-testing/chrome-linux64/chrome" >> "$GITHUB_ENV"
+            - run: npm exec --workspace=frontend -- playwright -- test test/image-upload.browser.spec.ts --project=stable-chrome
+
+    frontend-image-memory:
+        name: frontend-image-memory
+        runs-on: ubuntu-24.04
+        timeout-minutes: 30
+        env:
+            IMAGE_UPLOAD_MEMORY_FIXTURE: ${{ runner.temp }}/ndt-image-upload-memory-fixture.jpg
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: '24.14.0'
+                  cache: npm
+            - run: npm ci
+            - run: npm run build --workspace=@ndt/image-upload-policy
+            - run: npm exec --workspace=frontend -- playwright -- install --with-deps chromium
+            - run: npm exec --workspace=backend -- tsx -- test/generate-image-upload-memory-fixture.ts --output "$IMAGE_UPLOAD_MEMORY_FIXTURE"
+            - run: npm exec --workspace=frontend -- playwright -- test test/benchmark/image-upload-memory.benchmark.ts --project=chromium
+
+    image-upload-staging:
+        name: image-upload-staging
+        if: github.event_name == 'workflow_dispatch'
+        runs-on: ubuntu-24.04
+        environment: staging
+        concurrency:
+            group: image-upload-staging
+            cancel-in-progress: false
+        timeout-minutes: 60
+        env:
+            NDT_STAGING_RECEIPT_PATH: ${{ runner.temp }}/ndt-image-upload-staging-receipt.json
+            NDT_STAGING_ACCOUNT_ID: ${{ vars.NDT_STAGING_ACCOUNT_ID }}
+            NDT_STAGING_R2_ENDPOINT: ${{ vars.NDT_STAGING_R2_ENDPOINT }}
+            NDT_STAGING_R2_BUCKET: ${{ vars.NDT_STAGING_R2_BUCKET }}
+            NDT_STAGING_R2_CORS_ALLOWED_ORIGINS: ${{ vars.NDT_STAGING_R2_CORS_ALLOWED_ORIGINS }}
+            NDT_STAGING_R2_ACCESS_KEY_ID: ${{ secrets.NDT_STAGING_R2_ACCESS_KEY_ID }}
+            NDT_STAGING_R2_SECRET_ACCESS_KEY: ${{ secrets.NDT_STAGING_R2_SECRET_ACCESS_KEY }}
+            NDT_STAGING_RECONCILER_R2_ACCESS_KEY_ID: ${{ secrets.NDT_STAGING_RECONCILER_R2_ACCESS_KEY_ID }}
+            NDT_STAGING_RECONCILER_R2_SECRET_ACCESS_KEY: ${{ secrets.NDT_STAGING_RECONCILER_R2_SECRET_ACCESS_KEY }}
+            NDT_STAGING_CUTOVER_R2_ACCESS_KEY_ID: ${{ secrets.NDT_STAGING_CUTOVER_R2_ACCESS_KEY_ID }}
+            NDT_STAGING_CUTOVER_R2_SECRET_ACCESS_KEY: ${{ secrets.NDT_STAGING_CUTOVER_R2_SECRET_ACCESS_KEY }}
+            NDT_STAGING_IMGPROXY_ACCESS_KEY_ID: ${{ secrets.NDT_STAGING_IMGPROXY_ACCESS_KEY_ID }}
+            NDT_STAGING_IMGPROXY_SECRET_ACCESS_KEY: ${{ secrets.NDT_STAGING_IMGPROXY_SECRET_ACCESS_KEY }}
+            NDT_STAGING_OPERATOR_TOKEN: ${{ secrets.NDT_STAGING_OPERATOR_TOKEN }}
+            NDT_STAGING_DENY_CANARY_R2_ENDPOINT: ${{ vars.NDT_STAGING_DENY_CANARY_R2_ENDPOINT }}
+            NDT_STAGING_DENY_CANARY_R2_BUCKET: ${{ vars.NDT_STAGING_DENY_CANARY_R2_BUCKET }}
+            NDT_PRODUCTION_R2_BUCKET: ${{ vars.NDT_PRODUCTION_R2_BUCKET }}
+            NDT_PRODUCTION_API_R2_ACCESS_KEY_ID: ${{ vars.NDT_PRODUCTION_API_R2_ACCESS_KEY_ID }}
+            NDT_PRODUCTION_RECONCILER_R2_ACCESS_KEY_ID: ${{ vars.NDT_PRODUCTION_RECONCILER_R2_ACCESS_KEY_ID }}
+            NDT_PRODUCTION_CUTOVER_R2_ACCESS_KEY_ID: ${{ vars.NDT_PRODUCTION_CUTOVER_R2_ACCESS_KEY_ID }}
+            NDT_PRODUCTION_IMGPROXY_ACCESS_KEY_ID: ${{ vars.NDT_PRODUCTION_IMGPROXY_ACCESS_KEY_ID }}
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: '24.14.0'
+                  cache: npm
+            - run: npm ci
+            - run: npm run build --workspace=@ndt/image-upload-policy
+            - name: Run staging qualification
+              run: npm run test:staging:run --workspace=backend
+            - name: Cleanup staging run
+              if: always()
+              run: npm run test:staging:cleanup --workspace=backend

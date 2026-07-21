@@ -1,38 +1,46 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsNumber, IsNotEmpty, Max, Matches } from 'class-validator';
+import {
+  IsIn,
+  IsInt,
+  IsNotEmpty,
+  IsString,
+  IsUUID,
+  Matches,
+  Max,
+  Min,
+} from 'class-validator';
 
 export class UploadRequestDto {
-  @ApiProperty({
-    example: 'uuid-album-id',
-    description: 'Album ID to upload image to',
-  })
-  @IsString()
-  @IsNotEmpty()
+  @ApiProperty({ format: 'uuid' })
+  @IsUUID()
+  clientRequestId!: string;
+
+  @ApiProperty({ format: 'uuid' })
+  @IsUUID()
   albumId!: string;
 
-  @ApiProperty({
-    example: 'beautiful-sunset.jpg',
-    description: 'Original filename',
-  })
+  @ApiProperty({ example: 'photo.jpg' })
   @IsString()
   @IsNotEmpty()
+  @Matches(/^[\p{L}\p{N}](?:[\p{L}\p{N} ._()-]*[\p{L}\p{N})])?$/u)
   filename!: string;
 
-  @ApiProperty({
-    example: 52428800,
-    description: 'File size in bytes (max 100MB)',
-  })
-  @IsNumber()
-  @Max(104857600, { message: 'File size must not exceed 100MB' })
+  @ApiProperty({ maximum: 5_242_880 })
+  @IsInt()
+  @Min(1)
+  @Max(5_242_880)
   fileSize!: number;
 
-  @ApiProperty({
-    example: 'image/jpeg',
-    description: 'Content type of the image',
-  })
+  @ApiProperty({ enum: ['image/jpeg', 'image/png', 'image/webp'] })
+  @IsIn(['image/jpeg', 'image/png', 'image/webp'])
+  contentType!: 'image/jpeg' | 'image/png' | 'image/webp';
+
+  @ApiProperty({ pattern: '^[0-9a-f]{64}$' })
+  @Matches(/^[0-9a-f]{64}$/)
+  processedSha256!: string;
+
+  @ApiProperty()
   @IsString()
-  @Matches(/^image\/(jpeg|jpg|png|webp|gif)$/, {
-    message: 'Invalid image content type',
-  })
-  contentType!: string;
+  @IsNotEmpty()
+  policyVersion!: string;
 }

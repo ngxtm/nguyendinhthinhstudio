@@ -14,6 +14,25 @@ describe('runSerializableWithRetry', () => {
     expect(operation).toHaveBeenCalledTimes(3);
   });
 
+  it('supports one scoped additional retryable conflict within the same bound', async () => {
+    const adoptionConflict = Object.assign(new Error('unique winner'), {
+      code: 'P2002',
+      meta: { target: ['clientRequestId'] },
+    });
+    const operation = jest
+      .fn()
+      .mockRejectedValueOnce(adoptionConflict)
+      .mockResolvedValueOnce('adopted');
+
+    await expect(
+      runSerializableWithRetry(
+        operation,
+        (error) => error === adoptionConflict,
+      ),
+    ).resolves.toBe('adopted');
+    expect(operation).toHaveBeenCalledTimes(2);
+  });
+
   it('rethrows the third P2034 and never retries another error', async () => {
     const conflicts = jest.fn().mockRejectedValue(p2034);
     await expect(runSerializableWithRetry(conflicts)).rejects.toBe(p2034);

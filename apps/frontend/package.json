@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "test": "node --import tsx --test test/**/*.test.ts",
+    "test:focused": "node --import tsx --test",
     "dev": "next dev --turbopack -p 3001",
     "build": "next build",
     "start": "next start -p 3001",
@@ -12,10 +13,10 @@
     "format:check": "prettier --check \"**/*.{js,jsx,ts,tsx,json,css,md}\""
   },
   "dependencies": {
+    "@ndt/image-upload-policy": "^0.1.0",
     "@supabase/ssr": "^0.12.3",
     "@supabase/supabase-js": "^2.110.5",
     "@vercel/speed-insights": "^1.2.0",
-    "browser-image-compression": "^2.0.2",
     "framer-motion": "^12.23.3",
     "gsap": "^3.13.0",
     "lucide-react": "^0.536.0",
@@ -26,10 +27,13 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@ndt/types": "^0.1.0",
+    "@playwright/test": "1.60.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^24.13.3",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "esbuild": "^0.25.10",
     "eslint": "^9",
     "eslint-config-next": "^16.2.6",
     "eslint-config-prettier": "^10.1.5",

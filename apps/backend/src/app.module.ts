@@ -1,4 +1,10 @@
 import { Module } from '@nestjs/common';
+// Keep cutover/reconciler entrypoints in the Nest source graph so the normal
+// production build emits dist/scripts/*.js artifacts.
+import * as ReconcileEntrypoint from './scripts/reconcile-image-uploads';
+import * as ConflictEntrypoint from './scripts/resolve-image-upload-promotion-conflict';
+
+export const IMAGE_UPLOAD_ENTRYPOINTS = [ReconcileEntrypoint, ConflictEntrypoint];
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
