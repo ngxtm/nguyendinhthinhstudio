@@ -123,6 +123,41 @@ describe('image upload cutover command contract', () => {
         `--backup-approval=${outside('ba.json')}`,
       ]),
     ).toThrow(/duplicate/);
+
+    const firstDisposition = outside('row-1.json');
+    const secondDisposition = outside('row-2.json');
+    expect(
+      parseCutoverCommand([
+        'audit',
+        `--receipt=${outside('audit.json')}`,
+        `--backup-receipt=${outside('backup.json')}`,
+        `--backup-approval=${outside('backup-approval.json')}`,
+        `--disposition=${firstDisposition}`,
+        `--disposition=${secondDisposition}`,
+      ]).dispositionPaths,
+    ).toEqual([resolve(firstDisposition), resolve(secondDisposition)]);
+    expect(
+      parseCutoverCommand([
+        'audit',
+        '--receipt',
+        outside('audit-space.json'),
+        '--backup-receipt',
+        outside('backup-space.json'),
+        '--backup-approval',
+        outside('backup-approval-space.json'),
+        '--disposition',
+        firstDisposition,
+      ]).dispositionPaths,
+    ).toEqual([resolve(firstDisposition)]);
+    expect(() =>
+      parseCutoverCommand([
+        'audit',
+        `--receipt=${outside('audit-legacy-option.json')}`,
+        `--backup-receipt=${outside('backup-legacy-option.json')}`,
+        `--backup-approval=${outside('backup-approval-legacy-option.json')}`,
+        `--dispositions=${outside('manifest.json')}`,
+      ]),
+    ).toThrow(/unknown.*--dispositions/);
   });
 
   it('verifies authoritative backup bytes, canonical receipt, path binding, and distinct approval', () => {
@@ -151,7 +186,7 @@ describe('image upload cutover command contract', () => {
       backupReceiptSha256: digest(readFileSync(receiptPath)),
       backupPathSha256: digest(resolve(backupPath)),
       backupSha256: receipt.backupSha256,
-      operatorFingerprint: 'operator-fingerprint',
+      operatorFingerprint: 'f'.repeat(64),
       approvedAt: '2026-07-21T00:00:01.000Z',
     };
     const approval: QuiescedBackupApproval = {
@@ -171,6 +206,27 @@ describe('image upload cutover command contract', () => {
     expect(binding.backupPathSha256).toBe(digest(resolve(backupPath)));
     expect(binding.receiptPathSha256).toBe(digest(resolve(receiptPath)));
     expect(binding.approvalPathSha256).toBe(digest(resolve(approvalPath)));
+
+    const invalidApprovalDraft = {
+      ...approvalDraft,
+      operatorFingerprint: 'operator-fingerprint',
+    };
+    const invalidApproval = {
+      ...invalidApprovalDraft,
+      canonicalSha256: canonicalReceiptSha256(invalidApprovalDraft),
+    };
+    writeFileSync(approvalPath, JSON.stringify(invalidApproval), {
+      mode: 0o600,
+    });
+    expect(() =>
+      verifyBackupEvidence(
+        receiptPath,
+        approvalPath,
+        resolve(__dirname, '../../..'),
+        () => true,
+      ),
+    ).toThrow(/operator.*fingerprint|sha256/i);
+    writeFileSync(approvalPath, JSON.stringify(approval), { mode: 0o600 });
 
     const relocatedApproval = join(directory, 'relocated-approval.json');
     copyFileSync(approvalPath, relocatedApproval);
@@ -234,6 +290,7 @@ describe('image upload cutover command contract', () => {
       schemaVersion: 'image-upload-cutover-audit/v1' as const,
       receiptPathSha256: digest(resolve(canonicalAuditPath)),
       generatedAt: '2026-07-21T00:00:30.000Z',
+      outstandingPutDeadline: '2026-07-20T21:00:00.000Z',
       backup: {
         receiptSha256: 'a'.repeat(64),
         approvalSha256: 'b'.repeat(64),
@@ -257,6 +314,7 @@ describe('image upload cutover command contract', () => {
           destinationIdentitySha256: null,
           imageAuthoritySha256: null,
           dispositionSha256: null,
+          dispositionPathSha256: null,
         },
       ],
       summary: {

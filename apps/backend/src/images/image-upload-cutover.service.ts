@@ -1,4 +1,5 @@
 import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
+import { canonicalizeEtag } from './canonical-etag';
 
 export type PollingGateSnapshot = Readonly<{
   observedAt: Date;
@@ -25,7 +26,7 @@ const ZERO_KEYS = [
   'corsMismatch',
 ] as const;
 
-export function assertPollingGate(snapshot: PollingGateSnapshot): void {
+function assertPollingSnapshotShape(snapshot: PollingGateSnapshot): void {
   if (
     !(snapshot.observedAt instanceof Date) ||
     !Number.isFinite(snapshot.observedAt.getTime())
@@ -36,6 +37,12 @@ export function assertPollingGate(snapshot: PollingGateSnapshot): void {
     if (!Number.isSafeInteger(snapshot[key]) || snapshot[key] < 0) {
       throw new Error(`invalid polling gate ${key}`);
     }
+  }
+}
+
+export function assertPollingGate(snapshot: PollingGateSnapshot): void {
+  assertPollingSnapshotShape(snapshot);
+  for (const key of ZERO_KEYS) {
     if (snapshot[key] !== 0) {
       throw new Error(`polling gate ${key} is non-zero`);
     }
@@ -49,6 +56,20 @@ export function assertTwoPollingSnapshots(
 ): void {
   assertPollingGate(first);
   assertPollingGate(second);
+  if (second.observedAt.getTime() - first.observedAt.getTime() < barrierMs) {
+    throw new Error(
+      'polling snapshots are not separated by the 30-second barrier',
+    );
+  }
+}
+
+function assertTwoPollingSnapshotEvidence(
+  first: PollingGateSnapshot,
+  second: PollingGateSnapshot,
+  barrierMs = 30_000,
+): void {
+  assertPollingSnapshotShape(first);
+  assertPollingSnapshotShape(second);
   if (second.observedAt.getTime() - first.observedAt.getTime() < barrierMs) {
     throw new Error(
       'polling snapshots are not separated by the 30-second barrier',
@@ -113,6 +134,14 @@ export type CommitLegacyBridgeInput = Readonly<{
   committedAuthorized: boolean;
 }>;
 
+export type PreserveLegacyImageAuthorityInput = Readonly<{
+  uploadId: string;
+  now: Date;
+  presignExpiresAt: Date;
+  cleanupNotBefore: Date;
+  row: LegacyImageUploadRow;
+}>;
+
 export interface CutoverRepository {
   readLegacyRows(): Promise<readonly LegacyImageUploadRow[]>;
   readPollingSnapshot(observedAt: Date): Promise<PollingGateSnapshot>;
@@ -121,6 +150,9 @@ export interface CutoverRepository {
   ): Promise<'applied' | 'already_applied'>;
   commitLegacyBridge(
     input: CommitLegacyBridgeInput,
+  ): Promise<'applied' | 'already_applied'>;
+  preserveLegacyImageAuthority(
+    input: PreserveLegacyImageAuthorityInput,
   ): Promise<'applied' | 'already_applied'>;
   assertPostMigrationSchema(): Promise<void>;
   ensureTemporaryCleanupPending(
@@ -151,6 +183,7 @@ export type CutoverDispositionDecision =
 
 export type CutoverDispositionReceipt = Readonly<{
   schemaVersion: 'image-upload-cutover-disposition/v1';
+  dispositionPathSha256: string;
   auditReceiptSha256: string;
   auditReceiptPathSha256: string;
   auditReceiptDigestSha256: string;
@@ -176,6 +209,7 @@ export type CutoverRowReceipt = Readonly<{
   destinationIdentitySha256: string | null;
   imageAuthoritySha256: string | null;
   dispositionSha256: string | null;
+  dispositionPathSha256: string | null;
 }>;
 
 type SerializablePollingGateSnapshot = Readonly<
@@ -197,6 +231,7 @@ export type CutoverAuditReceipt = Readonly<{
   schemaVersion: 'image-upload-cutover-audit/v1';
   receiptPathSha256: string;
   generatedAt: string;
+  outstandingPutDeadline: string;
   backup: Readonly<{
     receiptSha256: string;
     approvalSha256: string;
@@ -227,6 +262,7 @@ export type CutoverAuditApproval = Readonly<{
   schemaVersion: 'image-upload-cutover-approval/v1';
   receiptSha256: string;
   receiptPathSha256: string;
+  approvalPathSha256: string;
   operatorFingerprint: string;
   approvedAt: string;
   canonicalSha256: string;
@@ -248,15 +284,11 @@ function requireSha256(value: string, field: string): void {
 }
 
 function normalizeEtag(value: string): string {
-  const normalized = value
-    .trim()
-    .replace(/^W\//, '')
-    .replace(/^"|"$/g, '')
-    .toLowerCase();
-  if (!normalized || /[\r\n]/.test(normalized)) {
+  try {
+    return canonicalizeEtag(value);
+  } catch {
     throw new Error('object ETag is invalid');
   }
-  return normalized;
 }
 
 function normalizeIdentity(
@@ -457,6 +489,7 @@ function dispositionApprovalPayload(
 ): DispositionApprovalPayload {
   return {
     schemaVersion: disposition.schemaVersion,
+    dispositionPathSha256: disposition.dispositionPathSha256,
     auditReceiptSha256: disposition.auditReceiptSha256,
     auditReceiptPathSha256: disposition.auditReceiptPathSha256,
     auditReceiptDigestSha256: disposition.auditReceiptDigestSha256,
@@ -498,6 +531,7 @@ function dispositionFor(
     throw new Error('disposition canonical hash mismatch');
   }
   for (const [field, value] of Object.entries({
+    dispositionPathSha256: disposition.dispositionPathSha256,
     auditReceiptSha256: disposition.auditReceiptSha256,
     auditReceiptPathSha256: disposition.auditReceiptPathSha256,
     auditReceiptDigestSha256: disposition.auditReceiptDigestSha256,
@@ -582,7 +616,7 @@ export class ImageUploadCutoverService {
 
   async collectPollingSnapshot(observedAt: Date): Promise<PollingGateSnapshot> {
     const snapshot = await this.repository.readPollingSnapshot(observedAt);
-    assertPollingGate(snapshot);
+    assertPollingSnapshotShape(snapshot);
     return snapshot;
   }
 
@@ -633,6 +667,7 @@ export class ImageUploadCutoverService {
                 ? canonicalReceiptSha256(row.image)
                 : null,
               dispositionSha256: null,
+              dispositionPathSha256: null,
             },
           },
         };
@@ -649,7 +684,7 @@ export class ImageUploadCutoverService {
     receiptPathSha256?: string;
     operatorToken?: string;
   }): Promise<CutoverAuditReceipt> {
-    assertTwoPollingSnapshots(input.firstSnapshot, input.secondSnapshot);
+    assertTwoPollingSnapshotEvidence(input.firstSnapshot, input.secondSnapshot);
     if (input.secondSnapshot.observedAt.getTime() > input.now.getTime()) {
       throw new Error('audit time precedes polling evidence');
     }
@@ -681,6 +716,7 @@ export class ImageUploadCutoverService {
       return Object.freeze({
         ...entry.receipt,
         dispositionSha256: disposition?.canonicalSha256 ?? null,
+        dispositionPathSha256: disposition?.dispositionPathSha256 ?? null,
       });
     });
     const count = (classification: CutoverRowClassification) =>
@@ -695,6 +731,7 @@ export class ImageUploadCutoverService {
       receiptPathSha256:
         input.receiptPathSha256 ?? sha256('in-memory-cutover-receipt'),
       generatedAt: input.now.toISOString(),
+      outstandingPutDeadline: input.backup.quiescedAt.toISOString(),
       backup: backupReceipt,
       pollingSnapshots: Object.freeze([
         snapshotForReceipt(input.firstSnapshot),
@@ -730,6 +767,7 @@ export class ImageUploadCutoverService {
     auditReceipt: CutoverAuditReceipt;
     uploadId: string;
     decision: CutoverDispositionDecision;
+    dispositionPathSha256: string;
     auditReceiptPathSha256: string;
     auditReceiptDigestSha256: string;
     evidenceReceiptPathSha256: string;
@@ -756,6 +794,7 @@ export class ImageUploadCutoverService {
     }
     for (const [field, value] of Object.entries({
       auditReceiptPathSha256: input.auditReceiptPathSha256,
+      dispositionPathSha256: input.dispositionPathSha256,
       auditReceiptDigestSha256: input.auditReceiptDigestSha256,
       evidenceReceiptPathSha256: input.evidenceReceiptPathSha256,
       evidenceReceiptSha256: input.evidenceReceiptSha256,
@@ -775,6 +814,7 @@ export class ImageUploadCutoverService {
       schemaVersion: 'image-upload-cutover-disposition/v1' as const,
       auditReceiptSha256: input.auditReceipt.canonicalSha256,
       auditReceiptPathSha256: input.auditReceiptPathSha256,
+      dispositionPathSha256: input.dispositionPathSha256,
       auditReceiptDigestSha256: input.auditReceiptDigestSha256,
       auditBackupSha256: backupBindingSha256(input.auditReceipt.backup),
       uploadId: input.uploadId,
@@ -805,16 +845,20 @@ export class ImageUploadCutoverService {
     operatorFingerprint: string,
     now = new Date(receipt.generatedAt),
     receiptPathSha256 = sha256('in-memory-cutover-receipt'),
+    approvalPathSha256 = sha256('in-memory-cutover-approval'),
   ): CutoverAuditApproval {
     this.assertAuditReceipt(receipt);
-    if (!operatorFingerprint.trim()) {
-      throw new Error('operator fingerprint is required');
-    }
+    requireOperatorIdentityFingerprint(operatorFingerprint);
     requireSha256(receiptPathSha256, 'receiptPathSha256');
+    requireSha256(approvalPathSha256, 'approvalPathSha256');
+    if (receiptPathSha256 === approvalPathSha256) {
+      throw new Error('audit receipt and approval paths must be distinct');
+    }
     const draft = {
       schemaVersion: 'image-upload-cutover-approval/v1' as const,
       receiptSha256: receipt.canonicalSha256,
       receiptPathSha256,
+      approvalPathSha256,
       operatorFingerprint,
       approvedAt: now.toISOString(),
     };
@@ -832,7 +876,22 @@ export class ImageUploadCutoverService {
     if (canonicalReceiptSha256(receipt) !== receipt.canonicalSha256) {
       throw new Error('audit receipt canonical hash mismatch');
     }
-    assertTwoPollingSnapshots(
+    if (!Number.isFinite(new Date(receipt.outstandingPutDeadline).getTime())) {
+      throw new Error('audit outstanding PUT deadline is invalid');
+    }
+    for (const row of receipt.rows) {
+      requireSha256(row.rowEvidenceSha256, 'rowEvidenceSha256');
+      const hasDisposition = row.dispositionSha256 !== null;
+      const hasDispositionPath = row.dispositionPathSha256 !== null;
+      if (hasDisposition !== hasDispositionPath) {
+        throw new Error('audit disposition digest/path pair is incomplete');
+      }
+      if (row.dispositionSha256 !== null) {
+        requireSha256(row.dispositionSha256, 'dispositionSha256');
+        requireSha256(row.dispositionPathSha256, 'dispositionPathSha256');
+      }
+    }
+    assertTwoPollingSnapshotEvidence(
       snapshotFromReceipt(receipt.pollingSnapshots[0]),
       snapshotFromReceipt(receipt.pollingSnapshots[1]),
     );
@@ -860,7 +919,7 @@ export class ImageUploadCutoverService {
         input.approval.canonicalSha256 ||
       input.approval.receiptSha256 !== input.receipt.canonicalSha256 ||
       input.approval.receiptPathSha256 !== input.receipt.receiptPathSha256 ||
-      !input.approval.operatorFingerprint.trim() ||
+      input.approval.approvalPathSha256 === input.approval.receiptPathSha256 ||
       !Number.isFinite(approvedAt.getTime()) ||
       approvedAt < new Date(input.receipt.generatedAt) ||
       approvedAt > input.now
@@ -868,6 +927,8 @@ export class ImageUploadCutoverService {
       throw new Error('audit approval binding mismatch');
     }
     requireSha256(input.approval.receiptPathSha256, 'receiptPathSha256');
+    requireSha256(input.approval.approvalPathSha256, 'approvalPathSha256');
+    requireOperatorIdentityFingerprint(input.approval.operatorFingerprint);
     assertBackupBinding(input.receipt, input.backup);
     if (
       !Number.isSafeInteger(input.presignClockSkewSeconds) ||
@@ -879,6 +940,11 @@ export class ImageUploadCutoverService {
 
     await this.repository.assertPostMigrationSchema();
 
+    const presignExpiresAt = new Date(input.receipt.outstandingPutDeadline);
+    if (presignExpiresAt.toISOString() !== input.receipt.backup.quiescedAt) {
+      throw new Error('outstanding PUT deadline is not backup-bound');
+    }
+
     const inspected = await this.inspectRows();
     const byId = new Map(inspected.map((entry) => [entry.row.id, entry]));
     if (byId.size !== input.receipt.rows.length) {
@@ -889,6 +955,7 @@ export class ImageUploadCutoverService {
       row: LegacyImageUploadRow;
       inspected: InspectedRow;
       disposition: CutoverDispositionReceipt | null;
+      presignExpiresAt: Date;
       cleanupNotBefore: Date;
       auditRow: CutoverRowReceipt;
       evidenceMatches: boolean;
@@ -937,7 +1004,9 @@ export class ImageUploadCutoverService {
       );
       if (
         (receiptRow.dispositionSha256 ?? null) !==
-        (disposition?.canonicalSha256 ?? null)
+          (disposition?.canonicalSha256 ?? null) ||
+        (receiptRow.dispositionPathSha256 ?? null) !==
+          (disposition?.dispositionPathSha256 ?? null)
       ) {
         throw new Error('audit disposition binding mismatch');
       }
@@ -947,12 +1016,6 @@ export class ImageUploadCutoverService {
       ) {
         throw new Error('legacy ambiguous row blocks apply');
       }
-      const presignExpiresAt = new Date(
-        Math.max(
-          current.row.expiresAt.getTime(),
-          current.row.createdAt.getTime() + 60 * 60 * 1000,
-        ),
-      );
       const cleanupNotBefore = new Date(
         presignExpiresAt.getTime() + input.presignClockSkewSeconds * 1000,
       );
@@ -979,6 +1042,7 @@ export class ImageUploadCutoverService {
       actions.push({
         ...current,
         disposition,
+        presignExpiresAt,
         cleanupNotBefore,
         auditRow: receiptRow,
         evidenceMatches,
@@ -994,6 +1058,7 @@ export class ImageUploadCutoverService {
         row,
         inspected,
         disposition,
+        presignExpiresAt,
         cleanupNotBefore,
         auditRow,
         evidenceMatches,
@@ -1030,12 +1095,7 @@ export class ImageUploadCutoverService {
             row.id,
           ),
           now: input.now,
-          presignExpiresAt: new Date(
-            Math.max(
-              row.expiresAt.getTime(),
-              row.createdAt.getTime() + 60 * 60 * 1000,
-            ),
-          ),
+          presignExpiresAt,
           cleanupNotBefore,
           row,
           destination: inspected.destination,
@@ -1045,18 +1105,20 @@ export class ImageUploadCutoverService {
       } else if (
         inspected.receipt.classification === 'existing_image_authority'
       ) {
-        preserved += 1;
+        const result = await this.repository.preserveLegacyImageAuthority({
+          uploadId: row.id,
+          now: input.now,
+          presignExpiresAt,
+          cleanupNotBefore,
+          row,
+        });
+        if (result === 'applied') preserved += 1;
       } else {
         const result = await this.repository.failLegacyUpload({
           uploadId: row.id,
           rowEvidenceSha256: inspected.receipt.rowEvidenceSha256,
           now: input.now,
-          presignExpiresAt: new Date(
-            Math.max(
-              row.expiresAt.getTime(),
-              row.createdAt.getTime() + 60 * 60 * 1000,
-            ),
-          ),
+          presignExpiresAt,
           cleanupNotBefore,
           row,
         });
@@ -1074,12 +1136,6 @@ export class ImageUploadCutoverService {
         }
       }
 
-      const presignExpiresAt = new Date(
-        Math.max(
-          row.expiresAt.getTime(),
-          row.createdAt.getTime() + 60 * 60 * 1000,
-        ),
-      );
       const cleanupState = await this.repository.ensureTemporaryCleanupPending(
         row.id,
         input.now,

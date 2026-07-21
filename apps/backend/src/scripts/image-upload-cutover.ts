@@ -78,6 +78,7 @@ export function assertProtectedPath(
 type ParsedCutoverCommand = Readonly<{
   mode: 'audit' | 'disposition' | 'approve' | 'apply';
   values: Readonly<Record<string, string>>;
+  dispositionPaths: readonly string[];
 }>;
 
 const REQUIRED = {
@@ -95,10 +96,10 @@ const REQUIRED = {
 } as const;
 
 const OPTIONAL = {
-  audit: ['--dispositions'],
+  audit: ['--disposition'],
   disposition: [],
   approve: ['--operator-fingerprint'],
-  apply: ['--dispositions'],
+  apply: ['--disposition'],
 } as const;
 
 const PATH_OPTIONS = new Set([
@@ -109,7 +110,7 @@ const PATH_OPTIONS = new Set([
   '--evidence-receipt',
   '--output',
   '--approval',
-  '--dispositions',
+  '--disposition',
 ]);
 
 export function parseCutoverCommand(
@@ -125,12 +126,25 @@ export function parseCutoverCommand(
     ...OPTIONAL[typedMode],
   ]);
   const values: Record<string, string> = {};
-  for (const argument of args.slice(1)) {
+  const dispositionPaths: string[] = [];
+  const optionArguments = args.slice(1);
+  for (let index = 0; index < optionArguments.length; index += 1) {
+    const argument = optionArguments[index];
     const separator = argument.indexOf('=');
-    if (separator <= 2) throw new Error('cutover options require --name=value');
-    const key = argument.slice(0, separator);
-    const value = argument.slice(separator + 1);
+    const key = separator > 2 ? argument.slice(0, separator) : argument;
+    const value =
+      separator > 2
+        ? argument.slice(separator + 1)
+        : optionArguments[(index += 1)];
+    if (!key.startsWith('--') || !value || value.startsWith('--')) {
+      throw new Error('cutover options require --name value or --name=value');
+    }
     if (!allowed.has(key)) throw new Error(`unknown cutover option ${key}`);
+    if (key === '--disposition') {
+      if (!value) throw new Error(`${key} is required`);
+      dispositionPaths.push(assertProtectedPath(value));
+      continue;
+    }
     if (Object.prototype.hasOwnProperty.call(values, key)) {
       throw new Error(`duplicate cutover option ${key}`);
     }
@@ -161,11 +175,18 @@ export function parseCutoverCommand(
   }
   const paths = Object.entries(values)
     .filter(([key]) => PATH_OPTIONS.has(key))
-    .map(([, value]) => resolve(value));
+    .map(([, value]) => resolve(value))
+    .concat(dispositionPaths.map((value) => resolve(value)));
   if (new Set(paths).size !== paths.length) {
     throw new Error('cutover evidence and approval paths must be distinct');
   }
-  return Object.freeze({ mode: typedMode, values: Object.freeze(values) });
+  return Object.freeze({
+    mode: typedMode,
+    values: Object.freeze(values),
+    dispositionPaths: Object.freeze(
+      dispositionPaths.map((value) => resolve(value)),
+    ),
+  });
 }
 
 function digest(value: Buffer | string): string {
@@ -276,8 +297,10 @@ export function verifyBackupEvidence(
   ) {
     throw new Error('backup quiescence/approval time is invalid');
   }
-  if (!approval.operatorFingerprint.trim()) {
-    throw new Error('backup approval operator fingerprint is required');
+  if (!/^[a-f0-9]{64}$/.test(approval.operatorFingerprint)) {
+    throw new Error(
+      'backup approval operator fingerprint must be canonical sha256',
+    );
   }
   return backupBinding(
     digest(receiptBytes),
@@ -290,19 +313,15 @@ export function verifyBackupEvidence(
 }
 
 function loadDispositions(
-  manifestPath: string | undefined,
+  paths: readonly string[],
 ): readonly CutoverDispositionReceipt[] {
-  if (!manifestPath) return [];
-  const paths = readJson<unknown>(manifestPath);
-  if (
-    !Array.isArray(paths) ||
-    !paths.every((entry) => typeof entry === 'string')
-  ) {
-    throw new Error('disposition manifest must be an array of absolute paths');
-  }
   return paths.map((path) => {
     assertProtectedPath(path, undefined, undefined, false);
-    return readJson<CutoverDispositionReceipt>(path);
+    const disposition = readJson<CutoverDispositionReceipt>(path);
+    if (disposition.dispositionPathSha256 !== digest(resolve(path))) {
+      throw new Error('disposition path binding mismatch');
+    }
+    return disposition;
   });
 }
 
@@ -350,6 +369,7 @@ export async function runCutoverCommand(
       fingerprint,
       new Date(),
       digest(resolve(values['--receipt'])),
+      digest(resolve(values['--approval'])),
     );
     writeExclusiveJson(values['--approval'], approval);
     return { mode: 'approve', receiptSha256: receipt.canonicalSha256 };
@@ -387,6 +407,7 @@ export async function runCutoverCommand(
       auditReceipt: receipt,
       uploadId: values['--upload-id'],
       decision: cutoverDispositionDecision(values['--decision']),
+      dispositionPathSha256: digest(resolve(values['--output'])),
       auditReceiptPathSha256,
       auditReceiptDigestSha256: digest(auditReceiptBytes),
       evidenceReceiptPathSha256: evidence.evidenceReceiptPathSha256,
@@ -427,7 +448,7 @@ export async function runCutoverCommand(
   );
   const service = new ImageUploadCutoverService(repository, objects);
   try {
-    const dispositions = loadDispositions(values['--dispositions']);
+    const dispositions = loadDispositions(command.dispositionPaths);
     if (command.mode === 'audit') {
       const first = await service.collectPollingSnapshot(new Date());
       await sleep(30_000);
@@ -453,6 +474,9 @@ export async function runCutoverCommand(
     const approval = readJson<CutoverAuditApproval>(values['--approval']);
     if (approval.receiptPathSha256 !== digest(resolve(values['--receipt']))) {
       throw new Error('audit approval path binding mismatch');
+    }
+    if (approval.approvalPathSha256 !== digest(resolve(values['--approval']))) {
+      throw new Error('audit approval output path binding mismatch');
     }
     const result = await service.apply({
       now: new Date(),

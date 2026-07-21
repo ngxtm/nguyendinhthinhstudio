@@ -137,7 +137,7 @@ describe('image upload one-shot cold cutover (PostgreSQL)', () => {
       databaseIdentitySha256: 'c'.repeat(64),
       backupSha256: 'd'.repeat(64),
       backupPathSha256: 'e'.repeat(64),
-      quiescedAt: new Date('2026-07-20T21:00:00.000Z'),
+      quiescedAt: new Date('2026-07-20T23:30:00.000Z'),
     };
 
     const audit = await service.audit({
@@ -181,6 +181,8 @@ describe('image upload one-shot cold cutover (PostgreSQL)', () => {
 
     await pool.query(`
       ALTER TABLE "ImageUpload"
+        ADD COLUMN "clientRequestId" text,
+        ADD COLUMN "createdByAdminId" text,
         ADD COLUMN "presignExpiresAt" timestamp(3),
         ADD COLUMN "finalizationLeaseToken" text,
         ADD COLUMN "resultImageId" text,
@@ -191,6 +193,20 @@ describe('image upload one-shot cold cutover (PostgreSQL)', () => {
         ADD COLUMN "temporaryCleanupNextAttemptAt" timestamp(3),
         ADD COLUMN "temporaryCleanupVerifiedAt" timestamp(3),
         ADD COLUMN "temporaryCleanupLastErrorCategory" text;
+      CREATE TABLE "ImageUploadIdempotency" (
+        "clientRequestId" text PRIMARY KEY,
+        "createdByAdminId" text NOT NULL,
+        "uploadId" text NOT NULL UNIQUE,
+        "requestFingerprint" text NOT NULL,
+        "terminalOutcome" text,
+        "resultImageId" text,
+        "resultDeletedAt" timestamp(3),
+        "failureCode" text,
+        "terminalAt" timestamp(3),
+        "resultRetentionExpiresAt" timestamp(3),
+        "createdAt" timestamp(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "archivedAt" timestamp(3)
+      );
       CREATE TABLE "ImageUploadPromotion" (
         "id" text PRIMARY KEY,
         "uploadId" text NOT NULL UNIQUE,
@@ -232,13 +248,14 @@ describe('image upload one-shot cold cutover (PostgreSQL)', () => {
       cleaned: 1,
     });
     const terminal = await pool.query(
-      `SELECT "status", "failureCode", "temporaryCleanupState"
+      `SELECT "status", "failureCode", "presignExpiresAt", "temporaryCleanupState"
        FROM "ImageUpload"`,
     );
     expect(terminal.rows).toEqual([
       {
         status: 'failed',
         failureCode: 'upload_cutover_aborted',
+        presignExpiresAt: backup.quiescedAt,
         temporaryCleanupState: 'verified_deleted',
       },
     ]);
@@ -258,6 +275,84 @@ describe('image upload one-shot cold cutover (PostgreSQL)', () => {
         (operation) => operation === 'DELETE:albums/private/final.webp',
       ),
     ).toHaveLength(0);
+
+    const preservedImageId = '30000000-0000-4000-8000-000000000003';
+    const preservedRow = {
+      id: '10000000-0000-4000-8000-000000000003',
+      albumId: '20000000-0000-4000-8000-000000000001',
+      uploadObjectKey: 'uploads/private/preserved-source.webp',
+      finalObjectKey: 'albums/private/preserved-final.webp',
+      filename: 'preserved-final.webp',
+      contentType: 'image/webp',
+      fileSize: 222,
+      status: 'pending',
+      sourceEtag: null,
+      finalizationStartedAt: null,
+      expiresAt: new Date('2026-07-20T23:00:00.000Z'),
+      consumedAt: null,
+      createdAt: new Date('2026-07-20T22:00:00.000Z'),
+      image: {
+        id: preservedImageId,
+        albumId: '20000000-0000-4000-8000-000000000001',
+        r2ObjectKey: 'albums/private/preserved-final.webp',
+      },
+    };
+    await pool.query(
+      `INSERT INTO "Image" (
+        "id", "albumId", "filename", "r2ObjectKey", "uploadStatus"
+      ) VALUES ($1, $2, $3, $4, 'completed')`,
+      [
+        preservedImageId,
+        preservedRow.albumId,
+        preservedRow.filename,
+        preservedRow.finalObjectKey,
+      ],
+    );
+    await pool.query(
+      `INSERT INTO "ImageUpload" (
+        "id", "albumId", "uploadObjectKey", "finalObjectKey", "filename",
+        "contentType", "fileSize", "status", "expiresAt", "createdAt"
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+      [
+        preservedRow.id,
+        preservedRow.albumId,
+        preservedRow.uploadObjectKey,
+        preservedRow.finalObjectKey,
+        preservedRow.filename,
+        preservedRow.contentType,
+        preservedRow.fileSize,
+        preservedRow.status,
+        preservedRow.expiresAt,
+        preservedRow.createdAt,
+      ],
+    );
+    await expect(
+      repository.preserveLegacyImageAuthority({
+        uploadId: preservedRow.id,
+        now: new Date('2026-07-21T00:03:30.000Z'),
+        presignExpiresAt: backup.quiescedAt,
+        cleanupNotBefore: new Date('2026-07-20T23:31:00.000Z'),
+        row: preservedRow,
+      }),
+    ).resolves.toBe('applied');
+    const preserved = await pool.query(
+      `SELECT "status", "resultImageId", "temporaryCleanupState"
+       FROM "ImageUpload" WHERE "id" = $1`,
+      [preservedRow.id],
+    );
+    expect(preserved.rows).toEqual([
+      {
+        status: 'consumed',
+        resultImageId: preservedImageId,
+        temporaryCleanupState: 'pending',
+      },
+    ]);
+    const preservedPromotion = await pool.query<{ count: number }>(
+      `SELECT count(*)::int AS "count" FROM "ImageUploadPromotion"
+       WHERE "uploadId" = $1`,
+      [preservedRow.id],
+    );
+    expect(preservedPromotion.rows[0].count).toBe(0);
 
     const bridgeRow = {
       id: '10000000-0000-4000-8000-000000000002',
@@ -321,5 +416,75 @@ describe('image upload one-shot cold cutover (PostgreSQL)', () => {
       [bridgeRow.finalObjectKey],
     );
     expect(unexpectedImage.rows[0].count).toBe(0);
+
+    const imageId = '30000000-0000-4000-8000-000000000002';
+    await pool.query(
+      `INSERT INTO "Image" (
+        "id", "albumId", "filename", "r2ObjectKey", "uploadStatus"
+      ) VALUES ($1, $2, $3, $4, 'completed')`,
+      [
+        imageId,
+        bridgeRow.albumId,
+        bridgeRow.filename,
+        bridgeRow.finalObjectKey,
+      ],
+    );
+    await expect(
+      repository.commitLegacyBridge({
+        uploadId: bridgeRow.id,
+        rowEvidenceSha256: '1'.repeat(64),
+        receiptSha256: '2'.repeat(64),
+        finalizationToken: '30000000-0000-5000-8000-000000000001',
+        now: new Date('2026-07-21T00:05:00.000Z'),
+        presignExpiresAt: bridgeRow.expiresAt,
+        cleanupNotBefore: new Date('2026-07-20T23:01:00.000Z'),
+        row: {
+          ...bridgeRow,
+          image: {
+            id: imageId,
+            albumId: bridgeRow.albumId,
+            r2ObjectKey: bridgeRow.finalObjectKey,
+          },
+        },
+        destination: {
+          etag: bridgeRow.sourceEtag,
+          bytes: bridgeRow.fileSize,
+          mime: bridgeRow.contentType,
+          metadataSha256: '3'.repeat(64),
+        },
+        committedAuthorized: true,
+      }),
+    ).resolves.toBe('applied');
+    const compactEvidence = await pool.query<{
+      clientRequestId: string;
+      createdByAdminId: string;
+      terminalOutcome: string;
+      resultImageId: string;
+      retentionSeconds: string;
+    }>(
+      `SELECT
+        upload."clientRequestId",
+        upload."createdByAdminId",
+        evidence."terminalOutcome",
+        evidence."resultImageId",
+        extract(epoch FROM (
+          evidence."resultRetentionExpiresAt" - evidence."terminalAt"
+        ))::text AS "retentionSeconds"
+       FROM "ImageUpload" AS upload
+       JOIN "ImageUploadIdempotency" AS evidence
+         ON evidence."uploadId" = upload."id"
+       WHERE upload."id" = $1`,
+      [bridgeRow.id],
+    );
+    expect(compactEvidence.rows).toHaveLength(1);
+    expect(compactEvidence.rows[0].clientRequestId).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+    );
+    expect(compactEvidence.rows[0]).toMatchObject({
+      createdByAdminId: 'legacy-cutover',
+      terminalOutcome: 'consumed',
+      resultImageId: imageId,
+      retentionSeconds: '2592000.000000',
+    });
   });
 });

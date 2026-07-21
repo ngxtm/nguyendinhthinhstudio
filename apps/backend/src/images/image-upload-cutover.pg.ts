@@ -6,6 +6,7 @@ import {
 } from '@aws-sdk/client-s3';
 import { createHash } from 'node:crypto';
 import type { Pool, PoolClient, QueryResultRow } from 'pg';
+import { canonicalizeEtag, toHttpEtag } from './canonical-etag';
 import {
   canonicalReceiptSha256,
   type CommitLegacyBridgeInput,
@@ -16,6 +17,7 @@ import {
   type FailLegacyUploadInput,
   type LegacyImageUploadRow,
   type PollingGateSnapshot,
+  type PreserveLegacyImageAuthorityInput,
 } from './image-upload-cutover.service';
 
 export { canonicalReceiptSha256 };
@@ -300,6 +302,8 @@ export class PgCutoverRepository implements CutoverRepository {
       [
         'ImageUpload',
         [
+          'clientRequestId',
+          'createdByAdminId',
           'presignExpiresAt',
           'finalizationLeaseToken',
           'resultImageId',
@@ -310,6 +314,19 @@ export class PgCutoverRepository implements CutoverRepository {
           'temporaryCleanupNextAttemptAt',
           'temporaryCleanupVerifiedAt',
           'temporaryCleanupLastErrorCategory',
+        ],
+      ],
+      [
+        'ImageUploadIdempotency',
+        [
+          'clientRequestId',
+          'createdByAdminId',
+          'uploadId',
+          'requestFingerprint',
+          'terminalOutcome',
+          'resultImageId',
+          'terminalAt',
+          'resultRetentionExpiresAt',
         ],
       ],
       [
@@ -389,7 +406,7 @@ export class PgCutoverRepository implements CutoverRepository {
            "failureCode" = 'upload_cutover_aborted',
            "terminalAt" = $2::timestamp(3),
            "presignExpiresAt" = $3::timestamp(3),
-           "resultRetentionExpiresAt" = $2::timestamp(3) + interval '7 days',
+           "resultRetentionExpiresAt" = $2::timestamp(3) + interval '30 days',
            "temporaryCleanupState" = 'pending',
            "temporaryCleanupNextAttemptAt" = $4::timestamp(3),
            "temporaryCleanupVerifiedAt" = NULL,
@@ -521,6 +538,11 @@ export class PgCutoverRepository implements CutoverRepository {
         );
       }
       const committedImageId = authority.rows[0].id;
+      const clientRequestId = recordId(
+        input.receiptSha256,
+        input.uploadId,
+        'client-request',
+      );
 
       await client.query(
         `INSERT INTO "ImageUploadPromotion" (
@@ -558,6 +580,8 @@ export class PgCutoverRepository implements CutoverRepository {
       await client.query(
         `UPDATE "ImageUpload"
          SET
+          "clientRequestId" = COALESCE("clientRequestId", $7),
+          "createdByAdminId" = COALESCE("createdByAdminId", 'legacy-cutover'),
           "status" = 'consumed',
           "consumedAt" = COALESCE("consumedAt", $2::timestamp(3)),
           "terminalAt" = COALESCE("terminalAt", $2::timestamp(3)),
@@ -565,7 +589,7 @@ export class PgCutoverRepository implements CutoverRepository {
           "finalizationLeaseToken" = $4,
           "resultImageId" = $5,
           "resultRetentionExpiresAt" = COALESCE(
-            "resultRetentionExpiresAt", $2::timestamp(3) + interval '7 days'
+            "resultRetentionExpiresAt", $2::timestamp(3) + interval '30 days'
           ),
           "temporaryCleanupState" = 'pending',
           "temporaryCleanupNextAttemptAt" = $6::timestamp(3),
@@ -578,8 +602,129 @@ export class PgCutoverRepository implements CutoverRepository {
           input.finalizationToken,
           committedImageId,
           input.cleanupNotBefore,
+          clientRequestId,
         ],
       );
+      await client.query(
+        `INSERT INTO "ImageUploadIdempotency" (
+          "clientRequestId", "createdByAdminId", "uploadId",
+          "requestFingerprint", "terminalOutcome", "resultImageId",
+          "terminalAt", "resultRetentionExpiresAt", "createdAt"
+        ) VALUES (
+          $1, 'legacy-cutover', $2, $3, 'consumed', $4,
+          $5::timestamp(3), $5::timestamp(3) + interval '30 days', $5::timestamp(3)
+        )`,
+        [
+          clientRequestId,
+          input.uploadId,
+          input.rowEvidenceSha256,
+          committedImageId,
+          input.now,
+        ],
+      );
+      return 'applied';
+    });
+  }
+
+  async preserveLegacyImageAuthority(
+    input: PreserveLegacyImageAuthorityInput,
+  ): Promise<'applied' | 'already_applied'> {
+    return this.withTransaction(async (client) => {
+      const row = input.row;
+      if (
+        row.image === null ||
+        row.image.albumId !== row.albumId ||
+        row.image.r2ObjectKey !== row.finalObjectKey
+      ) {
+        throw new Error(
+          'preserved legacy row requires exact pre-existing Image authority',
+        );
+      }
+      const locked = await client.query<{
+        status: string;
+        resultImageId: string | null;
+        temporaryCleanupState: string | null;
+      }>(
+        `SELECT
+          upload."status",
+          upload."resultImageId",
+          upload."temporaryCleanupState"
+         FROM "ImageUpload" AS upload
+         JOIN "Image" AS image
+           ON image."id" = $14
+          AND image."albumId" = upload."albumId"
+          AND image."r2ObjectKey" = upload."finalObjectKey"
+         WHERE upload."id" = $1
+           AND upload."albumId" = $2
+           AND upload."uploadObjectKey" = $3
+           AND upload."finalObjectKey" = $4
+           AND upload."filename" = $5
+           AND upload."contentType" = $6
+           AND upload."fileSize" = $7
+           AND upload."status" = $8
+           AND upload."sourceEtag" IS NOT DISTINCT FROM $9
+           AND upload."finalizationStartedAt" IS NOT DISTINCT FROM $10
+           AND upload."expiresAt" = $11
+           AND upload."consumedAt" IS NOT DISTINCT FROM $12
+           AND upload."createdAt" = $13
+         FOR UPDATE OF upload`,
+        [
+          input.uploadId,
+          row.albumId,
+          row.uploadObjectKey,
+          row.finalObjectKey,
+          row.filename,
+          row.contentType,
+          row.fileSize,
+          row.status,
+          row.sourceEtag,
+          row.finalizationStartedAt,
+          row.expiresAt,
+          row.consumedAt,
+          row.createdAt,
+          row.image.id,
+        ],
+      );
+      const current = locked.rows[0];
+      if (!current) {
+        throw new Error('preserved legacy Image projection CAS lost');
+      }
+      if (
+        current.status === 'consumed' &&
+        current.resultImageId === row.image.id &&
+        ['pending', 'verified_deleted'].includes(
+          current.temporaryCleanupState ?? '',
+        )
+      ) {
+        return 'already_applied';
+      }
+      const updated = await client.query(
+        `UPDATE "ImageUpload"
+         SET
+          "status" = 'consumed',
+          "consumedAt" = COALESCE("consumedAt", $2::timestamp(3)),
+          "terminalAt" = COALESCE("terminalAt", $2::timestamp(3)),
+          "presignExpiresAt" = COALESCE("presignExpiresAt", $3::timestamp(3)),
+          "resultImageId" = $4,
+          "resultRetentionExpiresAt" = COALESCE(
+            "resultRetentionExpiresAt", $2::timestamp(3) + interval '30 days'
+          ),
+          "temporaryCleanupState" = 'pending',
+          "temporaryCleanupNextAttemptAt" = $5::timestamp(3),
+          "temporaryCleanupVerifiedAt" = NULL
+         WHERE "id" = $1
+         RETURNING "id"`,
+        [
+          input.uploadId,
+          input.now,
+          input.presignExpiresAt,
+          row.image.id,
+          input.cleanupNotBefore,
+        ],
+      );
+      if (updated.rowCount !== 1) {
+        throw new Error('preserved legacy Image terminal CAS lost');
+      }
       return 'applied';
     });
   }
@@ -721,13 +866,11 @@ export class PgCutoverRepository implements CutoverRepository {
 }
 
 function canonicalEtag(value: string): string {
-  const normalized = value
-    .trim()
-    .replace(/^W\//, '')
-    .replace(/^"|"$/g, '')
-    .toLowerCase();
-  if (!normalized) throw new Error('R2 object ETag is missing');
-  return normalized;
+  try {
+    return canonicalizeEtag(value);
+  } catch {
+    throw new Error('R2 object ETag is invalid');
+  }
 }
 
 export class R2CutoverObjectStore implements CutoverObjectStore {
@@ -791,7 +934,7 @@ export class R2CutoverObjectStore implements CutoverObjectStore {
       new DeleteObjectCommand({
         Bucket: this.bucket,
         Key: objectKey,
-        ...(expectedEtag ? { IfMatch: expectedEtag } : {}),
+        ...(expectedEtag ? { IfMatch: toHttpEtag(expectedEtag) } : {}),
       }),
       { abortSignal: AbortSignal.timeout(this.operationTimeoutMs) },
     );
@@ -803,12 +946,24 @@ export class R2CutoverObjectStore implements CutoverObjectStore {
       new GetBucketCorsCommand({ Bucket: this.bucket }),
       { abortSignal: AbortSignal.timeout(this.operationTimeoutMs) },
     );
-    const actual = new Set(
-      (result.CORSRules ?? []).flatMap((rule) => rule.AllowedOrigins ?? []),
+    const rules = result.CORSRules ?? [];
+    if (rules.length !== 1) return 1;
+    const rule = rules[0];
+    const sorted = (values: readonly string[]) => [...values].sort();
+    const actualOrigins = sorted(rule.AllowedOrigins ?? []);
+    const expectedOrigins = sorted(this.expectedCorsOrigins);
+    const methods = sorted(rule.AllowedMethods ?? []);
+    const headers = sorted(
+      (rule.AllowedHeaders ?? []).map((value) => value.toLowerCase()),
     );
-    return this.expectedCorsOrigins.some((origin) => !actual.has(origin))
-      ? 1
-      : 0;
+    const exposedHeaders = rule.ExposeHeaders ?? [];
+    return JSON.stringify(actualOrigins) === JSON.stringify(expectedOrigins) &&
+      JSON.stringify(methods) === JSON.stringify(['PUT']) &&
+      JSON.stringify(headers) === JSON.stringify(['content-type']) &&
+      exposedHeaders.length === 0 &&
+      !actualOrigins.includes('*')
+      ? 0
+      : 1;
   }
 }
 

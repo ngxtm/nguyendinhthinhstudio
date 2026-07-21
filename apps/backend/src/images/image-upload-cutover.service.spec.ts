@@ -1,4 +1,6 @@
 import { createHash } from 'node:crypto';
+import { DeleteObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { R2CutoverObjectStore } from './image-upload-cutover.pg';
 import {
   ImageUploadCutoverService,
   assertPollingGate,
@@ -58,6 +60,7 @@ class MemoryRepository implements CutoverRepository {
   bridges = new Set<string>();
   cleanupPending = new Set<string>();
   schemaReady = true;
+  pollingSnapshotOverrides: Partial<PollingGateSnapshot> = {};
 
   constructor(rows: LegacyImageUploadRow[]) {
     this.rows = rows;
@@ -70,7 +73,9 @@ class MemoryRepository implements CutoverRepository {
 
   readPollingSnapshot(observedAt: Date) {
     this.calls.push('readPollingSnapshot');
-    return Promise.resolve(cleanSnapshot(observedAt));
+    return Promise.resolve(
+      cleanSnapshot(observedAt, this.pollingSnapshotOverrides),
+    );
   }
 
   failLegacyUpload(
@@ -93,6 +98,14 @@ class MemoryRepository implements CutoverRepository {
       return Promise.resolve('already_applied' as const);
     }
     this.bridges.add(input.uploadId);
+    this.cleanupPending.add(input.uploadId);
+    return Promise.resolve('applied' as const);
+  }
+
+  preserveLegacyImageAuthority(
+    input: Parameters<CutoverRepository['preserveLegacyImageAuthority']>[0],
+  ) {
+    this.calls.push('preserveLegacyImageAuthority');
     this.cleanupPending.add(input.uploadId);
     return Promise.resolve('applied' as const);
   }
@@ -173,10 +186,47 @@ const backup = {
   databaseIdentitySha256: 'c'.repeat(64),
   backupSha256: 'd'.repeat(64),
   backupPathSha256: 'e'.repeat(64),
-  quiescedAt: new Date('2026-07-20T21:00:00.000Z'),
+  quiescedAt: new Date('2026-07-20T23:30:00.000Z'),
 };
 
 describe('image upload cold-cutover service', () => {
+  it('renders canonical ETags as quoted HTTP conditions for bounded DELETE', async () => {
+    let captured: unknown;
+    const client = {
+      send(command: unknown) {
+        captured = command;
+        return Promise.resolve({});
+      },
+    } as unknown as S3Client;
+    const objects = new R2CutoverObjectStore(client, 'non-production-test');
+
+    await objects.delete('uploads/private/source.webp', 'AbCd0123');
+
+    expect(captured).toBeInstanceOf(DeleteObjectCommand);
+    expect((captured as DeleteObjectCommand).input.IfMatch).toBe('"AbCd0123"');
+  });
+
+  it('treats production CORS as exact origins, PUT, Content-Type, and no exposed headers', async () => {
+    const client = {
+      send() {
+        return Promise.resolve({
+          CORSRules: [
+            {
+              AllowedOrigins: ['https://admin.example.com'],
+              AllowedMethods: ['GET'],
+              AllowedHeaders: ['Content-Type'],
+            },
+          ],
+        });
+      },
+    } as unknown as S3Client;
+    const objects = new R2CutoverObjectStore(client, 'non-production-test', [
+      'https://admin.example.com',
+    ]);
+
+    await expect(objects.corsMismatch()).resolves.toBe(1);
+  });
+
   it('requires every polling gate and two all-zero snapshots at least 30 seconds apart', () => {
     expect(() =>
       assertTwoPollingSnapshots(
@@ -238,6 +288,9 @@ describe('image upload cold-cutover service', () => {
       ambiguous: 0,
       unresolvedAmbiguous: 0,
     });
+    expect(receipt.outstandingPutDeadline).toBe(
+      backup.quiescedAt.toISOString(),
+    );
     expect(repository.calls).toEqual(['readLegacyRows']);
     expect(objects.calls.every((call) => call.startsWith('head:'))).toBe(true);
     const serialized = JSON.stringify(receipt);
@@ -245,6 +298,40 @@ describe('image upload cold-cutover service', () => {
     expect(serialized).not.toContain('albums/private/committed.webp');
     expect(serialized).not.toContain('"etag"');
     expect(receipt.canonicalSha256).toBe(canonicalReceiptSha256(receipt));
+  });
+
+  it('allows retained legacy backlog during the read-only audit', async () => {
+    const repository = new MemoryRepository([legacyRow()]);
+    repository.pollingSnapshotOverrides = { expiredUploads: 1 };
+    const service = new ImageUploadCutoverService(
+      repository,
+      new MemoryObjects(),
+    );
+    const firstSnapshot = cleanSnapshot(undefined, {
+      expiredUploads: 1,
+    });
+    const secondSnapshot = cleanSnapshot(new Date('2026-07-21T00:00:30.000Z'), {
+      expiredUploads: 1,
+    });
+
+    await expect(
+      service.collectPollingSnapshot(firstSnapshot.observedAt),
+    ).resolves.toMatchObject({ expiredUploads: 1 });
+
+    await expect(
+      service.audit({
+        now: secondSnapshot.observedAt,
+        firstSnapshot,
+        secondSnapshot,
+        backup,
+        dispositions: [],
+      }),
+    ).resolves.toMatchObject({
+      summary: { legacyPreDispatch: 1, unresolvedAmbiguous: 0 },
+    });
+    expect(() =>
+      assertTwoPollingSnapshots(firstSnapshot, secondSnapshot),
+    ).toThrow(/expiredUploads/);
   });
 
   it('keeps consumed-without-Image and uncertain destination rows ambiguous', async () => {
@@ -296,6 +383,7 @@ describe('image upload cold-cutover service', () => {
       auditReceipt: audit,
       uploadId: row.uploadId,
       decision: 'cleanup_authorized',
+      dispositionPathSha256: '6'.repeat(64),
       auditReceiptPathSha256: audit.receiptPathSha256,
       auditReceiptDigestSha256: '7'.repeat(64),
       evidenceReceiptPathSha256: '8'.repeat(64),
@@ -309,12 +397,14 @@ describe('image upload cold-cutover service', () => {
       now: new Date('2026-07-21T00:01:00.000Z'),
     });
     expect(disposition.auditReceiptSha256).toBe(audit.canonicalSha256);
+    expect(disposition.dispositionPathSha256).toBe('6'.repeat(64));
     expect(disposition.decision).toBe('cleanup_authorized');
     expect(() =>
       service.createDisposition({
         auditReceipt: audit,
         uploadId: row.uploadId,
         decision: 'cleanup_authorized',
+        dispositionPathSha256: '6'.repeat(64),
         auditReceiptPathSha256: audit.receiptPathSha256,
         auditReceiptDigestSha256: '7'.repeat(64),
         evidenceReceiptPathSha256: '8'.repeat(64),
@@ -333,6 +423,7 @@ describe('image upload cold-cutover service', () => {
         auditReceipt: audit,
         uploadId: '10000000-0000-4000-8000-000000000099',
         decision: 'cleanup_authorized',
+        dispositionPathSha256: '6'.repeat(64),
         auditReceiptPathSha256: audit.receiptPathSha256,
         auditReceiptDigestSha256: '7'.repeat(64),
         evidenceReceiptPathSha256: '8'.repeat(64),
@@ -375,7 +466,18 @@ describe('image upload cold-cutover service', () => {
       backup,
       dispositions: [],
     });
-    const approval = service.approve(audit, 'operator-fingerprint');
+    const approval = service.approve(
+      audit,
+      'a'.repeat(64),
+      new Date(audit.generatedAt),
+      audit.receiptPathSha256,
+      '2'.repeat(64),
+    );
+    expect(approval.receiptPathSha256).toBe(audit.receiptPathSha256);
+    expect(approval.approvalPathSha256).toBe('2'.repeat(64));
+    expect(() => service.approve(audit, 'operator-fingerprint')).toThrow(
+      /fingerprint.*sha256/i,
+    );
 
     const first = await service.apply({
       now: new Date('2026-07-21T00:01:00.000Z'),
@@ -428,7 +530,7 @@ describe('image upload cold-cutover service', () => {
       service.apply({
         now: new Date('2026-07-21T00:02:00.000Z'),
         receipt: audit,
-        approval: service.approve(audit, 'operator-fingerprint'),
+        approval: service.approve(audit, 'a'.repeat(64)),
         backup,
         dispositions: [],
         presignClockSkewSeconds: 60,
@@ -470,13 +572,90 @@ describe('image upload cold-cutover service', () => {
     const result = await service.apply({
       now: new Date('2026-07-21T00:02:00.000Z'),
       receipt: audit,
-      approval: service.approve(audit, 'operator-fingerprint'),
+      approval: service.approve(audit, 'a'.repeat(64)),
       backup,
       dispositions: [],
       presignClockSkewSeconds: 60,
     });
     expect(result.bridged).toBe(1);
     expect(repository.calls).toContain('commitLegacyBridge');
+  });
+
+  it('preserves ETag case when deciding whether legacy dispatch evidence is exact', async () => {
+    const row = legacyRow({
+      status: 'finalizing',
+      sourceEtag: 'AbCdEf0123456789AbCdEf0123456789',
+      finalizationStartedAt: new Date('2026-07-20T22:30:00.000Z'),
+      image: {
+        id: '30000000-0000-4000-8000-000000000001',
+        albumId: '20000000-0000-4000-8000-000000000001',
+        r2ObjectKey: 'albums/private/final.webp',
+      },
+    });
+    const repository = new MemoryRepository([row]);
+    const objects = new MemoryObjects();
+    objects.objects.set(row.finalObjectKey, {
+      etag: row.sourceEtag.toLowerCase(),
+      bytes: row.fileSize,
+      mime: row.contentType,
+      metadataSha256: 'f'.repeat(64),
+    });
+    const service = new ImageUploadCutoverService(repository, objects);
+    const audit = await service.audit({
+      now: new Date('2026-07-21T00:00:30.000Z'),
+      firstSnapshot: cleanSnapshot(),
+      secondSnapshot: cleanSnapshot(new Date('2026-07-21T00:00:30.000Z')),
+      backup,
+      dispositions: [],
+    });
+
+    await expect(
+      service.apply({
+        now: new Date('2026-07-21T00:02:00.000Z'),
+        receipt: audit,
+        approval: service.approve(audit, 'a'.repeat(64)),
+        backup,
+        dispositions: [],
+        presignClockSkewSeconds: 60,
+      }),
+    ).resolves.toMatchObject({ preserved: 1, bridged: 0 });
+    expect(repository.calls).not.toContain('commitLegacyBridge');
+  });
+
+  it('terminalizes preserved Image authority without inventing a promotion', async () => {
+    const row = legacyRow({
+      status: 'pending',
+      image: {
+        id: '30000000-0000-4000-8000-000000000001',
+        albumId: '20000000-0000-4000-8000-000000000001',
+        r2ObjectKey: 'albums/private/final.webp',
+      },
+    });
+    const repository = new MemoryRepository([row]);
+    const service = new ImageUploadCutoverService(
+      repository,
+      new MemoryObjects(),
+    );
+    const audit = await service.audit({
+      now: new Date('2026-07-21T00:00:30.000Z'),
+      firstSnapshot: cleanSnapshot(),
+      secondSnapshot: cleanSnapshot(new Date('2026-07-21T00:00:30.000Z')),
+      backup,
+      dispositions: [],
+    });
+
+    await expect(
+      service.apply({
+        now: new Date('2026-07-21T00:02:00.000Z'),
+        receipt: audit,
+        approval: service.approve(audit, 'a'.repeat(64)),
+        backup,
+        dispositions: [],
+        presignClockSkewSeconds: 60,
+      }),
+    ).resolves.toMatchObject({ preserved: 1, bridged: 0 });
+    expect(repository.calls).toContain('preserveLegacyImageAuthority');
+    expect(repository.calls).not.toContain('commitLegacyBridge');
   });
 
   it('never bridges dispatch evidence without an exact pre-existing Image authority', async () => {
@@ -574,6 +753,7 @@ describe('image upload cold-cutover service', () => {
       auditReceipt: audit,
       uploadId: row.uploadId,
       decision: 'cleanup_authorized',
+      dispositionPathSha256: '6'.repeat(64),
       auditReceiptPathSha256: audit.receiptPathSha256,
       auditReceiptDigestSha256: '2'.repeat(64),
       evidenceReceiptPathSha256: '3'.repeat(64),
@@ -597,6 +777,25 @@ describe('image upload cold-cutover service', () => {
     );
     expect(disposition.approvalDigest).toMatch(/^[a-f0-9]{64}$/);
     expect(disposition.approvalSignature).toMatch(/^[a-f0-9]{64}$/);
+
+    const unpairedPathDraft = {
+      ...audit,
+      rows: audit.rows.map((entry) => ({
+        ...entry,
+        dispositionPathSha256: '6'.repeat(64),
+      })),
+    };
+    const unpairedPathReceipt = {
+      ...unpairedPathDraft,
+      canonicalSha256: canonicalReceiptSha256(unpairedPathDraft),
+    };
+    expect(() =>
+      service.approve(
+        unpairedPathReceipt,
+        'f'.repeat(64),
+        new Date('2026-07-21T00:02:00.000Z'),
+      ),
+    ).toThrow(/disposition.*path|pair/i);
 
     const forgedDraft = {
       ...disposition,
@@ -641,6 +840,7 @@ describe('image upload cold-cutover service', () => {
         auditReceipt: audit,
         uploadId: audit.rows[0].uploadId,
         decision: 'cleanup_authorized',
+        dispositionPathSha256: '6'.repeat(64),
         auditReceiptPathSha256: audit.receiptPathSha256,
         auditReceiptDigestSha256: '2'.repeat(64),
         evidenceReceiptPathSha256: '3'.repeat(64),
