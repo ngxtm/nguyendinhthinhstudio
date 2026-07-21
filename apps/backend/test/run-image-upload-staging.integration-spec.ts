@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import {
@@ -38,6 +38,15 @@ describe('staging orchestrator', () => {
 
   afterEach(async () => {
     await rm(directory, { recursive: true, force: true });
+  });
+
+  it('uses the Testcontainers 12 started-container identity API', async () => {
+    const source = await readFile(
+      join(__dirname, 'run-image-upload-staging.ts'),
+      'utf8',
+    );
+    expect(source).toContain('identity: container.getId(),');
+    expect(source).not.toContain('container.getContainerId()');
   });
 
   it('owns the complete sequence and writes a scoped receipt', async () => {

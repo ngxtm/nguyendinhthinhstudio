@@ -255,7 +255,7 @@ async function defaultDependencies(): Promise<StagingOrchestratorDependencies> {
       return {
         databaseUrl: container.getConnectionUri(),
         directUrl: container.getConnectionUri(),
-        identity: container.getContainerId(),
+        identity: container.getId(),
         dispose: async () => container.stop(),
       };
     },
