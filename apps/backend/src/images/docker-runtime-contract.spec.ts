@@ -99,6 +99,9 @@ describe('frontend Docker dependency boundary', () => {
 
 describe('backend Docker runner', () => {
   const dockerfile = readRepositoryFile('apps/backend/Dockerfile');
+  const backendPackage = JSON.parse(
+    readRepositoryFile('apps/backend/package.json'),
+  ) as { devDependencies?: Record<string, string> };
 
   it.each([
     '/app/dist/src/main.js',
@@ -107,6 +110,14 @@ describe('backend Docker runner', () => {
     '/app/apps/backend/package.json',
   ])('contains %s', (artifact) => {
     expect(dockerfile).toContain(`test -f ${artifact}`);
+  });
+
+  it('uses the lockfile-pinned tsc-alias binary without an install fallback', () => {
+    expect(backendPackage.devDependencies?.['tsc-alias']).toBeDefined();
+    expect(dockerfile).toContain(
+      'RUN npx --no-install tsc-alias -p tsconfig.build.json',
+    );
+    expect(dockerfile).not.toContain('RUN npx tsc-alias');
   });
 });
 
@@ -129,11 +140,11 @@ describe('Compose image-upload process roles', () => {
   const compose = readRepositoryFile('docker-compose.yml');
   const backend =
     compose.match(
-      /\r?\n  backend:\r?\n([\s\S]*?)(?=\r?\n  [\w-]+:\r?\n|\r?\nnetworks:)/,
+      /\r?\n {2}backend:\r?\n([\s\S]*?)(?=\r?\n {2}[\w-]+:\r?\n|\r?\nnetworks:)/,
     )?.[1] ?? '';
   const reconciler =
     compose.match(
-      /\r?\n  images-upload-reconciler:\r?\n([\s\S]*?)(?=\r?\n  [\w-]+:\r?\n|\r?\nnetworks:)/,
+      /\r?\n {2}images-upload-reconciler:\r?\n([\s\S]*?)(?=\r?\n {2}[\w-]+:\r?\n|\r?\nnetworks:)/,
     )?.[1] ?? '';
 
   it('keeps reconciler R2, cutover, and operator secrets out of the API', () => {

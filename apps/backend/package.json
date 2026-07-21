@@ -34,8 +34,8 @@
     "test:staging:run": "tsx test/run-image-upload-staging.ts run",
     "test:staging:cleanup": "tsx test/run-image-upload-staging.ts cleanup",
     "images:uploads:reconcile": "node /app/dist/scripts/reconcile-image-uploads.js",
-  "images:uploads:resolve-conflict": "node /app/dist/scripts/resolve-image-upload-promotion-conflict.js",
-  "images:uploads:cutover": "node /app/dist/scripts/image-upload-cutover.js",
+    "images:uploads:resolve-conflict": "node /app/dist/scripts/resolve-image-upload-promotion-conflict.js",
+    "images:uploads:cutover": "node /app/dist/scripts/image-upload-cutover.js",
     "images:deletions:process": "tsx scripts/process-image-deletions.ts",
     "images:uploads:cleanup": "tsx scripts/cleanup-expired-image-uploads.ts",
     "images:migrate:dry-run": "tsx scripts/migrate-cloudflare-images-to-r2.ts --dry-run",
@@ -95,6 +95,7 @@
     "ts-jest": "^29.2.5",
     "ts-loader": "^9.5.2",
     "ts-node": "^10.9.2",
+    "tsc-alias": "^1.9.1",
     "tsconfig-paths": "^4.2.0",
     "typescript": "^5.7.3",
     "typescript-eslint": "^8.20.0"

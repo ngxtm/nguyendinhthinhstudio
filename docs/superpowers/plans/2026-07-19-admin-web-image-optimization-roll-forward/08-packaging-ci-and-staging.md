@@ -192,12 +192,22 @@ optimized memory delta <= 0.50 × full-decode control delta
 ```powershell
 node scripts/verify-image-upload-workflow.mjs
 npm test --workspace=frontend
-npm exec --workspace=frontend -- playwright -- test test/image-upload.browser.spec.ts --project=chromium
-$env:CFT_EXECUTABLE_PATH = "<path-to-pinned-Chrome-for-Testing-148.0.7778.96/chrome.exe>"
-npm exec --workspace=frontend -- playwright -- test test/image-upload.browser.spec.ts --project=stable-chrome
+Push-Location apps/frontend
+try {
+    npx --no-install playwright test test/image-upload.browser.spec.ts --project=chromium
+    $env:CFT_EXECUTABLE_PATH = "<path-to-pinned-Chrome-for-Testing-148.0.7778.96/chrome.exe>"
+    npx --no-install playwright test test/image-upload.browser.spec.ts --project=stable-chrome
+} finally {
+    Pop-Location
+}
 $env:IMAGE_UPLOAD_MEMORY_FIXTURE = Join-Path $env:TEMP "ndt-image-upload-memory-fixture.jpg"
 npm exec --workspace=backend -- tsx -- test/generate-image-upload-memory-fixture.ts --output $env:IMAGE_UPLOAD_MEMORY_FIXTURE
-npm exec --workspace=frontend -- playwright -- test test/benchmark/image-upload-memory.benchmark.ts --project=chromium
+Push-Location apps/frontend
+try {
+    npx --no-install playwright test test/benchmark/image-upload-memory.benchmark.ts --project=chromium
+} finally {
+    Pop-Location
+}
 ```
 
 Expected: the three-job required workflow contract and bundled Chromium pass in CI; the explicit local commands also prove pinned stable-Chrome compatibility, the deterministic fixture digest, and memory thresholds before release.

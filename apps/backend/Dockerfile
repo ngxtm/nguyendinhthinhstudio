@@ -30,7 +30,7 @@ RUN npm run build --workspace=backend
 
 # Replace path aliases with relative paths (critical for runtime)
 WORKDIR /app/apps/backend
-RUN npx tsc-alias -p tsconfig.build.json
+RUN npx --no-install tsc-alias -p tsconfig.build.json
 
 # Preserve each entrypoint's compiled relative imports while exposing the
 # canonical API and operator-script paths in the runtime image.
