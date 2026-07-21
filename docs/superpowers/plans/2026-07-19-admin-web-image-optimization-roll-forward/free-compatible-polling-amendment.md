@@ -285,13 +285,17 @@ Fresh scan classification: remaining Queue/Event Notification strings are limite
 - Modify: Stage 09 cutover scripts and tests listed in `09-production-cold-cutover-and-roll-forward.md`
 - Modify: production deployment/runbook configuration
 
-- [ ] **Step 1: Remove provider-event receipt fields and Queue drain gates**
+- [x] **Step 1: Remove provider-event receipt fields and Queue drain gates**
 
 Cutover receipts retain database/R2 HEAD evidence, protected row dispositions, conflict resolution evidence, backup bindings, and object-deletion authority. Remove provider event IDs, Queue locations, message/lease IDs, ACK/replay evidence, Queue tokens, and event-rule readback.
 
-- [ ] **Step 2: Make legacy audit R2-read-only**
+Fresh evidence: commits `c6f2a95`, `a115c81`, and `d9c1189` implement the polling-only cutover command. Its closed receipt/CLI contract contains no provider-event, Queue, DLQ, ACK, replay, consumer, event-rule, or Queue-token field; obsolete Queue/event configuration remains fail-closed elsewhere.
+
+- [x] **Step 2: Make legacy audit R2-read-only**
 
 Audit reads exact legacy-schema rows, Image references, and destination HEAD evidence. It performs no database mutation and no R2 PUT/COPY/DELETE. Ambiguous rows still require protected `committed_authorized | cleanup_authorized` dispositions.
+
+Fresh evidence: the exact PostgreSQL legacy projection and R2 HEAD-only audit passed focused unit and Testcontainers integration coverage. Apply is separately schema-preflighted before mutation; protected disposition/audit/evidence/backup paths and digests are revalidated before any post-migration action.
 
 - [x] **Step 3: Require two zero-backlog polling snapshots**
 

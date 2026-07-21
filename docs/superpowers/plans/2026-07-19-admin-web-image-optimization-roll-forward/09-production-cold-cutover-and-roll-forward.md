@@ -4,15 +4,17 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Replace the old upload generation during a bounded maintenance window, reconcile retained provider events once, start only the new API/reconciler, and recover from incidents by roll-forward.
+**Goal:** Replace the old upload generation during a bounded maintenance window, reconcile retained legacy rows through exact database/R2 HEAD evidence, start only the new API/reconciler, and recover from incidents by roll-forward.
 
-**Architecture:** Provider event capture begins before old writers stop. Old API/jobs are then fully quiesced, migration runs, and a one-shot bridge safely disposes retained old sessions while ingress remains closed. No old binary starts after migration.
+**Architecture:** Old API/jobs are fully quiesced, an R2-read-only legacy audit binds the authoritative backup and protected row dispositions, migration runs, and a one-shot polling-compatible bridge safely disposes retained old sessions while ingress remains closed. No provider event, Queue, or DLQ is used, and no old binary starts after migration.
 
-**Tech Stack:** PostgreSQL, Docker Compose/Dokploy, Cloudflare R2/Queues, imgproxy, GitHub rulesets, PowerShell, Playwright.
+**Tech Stack:** PostgreSQL, Docker Compose/Dokploy, Cloudflare R2, imgproxy, GitHub rulesets, PowerShell, Playwright.
 
 ---
 
 ### Task 1: Implement and test the one-shot cutover bridge
+
+> **Current polling completion:** Task A5 Steps 1–3 in `free-compatible-polling-amendment.md` replace this task's mixed Queue/event wording. The Queue-era checkboxes below remain unchecked as historical text; current completion evidence is recorded only on the replacement checklist.
 
 **Files:**
 
