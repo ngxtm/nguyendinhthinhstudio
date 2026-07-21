@@ -6,6 +6,7 @@ import {
   assertStagingR2Command,
   environmentForStagingChild,
   formatStagingCanaryEvidence,
+  loadFrontendChromium,
   parseStagingResourceEnvironment,
   validateStagingCanaryEvidence,
   validateStagingProviderReadback,
@@ -17,6 +18,10 @@ const environment = (overrides: Record<string, string | undefined> = {}) => ({
   ...overrides,
 });
 describe('free-compatible staging resource contract', () => {
+  it('loads bundled Chromium from the frontend workspace', () => {
+    expect(loadFrontendChromium().launch).toEqual(expect.any(Function));
+  });
+
   it('requires the R2-only environment without Queue/Event Notification inputs', () => {
     expect(REQUIRED_STAGING_RESOURCE_VARIABLES).toHaveLength(20);
     const parsed = parseStagingResourceEnvironment(environment());
