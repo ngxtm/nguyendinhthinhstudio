@@ -106,6 +106,18 @@ describe('staging orchestrator', () => {
     expect(source).not.toContain('new PostgreSqlContainer');
   });
 
+  it('runs only bundled Chromium from the frontend workspace', async () => {
+    const source = await readFile(
+      join(__dirname, 'run-image-upload-staging.ts'),
+      'utf8',
+    );
+    expect(source).toMatch(/runCommand\(\s*'npx'/);
+    expect(source).toContain("resolve(root, 'apps/frontend')");
+    expect(source).toContain("'--project=chromium'");
+    expect(source).not.toContain("'--workspace=frontend'");
+    expect(source).not.toContain("'stable-chrome'");
+  });
+
   it('owns the complete sequence and writes a scoped receipt', async () => {
     const events: string[] = [];
     const receipt = join(directory, 'receipt.json');

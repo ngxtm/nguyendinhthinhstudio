@@ -126,6 +126,8 @@ jobs:
                   cache: npm
             - run: npm ci
             - run: npm run build --workspace=@ndt/image-upload-policy
+            - run: npx --no-install playwright install --with-deps chromium
+              working-directory: apps/frontend
             - name: Run staging qualification
               run: NDT_STAGING_RECEIPT_PATH="$RUNNER_TEMP/ndt-image-upload-staging-receipt.json" npm run test:staging:run --workspace=backend
             - name: Cleanup staging run
