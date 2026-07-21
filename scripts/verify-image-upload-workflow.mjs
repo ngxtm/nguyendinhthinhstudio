@@ -67,6 +67,10 @@ for (const fragment of [
     'npm run test:staging:run --workspace=backend',
     'if: always()',
     'npm run test:staging:cleanup --workspace=backend',
+    'NDT_STAGING_DATABASE_URL: ${{ secrets.NDT_STAGING_DATABASE_URL }}',
+    'NDT_STAGING_DIRECT_URL: ${{ secrets.NDT_STAGING_DIRECT_URL }}',
+    'NDT_STAGING_SUPABASE_PROJECT_REF: ${{ vars.NDT_STAGING_SUPABASE_PROJECT_REF }}',
+    'NDT_PRODUCTION_SUPABASE_PROJECT_REF: ${{ vars.NDT_PRODUCTION_SUPABASE_PROJECT_REF }}',
 ]) {
     if (!staging.includes(fragment)) fail(`image-upload-staging must contain ${fragment}`);
 }

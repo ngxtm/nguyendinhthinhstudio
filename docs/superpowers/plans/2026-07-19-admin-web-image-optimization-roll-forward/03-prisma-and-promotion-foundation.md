@@ -706,7 +706,7 @@ Expected: both commands exit 0.
 
 - Modify: `apps/backend/test/image-upload-schema.integration-spec.ts`
 
-- [ ] **Step 1: Test an empty database**
+- [x] **Step 1: Test an empty database**
 
 Run `prisma migrate deploy` against a fresh Testcontainers PostgreSQL database and assert every model, constraint, and index exists.
 

@@ -240,7 +240,7 @@ Database backup remains mandatory for disaster recovery, but the operational upl
 
 ## 11. Staging qualification
 
-Staging uses long-lived, explicitly non-production R2 and scoped credentials. Each run uses one UUID namespace under both canonical roots, exactly `uploads/staging/{runId}/` for temporary objects and `albums/staging/{runId}/` for canonical objects, plus a disposable PostgreSQL database. No provider event rule or Queue resource is required.
+Staging uses long-lived, explicitly non-production R2 and a dedicated non-production Supabase project with scoped credentials. Each run uses one UUID namespace under both canonical roots, exactly `uploads/staging/{runId}/` for temporary objects and `albums/staging/{runId}/` for canonical objects. The orchestrator requires staging `DATABASE_URL`/`DIRECT_URL` secrets and staging/production Supabase project refs, proves both connection strings belong to the staging ref and that the staging ref differs from production, hashes the ref for receipts, and refuses ambient generic database variables. It applies idempotent migrations but never drops, resets, or destroys the long-lived Supabase staging project. A separate Testcontainers test bootstraps the minimum Supabase auth schema/roles and proves the complete migration chain from an empty compatible PostgreSQL database. No provider event rule or Queue resource is required.
 
 A single `test:staging:run` orchestrator owns provisioned run state and executes migration, backend suites, frontend suites, real CopyObject settlement, response-loss polling recovery, promotion-conflict tests, imgproxy rendering, smoke uploads, and cleanup of both exact run-scoped prefixes in `try/finally`. CI adds an `always()` cleanup step as a second safety net.
 

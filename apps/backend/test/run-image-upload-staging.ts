@@ -3,6 +3,7 @@ import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { platform } from 'node:process';
 import { execFileSync, spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import {
   cleanupLiveStagingRun,
   createStagingRunId,
@@ -29,6 +30,8 @@ export type StagingDatabase = {
   identity: string;
   dispose?: () => Promise<void>;
 };
+
+type StagingDatabaseEnvironment = Record<string, string | undefined>;
 
 export type StagingOrchestratorDependencies = {
   preflight: (
@@ -234,9 +237,94 @@ function refuseAmbientDatabase(): void {
   }
 }
 
+function requiredDatabaseValue(
+  input: StagingDatabaseEnvironment,
+  name: string,
+): string {
+  const value = input[name]?.trim();
+  if (!value) throw new Error(`${name} is required`);
+  return value;
+}
+
+function parseSupabaseProjectRef(value: string, name: string): string {
+  if (!/^[a-z0-9]{20}$/.test(value)) {
+    throw new Error(`${name} must be a 20-character lowercase Supabase ref`);
+  }
+  return value;
+}
+
+function parsePostgresUrl(value: string, name: string): URL {
+  let parsed: URL;
+  try {
+    parsed = new URL(value);
+  } catch {
+    throw new Error(`${name} must be a valid PostgreSQL URL`);
+  }
+  if (!['postgres:', 'postgresql:'].includes(parsed.protocol)) {
+    throw new Error(`${name} must use postgres or postgresql`);
+  }
+  if (!parsed.hostname || !parsed.username || !parsed.password) {
+    throw new Error(`${name} must include host, username, and password`);
+  }
+  return parsed;
+}
+
+function targetsSupabaseRef(url: URL, projectRef: string): boolean {
+  if (url.hostname === `db.${projectRef}.supabase.co`) return true;
+  return (
+    url.hostname.endsWith('.pooler.supabase.com') &&
+    decodeURIComponent(url.username) === `postgres.${projectRef}`
+  );
+}
+
+export function parseStagingDatabaseEnvironment(
+  input: StagingDatabaseEnvironment,
+): StagingDatabase {
+  const stagingRef = parseSupabaseProjectRef(
+    requiredDatabaseValue(input, 'NDT_STAGING_SUPABASE_PROJECT_REF'),
+    'NDT_STAGING_SUPABASE_PROJECT_REF',
+  );
+  const productionRef = parseSupabaseProjectRef(
+    requiredDatabaseValue(input, 'NDT_PRODUCTION_SUPABASE_PROJECT_REF'),
+    'NDT_PRODUCTION_SUPABASE_PROJECT_REF',
+  );
+  if (stagingRef === productionRef) {
+    throw new Error('staging Supabase project ref must differ from production');
+  }
+  const databaseUrl = requiredDatabaseValue(
+    input,
+    'NDT_STAGING_DATABASE_URL',
+  );
+  const directUrl = requiredDatabaseValue(input, 'NDT_STAGING_DIRECT_URL');
+  const parsedDatabaseUrl = parsePostgresUrl(
+    databaseUrl,
+    'NDT_STAGING_DATABASE_URL',
+  );
+  const parsedDirectUrl = parsePostgresUrl(
+    directUrl,
+    'NDT_STAGING_DIRECT_URL',
+  );
+  if (!targetsSupabaseRef(parsedDatabaseUrl, stagingRef)) {
+    throw new Error(
+      'NDT_STAGING_DATABASE_URL must target the staging Supabase ref',
+    );
+  }
+  if (parsedDirectUrl.hostname !== `db.${stagingRef}.supabase.co`) {
+    throw new Error(
+      'NDT_STAGING_DIRECT_URL must target the direct staging Supabase host',
+    );
+  }
+  return {
+    databaseUrl,
+    directUrl,
+    identity: `supabase:${createHash('sha256').update(stagingRef).digest('hex')}`,
+  };
+}
+
 async function defaultDependencies(): Promise<StagingOrchestratorDependencies> {
   refuseAmbientDatabase();
   const input = process.env as Record<string, string | undefined>;
+  const database = parseStagingDatabaseEnvironment(input);
   let stagingEnvironment: StagingEnvironment;
   return {
     preflight: async () => {
@@ -245,20 +333,7 @@ async function defaultDependencies(): Promise<StagingOrchestratorDependencies> {
       validateStagingProviderReadback(stagingEnvironment, provider);
       return { roleEnvironment: stagingEnvironment };
     },
-    createDatabase: async () => {
-      const { PostgreSqlContainer } = await import(
-        '@testcontainers/postgresql'
-      );
-      const container = await new PostgreSqlContainer(
-        'postgres:16-alpine',
-      ).start();
-      return {
-        databaseUrl: container.getConnectionUri(),
-        directUrl: container.getConnectionUri(),
-        identity: container.getId(),
-        dispose: async () => container.stop(),
-      };
-    },
+    createDatabase: async () => database,
     migrate: async (database) =>
       runCommand('npm', ['run', 'migrate:deploy', '--workspace=backend'], {
         ...process.env,

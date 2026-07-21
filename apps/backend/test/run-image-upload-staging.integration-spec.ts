@@ -2,6 +2,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import {
+  parseStagingDatabaseEnvironment,
   runStagingQualification,
   type StagingOrchestratorDependencies,
 } from './run-image-upload-staging';
@@ -40,13 +41,56 @@ describe('staging orchestrator', () => {
     await rm(directory, { recursive: true, force: true });
   });
 
-  it('uses the Testcontainers 12 started-container identity API', async () => {
+  it('accepts only connection identities bound to a distinct staging Supabase ref', () => {
+    const result = parseStagingDatabaseEnvironment({
+      NDT_STAGING_SUPABASE_PROJECT_REF: 'abcdefghijklmnopqrst',
+      NDT_PRODUCTION_SUPABASE_PROJECT_REF: 'zyxwvutsrqponmlkjihg',
+      NDT_STAGING_DATABASE_URL:
+        'postgresql://postgres.abcdefghijklmnopqrst:secret@aws-0-region.pooler.supabase.com:6543/postgres',
+      NDT_STAGING_DIRECT_URL:
+        'postgresql://postgres:secret@db.abcdefghijklmnopqrst.supabase.co:5432/postgres',
+    });
+    expect(result.databaseUrl).toContain('pooler.supabase.com');
+    expect(result.directUrl).toContain(
+      'db.abcdefghijklmnopqrst.supabase.co',
+    );
+    expect(result.identity).toMatch(/^supabase:[0-9a-f]{64}$/);
+    expect(result.identity).not.toContain('abcdefghijklmnopqrst');
+  });
+
+  it('rejects a staging Supabase ref that equals production', () => {
+    expect(() =>
+      parseStagingDatabaseEnvironment({
+        NDT_STAGING_SUPABASE_PROJECT_REF: 'abcdefghijklmnopqrst',
+        NDT_PRODUCTION_SUPABASE_PROJECT_REF: 'abcdefghijklmnopqrst',
+        NDT_STAGING_DATABASE_URL:
+          'postgresql://postgres.abcdefghijklmnopqrst:secret@aws-0-region.pooler.supabase.com:6543/postgres',
+        NDT_STAGING_DIRECT_URL:
+          'postgresql://postgres:secret@db.abcdefghijklmnopqrst.supabase.co:5432/postgres',
+      }),
+    ).toThrow('must differ from production');
+  });
+
+  it('rejects a staging connection that targets another Supabase project', () => {
+    expect(() =>
+      parseStagingDatabaseEnvironment({
+        NDT_STAGING_SUPABASE_PROJECT_REF: 'abcdefghijklmnopqrst',
+        NDT_PRODUCTION_SUPABASE_PROJECT_REF: 'zyxwvutsrqponmlkjihg',
+        NDT_STAGING_DATABASE_URL:
+          'postgresql://postgres.wrongprojectref0000:secret@aws-0-region.pooler.supabase.com:6543/postgres',
+        NDT_STAGING_DIRECT_URL:
+          'postgresql://postgres:secret@db.abcdefghijklmnopqrst.supabase.co:5432/postgres',
+      }),
+    ).toThrow('NDT_STAGING_DATABASE_URL must target the staging Supabase ref');
+  });
+
+  it('does not create a generic PostgreSQL container for live staging', async () => {
     const source = await readFile(
       join(__dirname, 'run-image-upload-staging.ts'),
       'utf8',
     );
-    expect(source).toContain('identity: container.getId(),');
-    expect(source).not.toContain('container.getContainerId()');
+    expect(source).not.toContain("'@testcontainers/postgresql'");
+    expect(source).not.toContain('new PostgreSqlContainer');
   });
 
   it('owns the complete sequence and writes a scoped receipt', async () => {
