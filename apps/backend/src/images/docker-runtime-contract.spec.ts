@@ -86,6 +86,17 @@ describe.each([
   },
 );
 
+describe('frontend Docker dependency boundary', () => {
+  const dockerfile = readRepositoryFile('apps/frontend/Dockerfile');
+
+  it('copies frontend workspace dependencies and disables Next lockfile mutation in the builder', () => {
+    expect(dockerfile).toContain(
+      'COPY --from=deps /app/apps/frontend/node_modules ./apps/frontend/node_modules',
+    );
+    expect(dockerfile).toContain('ENV NEXT_IGNORE_INCORRECT_LOCKFILE=1');
+  });
+});
+
 describe('backend Docker runner', () => {
   const dockerfile = readRepositoryFile('apps/backend/Dockerfile');
 
