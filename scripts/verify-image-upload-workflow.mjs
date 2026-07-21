@@ -46,11 +46,7 @@ function requireFragments(body, job, fragments) {
 
 const source = readFileSync(workflowPath, 'utf8');
 const jobs = extractJobs(source);
-const required = [
-    'backend-image-upload',
-    'image-upload-packaging',
-    'frontend-playwright-chromium',
-];
+const required = ['backend-image-upload', 'image-upload-packaging', 'frontend-playwright-chromium'];
 for (const id of ['frontend-stable-chrome', 'frontend-image-memory']) {
     if (jobs.has(id)) fail(`${id} must remain a manual release gate, not a GitHub Actions job`);
 }
@@ -73,6 +69,11 @@ for (const fragment of [
     'NDT_PRODUCTION_SUPABASE_PROJECT_REF: ${{ vars.NDT_PRODUCTION_SUPABASE_PROJECT_REF }}',
     'npx --no-install playwright install --with-deps chromium',
     'working-directory: apps/frontend',
+    'image: darthsim/imgproxy:v3.30.1',
+    "IMGPROXY_USE_S3: 'true'",
+    'AWS_ACCESS_KEY_ID: ${{ secrets.NDT_STAGING_IMGPROXY_ACCESS_KEY_ID }}',
+    'AWS_SECRET_ACCESS_KEY: ${{ secrets.NDT_STAGING_IMGPROXY_SECRET_ACCESS_KEY }}',
+    'IMGPROXY_S3_ENDPOINT: ${{ vars.NDT_STAGING_R2_ENDPOINT }}',
 ]) {
     if (!staging.includes(fragment)) fail(`image-upload-staging must contain ${fragment}`);
 }
