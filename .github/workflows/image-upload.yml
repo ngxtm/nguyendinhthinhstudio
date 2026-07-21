@@ -109,8 +109,6 @@ jobs:
         name: frontend-image-memory
         runs-on: ubuntu-24.04
         timeout-minutes: 30
-        env:
-            IMAGE_UPLOAD_MEMORY_FIXTURE: ${{ runner.temp }}/ndt-image-upload-memory-fixture.jpg
         steps:
             - uses: actions/checkout@v4
             - uses: actions/setup-node@v4
@@ -120,8 +118,8 @@ jobs:
             - run: npm ci
             - run: npm run build --workspace=@ndt/image-upload-policy
             - run: npm exec --workspace=frontend -- playwright -- install --with-deps chromium
-            - run: npm exec --workspace=backend -- tsx -- test/generate-image-upload-memory-fixture.ts --output "$IMAGE_UPLOAD_MEMORY_FIXTURE"
-            - run: npm exec --workspace=frontend -- playwright -- test test/benchmark/image-upload-memory.benchmark.ts --project=chromium
+            - run: npm exec --workspace=backend -- tsx -- test/generate-image-upload-memory-fixture.ts --output "$RUNNER_TEMP/ndt-image-upload-memory-fixture.jpg"
+            - run: IMAGE_UPLOAD_MEMORY_FIXTURE="$RUNNER_TEMP/ndt-image-upload-memory-fixture.jpg" npm exec --workspace=frontend -- playwright -- test test/benchmark/image-upload-memory.benchmark.ts --project=chromium
 
     image-upload-staging:
         name: image-upload-staging
@@ -133,7 +131,6 @@ jobs:
             cancel-in-progress: false
         timeout-minutes: 60
         env:
-            NDT_STAGING_RECEIPT_PATH: ${{ runner.temp }}/ndt-image-upload-staging-receipt.json
             NDT_STAGING_ACCOUNT_ID: ${{ vars.NDT_STAGING_ACCOUNT_ID }}
             NDT_STAGING_R2_ENDPOINT: ${{ vars.NDT_STAGING_R2_ENDPOINT }}
             NDT_STAGING_R2_BUCKET: ${{ vars.NDT_STAGING_R2_BUCKET }}
@@ -163,7 +160,7 @@ jobs:
             - run: npm ci
             - run: npm run build --workspace=@ndt/image-upload-policy
             - name: Run staging qualification
-              run: npm run test:staging:run --workspace=backend
+              run: NDT_STAGING_RECEIPT_PATH="$RUNNER_TEMP/ndt-image-upload-staging-receipt.json" npm run test:staging:run --workspace=backend
             - name: Cleanup staging run
               if: always()
-              run: npm run test:staging:cleanup --workspace=backend
+              run: NDT_STAGING_RECEIPT_PATH="$RUNNER_TEMP/ndt-image-upload-staging-receipt.json" npm run test:staging:cleanup --workspace=backend
