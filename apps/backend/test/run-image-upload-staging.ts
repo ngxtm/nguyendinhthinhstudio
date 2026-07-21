@@ -14,6 +14,8 @@ import {
   type StagingEnvironment,
 } from './staging-resource-contract';
 
+const root = resolve(__dirname, '../../..');
+
 export type StagingReceipt = {
   runId: string;
   sourcePrefix: string;
@@ -209,10 +211,11 @@ function runCommand(
   command: string,
   args: string[],
   env: NodeJS.ProcessEnv,
+  cwd = root,
 ): Promise<void> {
   return new Promise((resolveCommand, rejectCommand) => {
     const child = spawn(command, args, {
-      cwd: resolve(__dirname, '../../..'),
+      cwd,
       env,
       stdio: 'inherit',
     });
@@ -367,18 +370,16 @@ async function defaultDependencies(): Promise<StagingOrchestratorDependencies> {
       ),
     frontendSuites: async () =>
       runCommand(
-        'npm',
+        'npx',
         [
-          'exec',
-          '--workspace=frontend',
-          '--',
+          '--no-install',
           'playwright',
-          '--',
           'test',
           'test/image-upload.browser.spec.ts',
           '--project=chromium',
         ],
         process.env,
+        resolve(root, 'apps/frontend'),
       ),
     providerSmoke: async (_roleEnvironment, runId) => {
       await runLiveStagingCanaries(stagingEnvironment, runId);
