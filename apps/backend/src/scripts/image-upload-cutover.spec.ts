@@ -17,6 +17,7 @@ import {
   existsSync,
   mkdtempSync,
   readFileSync,
+  rmSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -46,6 +47,15 @@ const env = {
 const digest = (value: Buffer | string) =>
   createHash('sha256').update(value).digest('hex');
 
+const protectedCliEvidenceDirectory = mkdtempSync(
+  join(tmpdir(), 'cutover-cli-evidence-'),
+);
+chmodSync(protectedCliEvidenceDirectory, 0o700);
+
+afterAll(() => {
+  rmSync(protectedCliEvidenceDirectory, { recursive: true, force: true });
+});
+
 describe('image upload cutover command contract', () => {
   it('accepts cutover-only polling configuration and rejects obsolete Queue/Event variables', () => {
     expect(assertCutoverEnvironment(env).processRole).toBe('cutover');
@@ -64,7 +74,8 @@ describe('image upload cutover command contract', () => {
   });
 
   it('requires protected absolute paths, an ACL verifier, closed modes, and apply approval', () => {
-    const outside = (name: string) => join(tmpdir(), name);
+    const outside = (name: string) =>
+      join(protectedCliEvidenceDirectory, name);
     expect(() => assertProtectedPath('relative.json')).toThrow(/absolute/);
     expect(() =>
       assertProtectedPath(outside('denied.json'), undefined, () => false),
