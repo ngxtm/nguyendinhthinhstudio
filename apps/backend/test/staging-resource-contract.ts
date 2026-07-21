@@ -1,5 +1,7 @@
 import { randomUUID, createHash, createHmac } from 'node:crypto';
 import { createServer, type Server } from 'node:http';
+import { createRequire } from 'node:module';
+import { resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import {
   CopyObjectCommand,
@@ -393,6 +395,21 @@ async function close(server: Server): Promise<void> {
   );
 }
 
+type ChromiumLauncher = {
+  launch: () => Promise<{
+    newPage: () => Promise<any>;
+    close: () => Promise<void>;
+  }>;
+};
+
+export function loadFrontendChromium(): ChromiumLauncher {
+  const frontendRequire = createRequire(
+    resolve(__dirname, '../../frontend/package.json'),
+  );
+  return (frontendRequire('@playwright/test') as { chromium: ChromiumLauncher })
+    .chromium;
+}
+
 async function runBrowserCorsCanary(
   api: S3Client,
   env: StagingEnvironment,
@@ -423,11 +440,13 @@ async function runBrowserCorsCanary(
     }),
     { expiresIn: 300 },
   );
-  const allowedServer = await listen(3001);
-  const deniedServer = await listen(3002);
-  const { chromium } = await import('@playwright/test');
-  const browser = await chromium.launch();
+  let allowedServer: Server | undefined;
+  let deniedServer: Server | undefined;
+  let browser: Awaited<ReturnType<ChromiumLauncher['launch']>> | undefined;
   try {
+    allowedServer = await listen(3001);
+    deniedServer = await listen(3002);
+    browser = await loadFrontendChromium().launch();
     const page = await browser.newPage();
     await page.goto(allowedOrigin);
     const allowedStatus = await page.evaluate(
@@ -462,9 +481,9 @@ async function runBrowserCorsCanary(
       deniedOriginRejected,
     };
   } finally {
-    await browser.close();
-    await close(allowedServer);
-    await close(deniedServer);
+    await browser?.close();
+    if (allowedServer) await close(allowedServer);
+    if (deniedServer) await close(deniedServer);
   }
 }
 
