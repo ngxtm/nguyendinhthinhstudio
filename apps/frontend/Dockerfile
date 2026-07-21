@@ -27,9 +27,11 @@ RUN cd apps/backend && npx prisma generate
 FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/apps/frontend/node_modules ./apps/frontend/node_modules
 COPY . .
 
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV NEXT_IGNORE_INCORRECT_LOCKFILE=1
 
 # Next.js embeds public variables in the browser bundle during `next build`.
 ARG NEXT_PUBLIC_API_URL
