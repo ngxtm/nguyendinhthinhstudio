@@ -6,7 +6,7 @@
 
 **Goal:** Package the shared policy and role-specific backend entrypoints correctly, enforce real browser checks, and qualify CopyObject/Queue behavior against isolated non-production resources.
 
-**Architecture:** Docker builders compile workspace packages before applications and runners preserve public package exports. CI requires bundled Chromium and pinned Stable Chrome. Staging uses long-lived non-production R2/Queue resources, a unique run prefix, a disposable PostgreSQL database, and one orchestrator with guaranteed cleanup.
+**Architecture:** Docker builders compile workspace packages before applications and runners preserve public package exports. CI requires bundled Chromium and pinned Stable Chrome. Live staging uses long-lived non-production R2 resources, a dedicated non-production Supabase project whose ref must differ from production, a unique run prefix, and one orchestrator with guaranteed run-scoped cleanup. Testcontainers independently proves the full migration chain from an empty Supabase-compatible database.
 
 **Tech Stack:** Docker, Docker Compose/Dokploy, GitHub Actions, Playwright, Testcontainers, Cloudflare R2/Queues, PowerShell.
 
@@ -329,7 +329,7 @@ Expected: fixture tests pass; with live staging secrets present, exact provider 
 Assert one command owns the sequence:
 
 ```text
-preflight → disposable database → migrate → backend suites
+preflight → validate dedicated Supabase staging identity → migrate → backend suites
 → frontend/browser suites → real R2/Queue smoke → cleanup
 ```
 
@@ -344,7 +344,7 @@ uploads/staging/{runId}/
 albums/staging/{runId}/
 ```
 
-Persist a non-secret run receipt outside the repository containing run ID, both exact prefixes, disposable database identity, consumed event IDs, and cleanup status. On POSIX use mode 0600; on Windows apply an owner-only ACL. Long-lived provider resource IDs are configuration, not deleted per run.
+Persist a non-secret run receipt outside the repository containing run ID, both exact prefixes, the SHA-256 fingerprint of the staging Supabase project ref, consumed event IDs, and cleanup status. On POSIX use mode 0600; on Windows apply an owner-only ACL. Long-lived provider resource IDs and the Supabase staging project are configuration, not deleted per run.
 
 - [x] **Step 3: Implement the single command**
 
@@ -358,7 +358,7 @@ Add scripts:
 }
 ```
 
-The orchestrator uses Testcontainers PostgreSQL and refuses ambient `DATABASE_URL`/`DIRECT_URL`. It maps parent `NDT_STAGING_QUEUE_TOKEN` only to reconciler-only `IMAGE_UPLOAD_QUEUE_TOKEN`, maps the distinct `NDT_STAGING_CUTOVER_QUEUE_TOKEN` only to cutover-only `IMAGE_UPLOAD_CUTOVER_QUEUE_TOKEN`, maps `NDT_STAGING_OPERATOR_TOKEN` only to cutover-only `IMAGE_UPLOAD_OPERATOR_TOKEN`, never forwards any parent token name, and strips `NDT_STAGING_CF_READ_TOKEN` before starting any child. API and reconciler children receive neither operator nor cutover Queue tokens; the cutover child never receives `IMAGE_UPLOAD_QUEUE_TOKEN`. API and reconciler children receive only their role-specific secrets and the unique run namespace. The reconciler uses a dedicated `pg.Client` for the session advisory lock, publishes the singleton heartbeat, and must prove all six bounded loops and their heartbeat timestamps before the orchestrator accepts the run.
+The live orchestrator refuses ambient `DATABASE_URL`/`DIRECT_URL` and requires `NDT_STAGING_DATABASE_URL`, `NDT_STAGING_DIRECT_URL`, `NDT_STAGING_SUPABASE_PROJECT_REF`, and `NDT_PRODUCTION_SUPABASE_PROJECT_REF`. It validates that both connection identities contain the staging ref, rejects equal staging/production refs, and exposes only child `DATABASE_URL`/`DIRECT_URL`; receipts contain only a hash of the staging ref. Testcontainers is retained only for the empty-database migration regression, where a minimal Supabase-compatible auth schema and roles are bootstrapped before `prisma migrate deploy`. It maps `NDT_STAGING_OPERATOR_TOKEN` only to cutover-only `IMAGE_UPLOAD_OPERATOR_TOKEN`; API and reconciler children receive neither operator nor cutover secrets. The reconciler uses a dedicated `pg.Client` for the session advisory lock, publishes the singleton heartbeat, and must prove all bounded loops and their heartbeat timestamps before the orchestrator accepts the run.
 
 - [ ] **Step 4: Exercise real provider behavior**
 
@@ -399,7 +399,7 @@ Before cleanup require exact CORS readback, no unresolved run promotion, no open
 
 - [x] **Step 5: Implement idempotent cleanup**
 
-In `finally`, delete only `uploads/staging/{runId}/` and `albums/staging/{runId}/`, stop/drop the disposable database, and update the receipt. Do not delete the long-lived Queue, DLQ, consumer, rule, deny-canary bucket, or credentials. A cleanup rerun derives scope from the retained run ID/receipt and exits 0 only after both prefixes and run messages are absent.
+In `finally`, delete only `uploads/staging/{runId}/` and `albums/staging/{runId}/`, require each suite to remove or roll back its run-scoped database fixtures, and update the receipt. Never drop, reset, or destroy the dedicated Supabase staging project. Do not delete the deny-canary bucket or credentials. A cleanup rerun derives scope from the retained run ID/receipt and exits 0 only after both R2 prefixes and run-scoped test data are absent.
 
 CI adds a fourth, non-ruleset staging job that runs only for explicit `workflow_dispatch`, targets a protected `staging` environment, and is serialized independently from the three required pull-request jobs:
 

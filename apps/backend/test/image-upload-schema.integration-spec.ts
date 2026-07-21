@@ -4,10 +4,36 @@ import { promisify } from 'node:util';
 import { resolve } from 'node:path';
 import { PrismaClient } from '@prisma/client';
 import { PostgreSqlContainer, StartedPostgreSqlContainer } from '@testcontainers/postgresql';
+import { Client } from 'pg';
 
 const execFileAsync = promisify(execFile);
 type CatalogColumn = { columnName: string; dataType: string; nullable: 'YES' | 'NO' };
 type CatalogConstraint = { name: string; definition: string; type: string; referencedTable: string | null; deleteAction: string; deferrable: boolean };
+
+async function bootstrapSupabaseCompatibility(databaseUrl: string): Promise<void> {
+  const client = new Client({ connectionString: databaseUrl });
+  await client.connect();
+  try {
+    await client.query(`
+      DO $bootstrap$
+      DECLARE role_name text;
+      BEGIN
+        FOREACH role_name IN ARRAY ARRAY['anon', 'authenticated', 'supabase_auth_admin', 'service_role'] LOOP
+          IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = role_name) THEN
+            EXECUTE format('CREATE ROLE %I NOLOGIN', role_name);
+          END IF;
+        END LOOP;
+      END
+      $bootstrap$;
+      CREATE SCHEMA IF NOT EXISTS auth;
+      CREATE TABLE IF NOT EXISTS auth.users (
+        id uuid PRIMARY KEY
+      );
+    `);
+  } finally {
+    await client.end();
+  }
+}
 
 describe('image upload polling schema contract (PostgreSQL)', () => {
   let container: StartedPostgreSqlContainer;
@@ -17,8 +43,9 @@ describe('image upload polling schema contract (PostgreSQL)', () => {
   beforeAll(async () => {
     container = await new PostgreSqlContainer('postgres:16-alpine').start();
     const databaseUrl = container.getConnectionUri();
+    await bootstrapSupabaseCompatibility(databaseUrl);
     const schemaPath = resolve(__dirname, '../prisma/schema.prisma');
-    await execFileAsync(process.execPath, [require.resolve('prisma/build/index.js'), 'db', 'push', '--force-reset', '--skip-generate', '--schema', schemaPath], {
+    await execFileAsync(process.execPath, [require.resolve('prisma/build/index.js'), 'migrate', 'deploy', '--schema', schemaPath], {
       cwd: resolve(__dirname, '..'),
       env: { ...process.env, DATABASE_URL: databaseUrl, DIRECT_URL: databaseUrl },
     });
