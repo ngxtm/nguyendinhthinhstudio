@@ -93,7 +93,7 @@ requireFragments(jobs.get('image-upload-packaging'), 'image-upload-packaging', [
     'docker compose config --quiet',
 ]);
 requireFragments(jobs.get('frontend-playwright-chromium'), 'frontend-playwright-chromium', [
-    'playwright -- install chromium --with-deps',
+    'npx --no-install playwright install --with-deps chromium',
     '--project=chromium',
 ]);
 requireFragments(jobs.get('frontend-stable-chrome'), 'frontend-stable-chrome', [
