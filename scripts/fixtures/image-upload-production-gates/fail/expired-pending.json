@@ -1,0 +1,7 @@
+{
+    "base": "../pass.json",
+    "expectedGate": "unterminalizedExpiredUploads",
+    "set": {
+        "pollingSnapshots.1.unterminalizedExpiredUploads": 1
+    }
+}

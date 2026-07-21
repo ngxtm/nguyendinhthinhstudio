@@ -1,0 +1,5 @@
+{
+    "base": "../pass.json",
+    "expectedGate": "backupBindingMismatchCount",
+    "set": { "cutover.backupBindingMismatchCount": 1 }
+}

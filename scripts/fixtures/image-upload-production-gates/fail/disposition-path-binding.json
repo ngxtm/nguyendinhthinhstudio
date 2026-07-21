@@ -1,0 +1,9 @@
+{
+    "base": "../pass.json",
+    "expectedGate": "dispositionPathBinding",
+    "set": {
+        "cutover.dispositionPathSha256": [
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        ]
+    }
+}

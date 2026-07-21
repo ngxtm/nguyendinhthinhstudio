@@ -1,0 +1,5 @@
+{
+    "base": "../pass.json",
+    "expectedGate": "dispositionInvalidCount",
+    "set": { "cutover.dispositionInvalidCount": 1 }
+}

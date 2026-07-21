@@ -1,0 +1,136 @@
+{
+    "schemaVersion": "image-upload-production-gate-receipt/v2-polling",
+    "receiptId": "10000000-0000-4000-8000-000000000001",
+    "receiptPathSha256": "1111111111111111111111111111111111111111111111111111111111111111",
+    "createdAt": "2026-07-21T00:10:00.000Z",
+    "release": {
+        "imageDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "commitSha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "migrationChecksumSha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "policyVersion": "web-v1-18da64f64a7d4a645b549c56ebc5dce84ed830f69defdf8b6d7f2b8d9659baef",
+        "policyReadbackSha256": "3838383838383838383838383838383838383838383838383838383838383838",
+        "policyHash": "18da64f64a7d4a645b549c56ebc5dce84ed830f69defdf8b6d7f2b8d9659baef"
+    },
+    "backups": {
+        "preMigration": {
+            "receiptPathSha256": "1212121212121212121212121212121212121212121212121212121212121212",
+            "receiptSha256": "1313131313131313131313131313131313131313131313131313131313131313",
+            "approvalPathSha256": "1414141414141414141414141414141414141414141414141414141414141414",
+            "approvalSha256": "1515151515151515151515151515151515151515151515151515151515151515",
+            "ciphertextSha256": "1616161616161616161616161616161616161616161616161616161616161616",
+            "restoreVerifiedAt": "2026-07-20T23:30:00.000Z"
+        },
+        "postBridge": {
+            "receiptPathSha256": "1717171717171717171717171717171717171717171717171717171717171717",
+            "receiptSha256": "1818181818181818181818181818181818181818181818181818181818181818",
+            "approvalPathSha256": "1919191919191919191919191919191919191919191919191919191919191919",
+            "approvalSha256": "2020202020202020202020202020202020202020202020202020202020202020",
+            "ciphertextSha256": "2121212121212121212121212121212121212121212121212121212121212121",
+            "restoreVerifiedAt": "2026-07-21T00:05:00.000Z"
+        }
+    },
+    "roles": {
+        "apiFingerprintSha256": "2222222222222222222222222222222222222222222222222222222222222222",
+        "reconcilerFingerprintSha256": "2323232323232323232323232323232323232323232323232323232323232323",
+        "cutoverFingerprintSha256": "2424242424242424242424242424242424242424242424242424242424242424",
+        "readyApiProcesses": 1,
+        "configuredApiProcesses": 1,
+        "permitsPerProcess": 2,
+        "advisoryLockOwnerCount": 1,
+        "heartbeatAt": "2026-07-21T00:09:30.000Z",
+        "pendingSessionExpiryCompletedAt": "2026-07-21T00:09:20.000Z",
+        "promotionRecoveryCompletedAt": "2026-07-21T00:09:21.000Z",
+        "temporaryCleanupCompletedAt": "2026-07-21T00:09:22.000Z",
+        "imageDeletionCompletedAt": "2026-07-21T00:09:23.000Z",
+        "rateLimitCleanupCompletedAt": "2026-07-21T00:09:24.000Z"
+    },
+    "provider": {
+        "accountIdSha256": "2525252525252525252525252525252525252525252525252525252525252525",
+        "bucketNameSha256": "2626262626262626262626262626262626262626262626262626262626262626",
+        "endpointSha256": "2727272727272727272727272727272727272727272727272727272727272727",
+        "apiR2CredentialFingerprintSha256": "2828282828282828282828282828282828282828282828282828282828282828",
+        "reconcilerR2CredentialFingerprintSha256": "2929292929292929292929292929292929292929292929292929292929292929",
+        "cutoverR2CredentialFingerprintSha256": "3030303030303030303030303030303030303030303030303030303030303030",
+        "imgproxyCredentialFingerprintSha256": "3131313131313131313131313131313131313131313131313131313131313131",
+        "providerReadbackSha256": "3232323232323232323232323232323232323232323232323232323232323232",
+        "corsReadbackSha256": "3333333333333333333333333333333333333333333333333333333333333333",
+        "reconcileGraceMs": 30000,
+        "reconcileCadenceMs": 5000
+    },
+    "cutover": {
+        "auditReceiptPathSha256": "3434343434343434343434343434343434343434343434343434343434343434",
+        "auditReceiptSha256": "3535353535353535353535353535353535353535353535353535353535353535",
+        "dispositionPathSha256": [],
+        "dispositionSha256": [],
+        "backupBindingMismatchCount": 0,
+        "dispositionInvalidCount": 0
+    },
+    "pollingSnapshots": [
+        {
+            "observedAt": "2026-07-21T00:09:00.000Z",
+            "activeUploads": 0,
+            "unterminalizedExpiredUploads": 0,
+            "unresolvedPromotions": 0,
+            "invalidResponseHeadSettlement": 0,
+            "invalidPromotionAuthority": 0,
+            "invalidCleanupAuthority": 0,
+            "invalidPromotionConflictEvidence": 0,
+            "openPromotionConflicts": 0,
+            "dueTemporaryCleanup": 0,
+            "unverifiedTemporaryCleanup": 0,
+            "unresolvedR2ImageDeletion": 0,
+            "invalidR2DeletionAuthority": 0,
+            "invalidNonR2DeletionDisposition": 0,
+            "legacyTerminalTempPresent": 0,
+            "legacyPreDispatchTempPresent": 0,
+            "corsMismatch": 0
+        },
+        {
+            "observedAt": "2026-07-21T00:09:30.000Z",
+            "activeUploads": 0,
+            "unterminalizedExpiredUploads": 0,
+            "unresolvedPromotions": 0,
+            "invalidResponseHeadSettlement": 0,
+            "invalidPromotionAuthority": 0,
+            "invalidCleanupAuthority": 0,
+            "invalidPromotionConflictEvidence": 0,
+            "openPromotionConflicts": 0,
+            "dueTemporaryCleanup": 0,
+            "unverifiedTemporaryCleanup": 0,
+            "unresolvedR2ImageDeletion": 0,
+            "invalidR2DeletionAuthority": 0,
+            "invalidNonR2DeletionDisposition": 0,
+            "legacyTerminalTempPresent": 0,
+            "legacyPreDispatchTempPresent": 0,
+            "corsMismatch": 0
+        }
+    ],
+    "ci": {
+        "rulesetId": "1234567",
+        "enforcement": "active",
+        "bypassActorCount": 0,
+        "contexts": [
+            "backend-image-upload",
+            "image-upload-packaging",
+            "frontend-playwright-chromium"
+        ]
+    },
+    "memory": {
+        "fixtureSha256": "1ac11dd1c64d39e79bdd3682bb11871ee2619b07a86fb923ba8412ab6dc3d581",
+        "optimizedDeltaBytes": 100000000,
+        "controlDeltaBytes": 300000000,
+        "absoluteLimitBytes": 536870912,
+        "relativeLimitRatio": 0.5,
+        "contexts": [
+            { "name": "optimized-chromium", "passed": true },
+            { "name": "full-decode-control", "passed": true },
+            { "name": "stable-chrome", "passed": true }
+        ]
+    },
+    "stagingReceiptPathSha256": "3939393939393939393939393939393939393939393939393939393939393939",
+    "stagingReceiptSha256": "3636363636363636363636363636363636363636363636363636363636363636",
+    "operatorSmokeReceiptPathSha256": "4040404040404040404040404040404040404040404040404040404040404040",
+    "operatorSmokeReceiptSha256": "3737373737373737373737373737373737373737373737373737373737373737",
+    "rollForwardDrillDecision": "pass",
+    "canonicalSha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+}

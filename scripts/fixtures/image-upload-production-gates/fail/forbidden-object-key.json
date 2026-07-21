@@ -1,0 +1,7 @@
+{
+    "base": "../pass.json",
+    "expectedGate": "schema",
+    "set": {
+        "provider.objectKey": "uploads/forbidden"
+    }
+}

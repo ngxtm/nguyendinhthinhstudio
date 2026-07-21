@@ -1,0 +1,5 @@
+{
+    "base": "../pass.json",
+    "expectedGate": "unresolvedR2ImageDeletion",
+    "set": { "pollingSnapshots.1.unresolvedR2ImageDeletion": 1 }
+}

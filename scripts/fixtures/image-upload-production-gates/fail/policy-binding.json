@@ -1,0 +1,7 @@
+{
+    "base": "../pass.json",
+    "expectedGate": "policyBinding",
+    "set": {
+        "release.policyVersion": "web-v1-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+}

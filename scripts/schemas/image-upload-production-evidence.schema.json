@@ -1,0 +1,295 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "https://nguyendinhthinh.studio/schemas/image-upload-production-evidence/v2-polling",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "schemaVersion",
+        "receiptId",
+        "receiptPathSha256",
+        "createdAt",
+        "release",
+        "backups",
+        "roles",
+        "provider",
+        "cutover",
+        "pollingSnapshots",
+        "ci",
+        "memory",
+        "stagingReceiptPathSha256",
+        "stagingReceiptSha256",
+        "operatorSmokeReceiptPathSha256",
+        "operatorSmokeReceiptSha256",
+        "rollForwardDrillDecision",
+        "canonicalSha256"
+    ],
+    "properties": {
+        "schemaVersion": { "const": "image-upload-production-gate-receipt/v2-polling" },
+        "receiptId": { "type": "string", "format": "uuid" },
+        "receiptPathSha256": { "$ref": "#/$defs/sha256" },
+        "createdAt": { "$ref": "#/$defs/timestamp" },
+        "release": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "imageDigest",
+                "commitSha",
+                "migrationChecksumSha256",
+                "policyVersion",
+                "policyReadbackSha256",
+                "policyHash"
+            ],
+            "properties": {
+                "imageDigest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+                "commitSha": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+                "migrationChecksumSha256": { "$ref": "#/$defs/sha256" },
+                "policyVersion": {
+                    "type": "string",
+                    "pattern": "^web-v1-[a-f0-9]{64}$"
+                },
+                "policyReadbackSha256": { "$ref": "#/$defs/sha256" },
+                "policyHash": { "$ref": "#/$defs/sha256" }
+            }
+        },
+        "backups": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["preMigration", "postBridge"],
+            "properties": {
+                "preMigration": { "$ref": "#/$defs/backup" },
+                "postBridge": { "$ref": "#/$defs/backup" }
+            }
+        },
+        "roles": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "apiFingerprintSha256",
+                "reconcilerFingerprintSha256",
+                "cutoverFingerprintSha256",
+                "readyApiProcesses",
+                "configuredApiProcesses",
+                "permitsPerProcess",
+                "advisoryLockOwnerCount",
+                "heartbeatAt",
+                "pendingSessionExpiryCompletedAt",
+                "promotionRecoveryCompletedAt",
+                "temporaryCleanupCompletedAt",
+                "imageDeletionCompletedAt",
+                "rateLimitCleanupCompletedAt"
+            ],
+            "properties": {
+                "apiFingerprintSha256": { "$ref": "#/$defs/sha256" },
+                "reconcilerFingerprintSha256": { "$ref": "#/$defs/sha256" },
+                "cutoverFingerprintSha256": { "$ref": "#/$defs/sha256" },
+                "readyApiProcesses": { "$ref": "#/$defs/nonNegativeInteger" },
+                "configuredApiProcesses": { "$ref": "#/$defs/nonNegativeInteger" },
+                "permitsPerProcess": { "type": "integer", "minimum": 1 },
+                "advisoryLockOwnerCount": { "$ref": "#/$defs/nonNegativeInteger" },
+                "heartbeatAt": { "$ref": "#/$defs/timestamp" },
+                "pendingSessionExpiryCompletedAt": { "$ref": "#/$defs/timestamp" },
+                "promotionRecoveryCompletedAt": { "$ref": "#/$defs/timestamp" },
+                "temporaryCleanupCompletedAt": { "$ref": "#/$defs/timestamp" },
+                "imageDeletionCompletedAt": { "$ref": "#/$defs/timestamp" },
+                "rateLimitCleanupCompletedAt": { "$ref": "#/$defs/timestamp" }
+            }
+        },
+        "provider": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "accountIdSha256",
+                "bucketNameSha256",
+                "endpointSha256",
+                "apiR2CredentialFingerprintSha256",
+                "reconcilerR2CredentialFingerprintSha256",
+                "cutoverR2CredentialFingerprintSha256",
+                "imgproxyCredentialFingerprintSha256",
+                "providerReadbackSha256",
+                "corsReadbackSha256",
+                "reconcileGraceMs",
+                "reconcileCadenceMs"
+            ],
+            "properties": {
+                "accountIdSha256": { "$ref": "#/$defs/sha256" },
+                "bucketNameSha256": { "$ref": "#/$defs/sha256" },
+                "endpointSha256": { "$ref": "#/$defs/sha256" },
+                "apiR2CredentialFingerprintSha256": { "$ref": "#/$defs/sha256" },
+                "reconcilerR2CredentialFingerprintSha256": { "$ref": "#/$defs/sha256" },
+                "cutoverR2CredentialFingerprintSha256": { "$ref": "#/$defs/sha256" },
+                "imgproxyCredentialFingerprintSha256": { "$ref": "#/$defs/sha256" },
+                "providerReadbackSha256": { "$ref": "#/$defs/sha256" },
+                "corsReadbackSha256": { "$ref": "#/$defs/sha256" },
+                "reconcileGraceMs": { "type": "integer", "minimum": 1 },
+                "reconcileCadenceMs": { "type": "integer", "minimum": 1 }
+            }
+        },
+        "cutover": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "auditReceiptPathSha256",
+                "auditReceiptSha256",
+                "dispositionPathSha256",
+                "dispositionSha256",
+                "backupBindingMismatchCount",
+                "dispositionInvalidCount"
+            ],
+            "properties": {
+                "auditReceiptPathSha256": { "$ref": "#/$defs/sha256" },
+                "auditReceiptSha256": { "$ref": "#/$defs/sha256" },
+                "dispositionPathSha256": {
+                    "type": "array",
+                    "uniqueItems": true,
+                    "items": { "$ref": "#/$defs/sha256" }
+                },
+                "dispositionSha256": {
+                    "type": "array",
+                    "uniqueItems": true,
+                    "items": { "$ref": "#/$defs/sha256" }
+                },
+                "backupBindingMismatchCount": { "$ref": "#/$defs/nonNegativeInteger" },
+                "dispositionInvalidCount": { "$ref": "#/$defs/nonNegativeInteger" }
+            }
+        },
+        "pollingSnapshots": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 2,
+            "items": { "$ref": "#/$defs/pollingSnapshot" }
+        },
+        "ci": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["rulesetId", "enforcement", "bypassActorCount", "contexts"],
+            "properties": {
+                "rulesetId": { "type": "string", "minLength": 1 },
+                "enforcement": { "enum": ["active", "evaluate", "disabled"] },
+                "bypassActorCount": { "$ref": "#/$defs/nonNegativeInteger" },
+                "contexts": {
+                    "type": "array",
+                    "minItems": 3,
+                    "maxItems": 3,
+                    "uniqueItems": true,
+                    "items": {
+                        "enum": [
+                            "backend-image-upload",
+                            "image-upload-packaging",
+                            "frontend-playwright-chromium"
+                        ]
+                    }
+                }
+            }
+        },
+        "memory": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "fixtureSha256",
+                "optimizedDeltaBytes",
+                "controlDeltaBytes",
+                "absoluteLimitBytes",
+                "relativeLimitRatio",
+                "contexts"
+            ],
+            "properties": {
+                "fixtureSha256": { "$ref": "#/$defs/sha256" },
+                "optimizedDeltaBytes": { "$ref": "#/$defs/nonNegativeInteger" },
+                "controlDeltaBytes": { "type": "integer", "minimum": 1 },
+                "absoluteLimitBytes": { "type": "integer", "minimum": 1 },
+                "relativeLimitRatio": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+                "contexts": {
+                    "type": "array",
+                    "minItems": 3,
+                    "maxItems": 3,
+                    "uniqueItems": true,
+                    "items": { "$ref": "#/$defs/memoryContext" }
+                }
+            }
+        },
+        "stagingReceiptPathSha256": { "$ref": "#/$defs/sha256" },
+        "stagingReceiptSha256": { "$ref": "#/$defs/sha256" },
+        "operatorSmokeReceiptPathSha256": { "$ref": "#/$defs/sha256" },
+        "operatorSmokeReceiptSha256": { "$ref": "#/$defs/sha256" },
+        "rollForwardDrillDecision": { "enum": ["pass", "fail"] },
+        "canonicalSha256": { "$ref": "#/$defs/sha256" }
+    },
+    "$defs": {
+        "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "nonNegativeInteger": { "type": "integer", "minimum": 0 },
+        "backup": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "receiptPathSha256",
+                "receiptSha256",
+                "approvalPathSha256",
+                "approvalSha256",
+                "ciphertextSha256",
+                "restoreVerifiedAt"
+            ],
+            "properties": {
+                "receiptPathSha256": { "$ref": "#/$defs/sha256" },
+                "receiptSha256": { "$ref": "#/$defs/sha256" },
+                "approvalPathSha256": { "$ref": "#/$defs/sha256" },
+                "approvalSha256": { "$ref": "#/$defs/sha256" },
+                "ciphertextSha256": { "$ref": "#/$defs/sha256" },
+                "restoreVerifiedAt": { "$ref": "#/$defs/timestamp" }
+            }
+        },
+        "pollingSnapshot": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "observedAt",
+                "activeUploads",
+                "unterminalizedExpiredUploads",
+                "unresolvedPromotions",
+                "invalidResponseHeadSettlement",
+                "invalidPromotionAuthority",
+                "invalidCleanupAuthority",
+                "invalidPromotionConflictEvidence",
+                "openPromotionConflicts",
+                "dueTemporaryCleanup",
+                "unverifiedTemporaryCleanup",
+                "unresolvedR2ImageDeletion",
+                "invalidR2DeletionAuthority",
+                "invalidNonR2DeletionDisposition",
+                "legacyTerminalTempPresent",
+                "legacyPreDispatchTempPresent",
+                "corsMismatch"
+            ],
+            "properties": {
+                "observedAt": { "$ref": "#/$defs/timestamp" },
+                "activeUploads": { "$ref": "#/$defs/nonNegativeInteger" },
+                "unterminalizedExpiredUploads": { "$ref": "#/$defs/nonNegativeInteger" },
+                "unresolvedPromotions": { "$ref": "#/$defs/nonNegativeInteger" },
+                "invalidResponseHeadSettlement": { "$ref": "#/$defs/nonNegativeInteger" },
+                "invalidPromotionAuthority": { "$ref": "#/$defs/nonNegativeInteger" },
+                "invalidCleanupAuthority": { "$ref": "#/$defs/nonNegativeInteger" },
+                "invalidPromotionConflictEvidence": { "$ref": "#/$defs/nonNegativeInteger" },
+                "openPromotionConflicts": { "$ref": "#/$defs/nonNegativeInteger" },
+                "dueTemporaryCleanup": { "$ref": "#/$defs/nonNegativeInteger" },
+                "unverifiedTemporaryCleanup": { "$ref": "#/$defs/nonNegativeInteger" },
+                "unresolvedR2ImageDeletion": { "$ref": "#/$defs/nonNegativeInteger" },
+                "invalidR2DeletionAuthority": { "$ref": "#/$defs/nonNegativeInteger" },
+                "invalidNonR2DeletionDisposition": { "$ref": "#/$defs/nonNegativeInteger" },
+                "legacyTerminalTempPresent": { "$ref": "#/$defs/nonNegativeInteger" },
+                "legacyPreDispatchTempPresent": { "$ref": "#/$defs/nonNegativeInteger" },
+                "corsMismatch": { "$ref": "#/$defs/nonNegativeInteger" }
+            }
+        },
+        "memoryContext": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "passed"],
+            "properties": {
+                "name": {
+                    "enum": ["optimized-chromium", "full-decode-control", "stable-chrome"]
+                },
+                "passed": { "const": true }
+            }
+        }
+    }
+}

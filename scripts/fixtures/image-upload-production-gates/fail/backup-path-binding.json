@@ -1,0 +1,7 @@
+{
+    "base": "../pass.json",
+    "expectedGate": "backupPathBinding",
+    "set": {
+        "backups.preMigration.approvalPathSha256": "1212121212121212121212121212121212121212121212121212121212121212"
+    }
+}

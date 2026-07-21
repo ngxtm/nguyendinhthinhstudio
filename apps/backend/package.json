@@ -10,7 +10,7 @@
   "license": "UNLICENSED",
   "scripts": {
     "postinstall": "prisma generate",
-    "build": "npx nest build",
+    "build": "nest build",
     "postbuild": "tsc -p tsconfig.build.json",
     "migrate:deploy": "prisma migrate deploy",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",

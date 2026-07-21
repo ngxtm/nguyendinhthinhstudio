@@ -1,0 +1,7 @@
+{
+    "base": "../pass.json",
+    "expectedGate": "schema",
+    "set": {
+        "provider.queueIdSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+}

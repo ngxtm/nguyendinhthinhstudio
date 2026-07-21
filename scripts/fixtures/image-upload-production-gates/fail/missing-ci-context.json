@@ -1,0 +1,5 @@
+{
+    "base": "../pass.json",
+    "expectedGate": "schema",
+    "set": { "ci.contexts": ["backend-image-upload", "image-upload-packaging"] }
+}

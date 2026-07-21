@@ -1,0 +1,5 @@
+{
+    "base": "../pass.json",
+    "expectedGate": "snapshotBarrier",
+    "set": { "pollingSnapshots.1.observedAt": "2026-07-21T00:09:29.999Z" }
+}
