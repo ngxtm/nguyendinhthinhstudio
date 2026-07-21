@@ -1,0 +1,5 @@
+{
+    "base": "../pass.json",
+    "expectedGate": "staleHeartbeat",
+    "set": { "roles.heartbeatAt": "2026-07-21T00:07:00.000Z" }
+}

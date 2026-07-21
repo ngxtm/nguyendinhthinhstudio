@@ -1,0 +1,5 @@
+{
+    "base": "../pass.json",
+    "expectedGate": "legacyPreDispatchTempPresent",
+    "set": { "pollingSnapshots.1.legacyPreDispatchTempPresent": 1 }
+}

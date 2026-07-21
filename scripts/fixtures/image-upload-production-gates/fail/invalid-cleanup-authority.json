@@ -1,0 +1,5 @@
+{
+    "base": "../pass.json",
+    "expectedGate": "invalidCleanupAuthority",
+    "set": { "pollingSnapshots.1.invalidCleanupAuthority": 1 }
+}

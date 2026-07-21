@@ -1,0 +1,5 @@
+{
+    "base": "../pass.json",
+    "expectedGate": "invalidNonR2DeletionDisposition",
+    "set": { "pollingSnapshots.1.invalidNonR2DeletionDisposition": 1 }
+}

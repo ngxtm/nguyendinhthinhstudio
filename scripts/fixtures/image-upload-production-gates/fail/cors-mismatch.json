@@ -1,0 +1,5 @@
+{
+    "base": "../pass.json",
+    "expectedGate": "corsMismatch",
+    "set": { "pollingSnapshots.1.corsMismatch": 1 }
+}

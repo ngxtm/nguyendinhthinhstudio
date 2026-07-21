@@ -1,0 +1,5 @@
+{
+    "base": "../pass.json",
+    "expectedGate": "unresolvedPromotions",
+    "set": { "pollingSnapshots.1.unresolvedPromotions": 1 }
+}

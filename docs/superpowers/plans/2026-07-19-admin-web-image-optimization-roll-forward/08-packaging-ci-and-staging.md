@@ -192,12 +192,22 @@ optimized memory delta <= 0.50 × full-decode control delta
 ```powershell
 node scripts/verify-image-upload-workflow.mjs
 npm test --workspace=frontend
-npm exec --workspace=frontend -- playwright -- test test/image-upload.browser.spec.ts --project=chromium
-$env:CFT_EXECUTABLE_PATH = "<path-to-pinned-Chrome-for-Testing-148.0.7778.96/chrome.exe>"
-npm exec --workspace=frontend -- playwright -- test test/image-upload.browser.spec.ts --project=stable-chrome
+Push-Location apps/frontend
+try {
+    npx --no-install playwright test test/image-upload.browser.spec.ts --project=chromium
+    $env:CFT_EXECUTABLE_PATH = "<path-to-pinned-Chrome-for-Testing-148.0.7778.96/chrome.exe>"
+    npx --no-install playwright test test/image-upload.browser.spec.ts --project=stable-chrome
+} finally {
+    Pop-Location
+}
 $env:IMAGE_UPLOAD_MEMORY_FIXTURE = Join-Path $env:TEMP "ndt-image-upload-memory-fixture.jpg"
 npm exec --workspace=backend -- tsx -- test/generate-image-upload-memory-fixture.ts --output $env:IMAGE_UPLOAD_MEMORY_FIXTURE
-npm exec --workspace=frontend -- playwright -- test test/benchmark/image-upload-memory.benchmark.ts --project=chromium
+Push-Location apps/frontend
+try {
+    npx --no-install playwright test test/benchmark/image-upload-memory.benchmark.ts --project=chromium
+} finally {
+    Pop-Location
+}
 ```
 
 Expected: the three-job required workflow contract and bundled Chromium pass in CI; the explicit local commands also prove pinned stable-Chrome compatibility, the deterministic fixture digest, and memory thresholds before release.
@@ -420,7 +430,7 @@ image-upload-staging:
 
 The protected environment owns the staging secrets and requires operator approval before release. The workflow verifier permits this explicit event guard only for `image-upload-staging`; none of the three ruleset-required jobs may be conditionally skipped.
 
-- [ ] **Step 6: Verify orchestrator tests**
+- [x] **Step 6: Verify orchestrator tests**
 
 ```powershell
 npm run test:integration --workspace=backend -- run-image-upload-staging.integration-spec.ts
@@ -431,7 +441,7 @@ Expected: injected failures clean up locally; the real run passes and leaves no 
 
 ### Task 6: Stage gate and commit
 
-- [ ] **Step 1: Run packaging and CI checks**
+- [x] **Step 1: Run packaging and CI checks**
 
 ```powershell
 node scripts/verify-image-upload-workflow.mjs
@@ -444,7 +454,7 @@ git diff --check
 
 Expected: workflow/ruleset contracts, images, Compose, and diff checks pass.
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```powershell
 git add .github apps/backend/Dockerfile apps/backend/package.json apps/backend/src/images/docker-runtime-contract.spec.ts apps/backend/src/images/staging-resource-contract.spec.ts apps/backend/src/scripts apps/backend/test apps/frontend/Dockerfile apps/frontend/package.json docker-compose.yml docs/runbooks scripts .gitignore package-lock.json

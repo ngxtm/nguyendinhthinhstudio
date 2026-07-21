@@ -1,0 +1,5 @@
+{
+    "base": "../pass.json",
+    "expectedGate": "invalidResponseHeadSettlement",
+    "set": { "pollingSnapshots.1.invalidResponseHeadSettlement": 1 }
+}

@@ -1,0 +1,5 @@
+{
+    "base": "../pass.json",
+    "expectedGate": "rulesetEnforcement",
+    "set": { "ci.enforcement": "evaluate" }
+}

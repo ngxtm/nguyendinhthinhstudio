@@ -1,0 +1,8 @@
+{
+    "base": "../pass.json",
+    "expectedGate": "schema",
+    "set": {
+        "provider.queueIdSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "pollingSnapshots.0.activeUploads": 1
+    }
+}

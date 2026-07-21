@@ -1,0 +1,5 @@
+{
+    "base": "../pass.json",
+    "expectedGate": "invalidPromotionAuthority",
+    "set": { "pollingSnapshots.1.invalidPromotionAuthority": 1 }
+}

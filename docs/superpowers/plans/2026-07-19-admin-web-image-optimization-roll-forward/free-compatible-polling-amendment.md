@@ -33,6 +33,7 @@ Stages 01, 02, 06, and 07 remain valid. The word “queue” in Stage 07 means t
 ### Task A1: Stage 03 — replace provider-event schema with polling evidence
 
 **Files:**
+
 - Modify: `apps/backend/test/image-upload-schema.integration-spec.ts`
 - Modify: `apps/backend/prisma/schema.prisma`
 - Modify: the existing feature migration under `apps/backend/prisma/migrations/`
@@ -45,19 +46,19 @@ Require these promotion fields and remove assertions for provider events, quaran
 
 ```ts
 const pollingEvidenceFields = [
-  'destinationHeadObservedAt',
-  'destinationHeadEtag',
-  'destinationHeadBytes',
-  'destinationHeadMime',
-  'destinationHeadMetadataSha256',
+    'destinationHeadObservedAt',
+    'destinationHeadEtag',
+    'destinationHeadBytes',
+    'destinationHeadMime',
+    'destinationHeadMetadataSha256',
 ];
 
 const heartbeatFields = [
-  'pendingSessionExpiryCompletedAt',
-  'promotionRecoveryCompletedAt',
-  'temporaryCleanupCompletedAt',
-  'imageDeletionCompletedAt',
-  'rateLimitCleanupCompletedAt',
+    'pendingSessionExpiryCompletedAt',
+    'promotionRecoveryCompletedAt',
+    'temporaryCleanupCompletedAt',
+    'imageDeletionCompletedAt',
+    'rateLimitCleanupCompletedAt',
 ];
 ```
 
@@ -89,13 +90,13 @@ Cover:
 
 ```ts
 await repository.settleDestinationHeadAndCommit({
-  promotionId,
-  expectedState: 'dispatched',
-  destinationEtag,
-  destinationBytes,
-  destinationMime,
-  destinationMetadataSha256,
-  observedAt,
+    promotionId,
+    expectedState: 'dispatched',
+    destinationEtag,
+    destinationBytes,
+    destinationMime,
+    destinationMetadataSha256,
+    observedAt,
 });
 ```
 
@@ -115,6 +116,7 @@ Expected: PASS with no provider-event/quarantine schema or repository API.
 ### Task A2: Stage 04 — close role configuration without Queue credentials
 
 **Files:**
+
 - Modify: `apps/backend/src/images/image-upload-runtime-config.spec.ts`
 - Modify: `apps/backend/src/images/image-upload-runtime-config.ts`
 - Modify: `apps/backend/src/images/images.module.ts`
@@ -150,6 +152,7 @@ Delete Queue client injection from runtime modules and Compose. Keep the cutover
 ### Task A3: Stage 05 — implement exact destination polling recovery
 
 **Files:**
+
 - Delete: `apps/backend/src/images/cloudflare-queue.client.ts`
 - Delete: `apps/backend/src/images/cloudflare-queue.client.spec.ts`
 - Modify: `apps/backend/src/images/storage.service.spec.ts`
@@ -168,16 +171,16 @@ The storage HEAD result must expose this closed shape:
 
 ```ts
 type PromotionHeadEvidence = {
-  etag: string;
-  bytes: number;
-  contentType: string;
-  metadata: {
-    promotionId: string;
-    inspectedSha256: string;
-    width: string;
-    height: string;
-    policyVersion: string;
-  };
+    etag: string;
+    bytes: number;
+    contentType: string;
+    metadata: {
+        promotionId: string;
+        inspectedSha256: string;
+        width: string;
+        height: string;
+        policyVersion: string;
+    };
 };
 ```
 
@@ -230,6 +233,7 @@ Expected: PASS and `rg -n "cloudflare-queue|QUEUE_TOKEN|providerEvent|quarantine
 ### Task A4: Stage 08 — qualify free-compatible staging
 
 **Files:**
+
 - Modify: `apps/backend/src/images/staging-resource-contract.spec.ts`
 - Modify: `apps/backend/test/staging-resource-contract.ts`
 - Modify: `apps/backend/test/run-image-upload-staging.integration-spec.ts`
@@ -260,11 +264,13 @@ npm run build --workspace=backend
 git diff --check
 ```
 
-- [ ] **Step 5: Run live staging only after explicit mutation approval**
+- [x] **Step 5: Run live staging only after explicit mutation approval**
 
 Prove real R2 PUT/COPY/HEAD/DELETE, response-loss polling recovery, create-only overwrite denial, allowed/denied CORS, imgproxy rendering, and exact cleanup. Store only sanitized receipt hashes and IDs.
 
-- [ ] **Step 6: Mark the Queue deletion reminder ready**
+Fresh evidence: GitHub Actions run `29847372686` on commit `1b1f04a31ce706da4d5b850187a04f29c5387854` completed all four jobs successfully. Its sanitized provider evidence recorded `deny=4/4`, create-only denial, exact response-loss HEAD settlement after 31,407 ms, allowed/denied CORS, read-only imgproxy rendering, and successful idempotent cleanup.
+
+- [x] **Step 6: Mark the Queue deletion reminder ready**
 
 After repository/workflow scans show no runtime dependency and live staging passes, instruct the account operator to delete:
 
@@ -275,23 +281,61 @@ ndt-studio-image-upload-staging-dlq
 
 Never delete them earlier; this step requires a fresh zero-reference scan.
 
+Fresh scan classification: remaining Queue/Event Notification strings are limited to fail-closed obsolete-variable guards and their tests, schema-absence assertions, and explicit historical/removal documentation. No active runtime, workflow, deployment, or provider-settlement dependency remains.
+
 ### Task A5: Stage 09 — cut over with polling gates
 
 **Files:**
+
 - Modify: Stage 09 cutover scripts and tests listed in `09-production-cold-cutover-and-roll-forward.md`
 - Modify: production deployment/runbook configuration
 
-- [ ] **Step 1: Remove provider-event receipt fields and Queue drain gates**
+- [x] **Step 1: Remove provider-event receipt fields and Queue drain gates**
 
 Cutover receipts retain database/R2 HEAD evidence, protected row dispositions, conflict resolution evidence, backup bindings, and object-deletion authority. Remove provider event IDs, Queue locations, message/lease IDs, ACK/replay evidence, Queue tokens, and event-rule readback.
 
-- [ ] **Step 2: Make legacy audit R2-read-only**
+Fresh evidence: commits `c6f2a95`, `a115c81`, and `d9c1189` implement the polling-only cutover command. Its closed receipt/CLI contract contains no provider-event, Queue, DLQ, ACK, replay, consumer, event-rule, or Queue-token field; obsolete Queue/event configuration remains fail-closed elsewhere.
+
+- [x] **Step 2: Make legacy audit R2-read-only**
 
 Audit reads exact legacy-schema rows, Image references, and destination HEAD evidence. It performs no database mutation and no R2 PUT/COPY/DELETE. Ambiguous rows still require protected `committed_authorized | cleanup_authorized` dispositions.
+
+Fresh evidence: the exact PostgreSQL legacy projection and R2 HEAD-only audit passed focused unit and Testcontainers integration coverage. Apply is separately schema-preflighted before mutation; protected disposition/audit/evidence/backup paths and digests are revalidated before any post-migration action.
 
 - [x] **Step 3: Require two zero-backlog polling snapshots**
 
 Before ingress, require zero unresolved promotions, invalid response/HEAD settlement, open conflicts, due temporary cleanup, applicable image deletion, invalid legacy authority, and CORS mismatch twice, at least 30 seconds apart.
+
+#### Task A5.1: Stage 09 Task 2 — polling-only production verifier and runbook
+
+**Files:**
+
+- Create: `docs/runbooks/image-upload-roll-forward.md`
+- Create: `scripts/verify-image-upload-production-gates.mjs`
+- Create: `scripts/schemas/image-upload-production-evidence.schema.json`
+- Create: `scripts/fixtures/image-upload-production-gates/pass.json`
+- Create: polling-specific independent fail fixtures under `scripts/fixtures/image-upload-production-gates/fail/`
+- Modify: `package.json` and `package-lock.json` for direct Ajv/Ajv-formats dependencies
+
+- [x] **Step 1: Define the closed polling-only evidence schema**
+
+Require release, authoritative pre/post backup bindings, API/reconciler/cutover role fingerprints, actual replica/permit/singleton-heartbeat evidence, bucket/CORS/role-separated R2 readback, exact `reconcileGraceMs=30000` and `reconcileCadenceMs=5000` readback, protected cutover audit/disposition bindings, two polling snapshots at least 30 seconds apart, exact CI contexts, deterministic manual-memory evidence, staging receipt, operator-smoke receipt, and roll-forward decision. Every object rejects unknown fields. No Queue, DLQ, consumer, event-rule, provider-event, ACK, replay, or Queue-token field is allowed.
+
+- [x] **Step 2: Add one independent fail fixture per polling gate**
+
+Cover expired pending uploads, unresolved promotion, invalid response/HEAD settlement, invalid committed/cleanup authority, incomplete conflict evidence, open conflict, due/unverified temporary cleanup, unresolved/invalid R2 image deletion, invalid non-R2 disposition, legacy temporary source, backup/disposition/path drift, stale five-loop heartbeat, replica budget, CORS mismatch, snapshot barrier, missing CI context, and forbidden secret/object-key/ETag/URL material.
+
+- [x] **Step 3: Implement the verifier and protected receipt/approval modes**
+
+Validate JSON Schema before semantics; recompute canonical JSON hashes; bind exact canonical receipt/approval/audit/disposition paths and digests; enforce owner-only evidence permissions; accept production only through one explicit `--receipt <absolute-path> --approval <distinct-absolute-path>` mode or test-only `--fixture <repository-path>` with `NODE_ENV=test`; fail closed on multiple/implicit inputs.
+
+- [x] **Step 4: Write the polling-only production runbook**
+
+Document preparation, maintenance, pre-migration read-only audit, migration/apply, two zero polling snapshots, new-role startup, operator-only response-loss acceptance, general-ingress gate, and roll-forward drill. Keep every production mutation behind the existing explicit approval gates.
+
+- [x] **Step 5: Verify pass and all independent fail fixtures**
+
+The pass fixture exits zero. Every fail fixture exits nonzero and names its intended gate. Run schema/verifier tests, `git diff --check`, and the relevant repository build before checking this task.
 
 - [ ] **Step 4: Exercise operator-only response-loss acceptance**
 
@@ -303,7 +347,7 @@ Production mutation still requires the explicit approvals already required by St
 
 ### Task A6: Plan and repository consistency gate
 
-- [ ] **Step 1: Verify no normative Queue/Event Notification dependency remains**
+- [x] **Step 1: Verify no normative Queue/Event Notification dependency remains**
 
 Run:
 
@@ -311,12 +355,12 @@ Run:
 rg -n -i "NDT_.*QUEUE|IMAGE_UPLOAD_.*QUEUE|EVENT_RULE_ID|providerEvent|cloudflare-queue|DLQ|event notification" apps .github scripts docker-compose.yml docs/runbooks
 ```
 
-Expected: no runtime/workflow/runbook dependency; only explicit historical/supersession text may remain under this plan directory.
+Expected: no active runtime, workflow, deployment, runbook procedure, or provider-settlement dependency. Matches may remain only in fail-closed obsolete-variable guards and their tests, schema-absence assertions, and explicit historical/supersession/removal text.
 
 - [x] **Step 2: Run repository verification**
 
 Run all Stage 08 Task 6 gates, Docker rebuilds, Compose verification, workflow/ruleset verifiers, and `git diff --check`.
 
-- [ ] **Step 3: Tick replacement tasks immediately after fresh evidence**
+- [x] **Step 3: Tick replacement tasks immediately after fresh evidence**
 
 Do not reuse Queue-era test results. Each task above is checked only after its polling-specific command passes.

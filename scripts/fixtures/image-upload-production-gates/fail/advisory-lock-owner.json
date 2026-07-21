@@ -1,0 +1,5 @@
+{
+    "base": "../pass.json",
+    "expectedGate": "advisoryLockOwnerCount",
+    "set": { "roles.advisoryLockOwnerCount": 2 }
+}
