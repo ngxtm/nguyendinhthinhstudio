@@ -63,7 +63,7 @@ Existing unfinished upload rows are handled once by the cutover bridge command w
 - Production and staging R2 CORS are provisioned and read back with explicit HTTPS admin origins, method `PUT`, allowed header `Content-Type`, and no wildcard origin/header; real cross-origin browser PUTs prove allowed and denied cases.
 - Initial deployment uses one API process with two decode permits. Rollout verifies actual ready replicas equal the configured process count.
 - Result responses are retained for exactly 30 days; the compact idempotency record remains permanent. There is no daily/per-admin upload quota beyond authenticated route throttling and album capacity 50. That route throttle uses PostgreSQL `ImageUploadRateLimitEvent` rows under a per-admin transaction advisory lock and fails closed with 503 `upload_rate_limit_unavailable` if the limiter store is unavailable.
-- The exact required CI contexts are `backend-image-upload`, `image-upload-packaging`, `frontend-playwright-chromium`, `frontend-stable-chrome`, and `frontend-image-memory`; the active ruleset is read back by ruleset ID.
+- The exact required CI contexts are `backend-image-upload`, `image-upload-packaging`, and `frontend-playwright-chromium`; the active ruleset is read back by ruleset ID. Pinned stable-Chrome compatibility and the deterministic memory benchmark remain manual release gates to conserve GitHub Actions minutes.
 - Staging uses non-production long-lived R2 resources, a unique run prefix, a disposable PostgreSQL database, and one `try/finally` orchestrator. No R2 Event Notification, Queue, DLQ, consumer, or provider-event token is required.
 
 ## Closure mapping
