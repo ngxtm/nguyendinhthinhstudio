@@ -46,13 +46,13 @@ describe('staging orchestrator', () => {
       NDT_STAGING_SUPABASE_PROJECT_REF: 'abcdefghijklmnopqrst',
       NDT_PRODUCTION_SUPABASE_PROJECT_REF: 'zyxwvutsrqponmlkjihg',
       NDT_STAGING_DATABASE_URL:
-        'postgresql://postgres.abcdefghijklmnopqrst:secret@aws-0-region.pooler.supabase.com:6543/postgres',
+        'postgresql://postgres.abcdefghijklmnopqrst:secret@aws-0-region.pooler.supabase.com:5432/postgres',
       NDT_STAGING_DIRECT_URL:
-        'postgresql://postgres:secret@db.abcdefghijklmnopqrst.supabase.co:5432/postgres',
+        'postgresql://postgres.abcdefghijklmnopqrst:secret@aws-0-region.pooler.supabase.com:5432/postgres',
     });
     expect(result.databaseUrl).toContain('pooler.supabase.com');
     expect(result.directUrl).toContain(
-      'db.abcdefghijklmnopqrst.supabase.co',
+      'pooler.supabase.com:5432',
     );
     expect(result.identity).toMatch(/^supabase:[0-9a-f]{64}$/);
     expect(result.identity).not.toContain('abcdefghijklmnopqrst');
@@ -64,9 +64,9 @@ describe('staging orchestrator', () => {
         NDT_STAGING_SUPABASE_PROJECT_REF: 'abcdefghijklmnopqrst',
         NDT_PRODUCTION_SUPABASE_PROJECT_REF: 'abcdefghijklmnopqrst',
         NDT_STAGING_DATABASE_URL:
-          'postgresql://postgres.abcdefghijklmnopqrst:secret@aws-0-region.pooler.supabase.com:6543/postgres',
+          'postgresql://postgres.abcdefghijklmnopqrst:secret@aws-0-region.pooler.supabase.com:5432/postgres',
         NDT_STAGING_DIRECT_URL:
-          'postgresql://postgres:secret@db.abcdefghijklmnopqrst.supabase.co:5432/postgres',
+          'postgresql://postgres.abcdefghijklmnopqrst:secret@aws-0-region.pooler.supabase.com:5432/postgres',
       }),
     ).toThrow('must differ from production');
   });
@@ -77,11 +77,24 @@ describe('staging orchestrator', () => {
         NDT_STAGING_SUPABASE_PROJECT_REF: 'abcdefghijklmnopqrst',
         NDT_PRODUCTION_SUPABASE_PROJECT_REF: 'zyxwvutsrqponmlkjihg',
         NDT_STAGING_DATABASE_URL:
-          'postgresql://postgres.wrongprojectref0000:secret@aws-0-region.pooler.supabase.com:6543/postgres',
+          'postgresql://postgres.wrongprojectref0000:secret@aws-0-region.pooler.supabase.com:5432/postgres',
         NDT_STAGING_DIRECT_URL:
-          'postgresql://postgres:secret@db.abcdefghijklmnopqrst.supabase.co:5432/postgres',
+          'postgresql://postgres.abcdefghijklmnopqrst:secret@aws-0-region.pooler.supabase.com:5432/postgres',
       }),
     ).toThrow('NDT_STAGING_DATABASE_URL must target the staging Supabase ref');
+  });
+
+  it('rejects transaction-pooler connections for migration and advisory locks', () => {
+    expect(() =>
+      parseStagingDatabaseEnvironment({
+        NDT_STAGING_SUPABASE_PROJECT_REF: 'abcdefghijklmnopqrst',
+        NDT_PRODUCTION_SUPABASE_PROJECT_REF: 'zyxwvutsrqponmlkjihg',
+        NDT_STAGING_DATABASE_URL:
+          'postgresql://postgres.abcdefghijklmnopqrst:secret@aws-0-region.pooler.supabase.com:6543/postgres',
+        NDT_STAGING_DIRECT_URL:
+          'postgresql://postgres.abcdefghijklmnopqrst:secret@aws-0-region.pooler.supabase.com:5432/postgres',
+      }),
+    ).toThrow('NDT_STAGING_DATABASE_URL must use a session-capable port');
   });
 
   it('does not create a generic PostgreSQL container for live staging', async () => {

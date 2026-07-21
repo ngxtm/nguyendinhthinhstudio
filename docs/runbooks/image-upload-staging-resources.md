@@ -4,7 +4,7 @@ Staging uses Cloudflare R2 plus a dedicated non-production Supabase project. It 
 
 ## Required protected-environment inputs
 
-In addition to the R2 inputs, the workflow requires environment secrets `NDT_STAGING_DATABASE_URL` and `NDT_STAGING_DIRECT_URL`, plus environment variables `NDT_STAGING_SUPABASE_PROJECT_REF` and `NDT_PRODUCTION_SUPABASE_PROJECT_REF`. The URLs must target the staging ref, the direct URL must use `db.<staging-ref>.supabase.co`, and staging must differ from production. Connection strings are never written to receipts or logs; only a SHA-256 project-ref fingerprint is retained.
+In addition to the R2 inputs, the workflow requires environment secrets `NDT_STAGING_DATABASE_URL` and `NDT_STAGING_DIRECT_URL`, plus environment variables `NDT_STAGING_SUPABASE_PROJECT_REF` and `NDT_PRODUCTION_SUPABASE_PROJECT_REF`. Both URLs must target the staging ref and use a session-capable connection. For free-tier GitHub-hosted runners, use the Supavisor Session pooler string ending in port `5432` for both secrets; transaction mode `6543` is rejected because migrations, prepared statements, and session advisory locks require session semantics. Staging must differ from production. Connection strings are never written to receipts or logs; only a SHA-256 project-ref fingerprint is retained.
 
 The preflight rejects placeholders, shared role credentials, staging/production R2 or Supabase identity equality, cross-project database URLs, wildcard/non-local HTTP CORS, and any obsolete Queue/DLQ/Event Notification variable.
 

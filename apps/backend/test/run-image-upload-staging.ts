@@ -277,6 +277,13 @@ function targetsSupabaseRef(url: URL, projectRef: string): boolean {
   );
 }
 
+function isSessionCapableSupabaseUrl(url: URL): boolean {
+  if (url.hostname.endsWith('.pooler.supabase.com')) {
+    return url.port === '5432';
+  }
+  return url.port === '' || url.port === '5432';
+}
+
 export function parseStagingDatabaseEnvironment(
   input: StagingDatabaseEnvironment,
 ): StagingDatabase {
@@ -309,10 +316,18 @@ export function parseStagingDatabaseEnvironment(
       'NDT_STAGING_DATABASE_URL must target the staging Supabase ref',
     );
   }
-  if (parsedDirectUrl.hostname !== `db.${stagingRef}.supabase.co`) {
+  if (!targetsSupabaseRef(parsedDirectUrl, stagingRef)) {
     throw new Error(
-      'NDT_STAGING_DIRECT_URL must target the direct staging Supabase host',
+      'NDT_STAGING_DIRECT_URL must target the staging Supabase ref',
     );
+  }
+  if (!isSessionCapableSupabaseUrl(parsedDatabaseUrl)) {
+    throw new Error(
+      'NDT_STAGING_DATABASE_URL must use a session-capable port',
+    );
+  }
+  if (!isSessionCapableSupabaseUrl(parsedDirectUrl)) {
+    throw new Error('NDT_STAGING_DIRECT_URL must use a session-capable port');
   }
   return {
     databaseUrl,
