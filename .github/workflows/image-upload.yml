@@ -93,6 +93,27 @@ jobs:
             group: image-upload-staging
             cancel-in-progress: false
         timeout-minutes: 60
+        services:
+            imgproxy:
+                image: darthsim/imgproxy:v3.30.1
+                ports:
+                    - 18080:8080
+                env:
+                    IMGPROXY_KEY: '1111111111111111111111111111111111111111111111111111111111111111'
+                    IMGPROXY_SALT: '2222222222222222222222222222222222222222222222222222222222222222'
+                    IMGPROXY_ALLOW_INSECURE: 'false'
+                    IMGPROXY_USE_S3: 'true'
+                    AWS_ACCESS_KEY_ID: ${{ secrets.NDT_STAGING_IMGPROXY_ACCESS_KEY_ID }}
+                    AWS_SECRET_ACCESS_KEY: ${{ secrets.NDT_STAGING_IMGPROXY_SECRET_ACCESS_KEY }}
+                    AWS_REGION: auto
+                    IMGPROXY_S3_ENDPOINT: ${{ vars.NDT_STAGING_R2_ENDPOINT }}
+                    IMGPROXY_MAX_SRC_RESOLUTION: '50'
+                    IMGPROXY_ENFORCE_WEBP: 'true'
+                options: >-
+                    --health-cmd "imgproxy health"
+                    --health-interval 5s
+                    --health-timeout 5s
+                    --health-retries 12
         env:
             NDT_STAGING_ACCOUNT_ID: ${{ vars.NDT_STAGING_ACCOUNT_ID }}
             NDT_STAGING_R2_ENDPOINT: ${{ vars.NDT_STAGING_R2_ENDPOINT }}
