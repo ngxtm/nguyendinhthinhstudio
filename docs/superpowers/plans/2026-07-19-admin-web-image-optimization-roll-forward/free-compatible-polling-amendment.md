@@ -288,7 +288,26 @@ Fresh scan classification: remaining Queue/Event Notification strings are limite
 **Files:**
 
 - Modify: Stage 09 cutover scripts and tests listed in `09-production-cold-cutover-and-roll-forward.md`
-- Modify: production deployment/runbook configuration
+- Modify: `scripts/schemas/image-upload-production-evidence.schema.json`
+- Modify: production verifier fixtures/tests and deployment/runbook configuration
+
+#### Task A5.0: Use a provider-correct credential for production CORS readback
+
+Cloudflare bucket-scoped Object Read/Object Read & Write credentials support object data-plane operations but reject bucket configuration reads such as `GetBucketCors`. Preserve the bucket-scoped `ndt-prod-cutover-rw` credential for HEAD/LIST/COPY/DELETE and add a distinct temporary account-scoped R2 Admin Read Only credential, exposed only to the cutover role as `IMAGE_UPLOAD_CUTOVER_R2_CONFIG_READ_ACCESS_KEY_ID` and `IMAGE_UPLOAD_CUTOVER_R2_CONFIG_READ_SECRET_ACCESS_KEY`.
+
+Provider evidence on 2026-07-22 reproduced the boundary with the production cutover credential: PostgreSQL read passed, R2 object LIST passed, and `GetBucketCors` failed with HTTP 403 `AccessDenied`. No audit receipt was created and no production mutation occurred.
+
+- [ ] **Step 1: Write failing role-isolation and client-routing tests**
+
+Require cutover configuration to fail closed without the two config-read variables. Require API and reconciler configuration to reject them. Prove object commands use only the bucket-scoped data-plane client and `GetBucketCors` uses only the config-read client.
+
+- [ ] **Step 2: Implement the separate read-only CORS client**
+
+Create a second S3 client only in the one-shot cutover entrypoint. Pass it solely to the CORS readback path, keep all object operations on the existing cutover client, and destroy both clients on exit. Extend the closed production evidence schema with `cutoverR2ConfigReadCredentialFingerprintSha256`; require it to differ from every data-plane fingerprint and expose no credential value.
+
+- [ ] **Step 3: Verify provider behavior and revocation contract**
+
+Require the bucket-scoped credential to pass object LIST/HEAD and fail `GetBucketCors`; require the temporary Admin Read Only credential to pass `GetBucketCors` and fail an object/bucket write canary. Never mount the config-read credential into API, reconciler, or imgproxy. Revoke it after Stage 09 acceptance and record only its fingerprint plus revocation evidence.
 
 - [x] **Step 1: Remove provider-event receipt fields and Queue drain gates**
 
