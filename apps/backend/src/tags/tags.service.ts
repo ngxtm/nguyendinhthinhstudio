@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { CreateTagDto } from './dto/create-tag.dto';
 import { UpdateTagDto } from './dto/update-tag.dto';
-import { PrismaService } from 'src/prisma/prisma.service';
+import { PrismaService } from '../prisma/prisma.service';
 import { AlbumsService } from '../albums/albums.service';
 import { QueryTagAlbumsDto } from './dto/query-tag-albums.dto';
 

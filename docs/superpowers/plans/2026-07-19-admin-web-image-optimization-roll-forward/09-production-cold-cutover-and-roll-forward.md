@@ -774,7 +774,7 @@ Run active-upload, `unterminalized_expired_uploads`, unresolved-promotion, inval
 
 - [ ] **Step 1: Start API and reconciler with presign disabled**
 
-Deploy the recorded new image digest. Start `backend` with role `api` and `images-upload-reconciler` with role `reconciler`. Require one API process with two permits for the initial rollout, exactly one advisory-lock owner on its dedicated `pg.Client`, a heartbeat newer than two cadences, and advancing completion timestamps for Queue settlement, promotion recovery, temporary-session cleanup, and `ImageObjectDeletion`. No old image digest may be running.
+Deploy the recorded new image digest. Keep the Docker image selector `BACKEND_IMAGE` separate from the reconciler heartbeat identity `IMAGE_UPLOAD_BUILD_FINGERPRINT`. The latter is required in exact `sha256:<64 lowercase hex>` form and must be derived from and recorded with the immutable release revision, never copied from a mutable Docker tag. Start `backend` with role `api` and `images-upload-reconciler` with role `reconciler`. Require one API process with two permits for the initial rollout, exactly one advisory-lock owner on its dedicated `pg.Client`, a heartbeat newer than two cadences, and advancing completion timestamps for Queue settlement, promotion recovery, temporary-session cleanup, and `ImageObjectDeletion`. No old image digest may be running.
 
 - [ ] **Step 2: Verify process roles and secret isolation**
 
