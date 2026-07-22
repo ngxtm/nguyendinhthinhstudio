@@ -8,7 +8,7 @@ const LOCK_ID = 0x494d4755;
 export function assertReconcilerEnvironment(env: NodeJS.ProcessEnv) {
   const runtime = parseImageUploadRuntimeConfig(env, 'reconciler');
   if (
-    !/^(?:[^\s@]+@)?sha256:[0-9a-f]{64}$/.test(
+    !/^sha256:[0-9a-f]{64}$/.test(
       env.IMAGE_UPLOAD_BUILD_FINGERPRINT?.trim() ?? '',
     )
   ) {

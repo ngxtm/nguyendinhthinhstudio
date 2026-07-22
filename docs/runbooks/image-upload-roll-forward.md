@@ -153,30 +153,34 @@ if ($LASTEXITCODE -ne 0) { throw "production polling gates failed" }
 
 Starting the new roles requires the startup approval and a passing production-gate receipt.
 
-Before deploying, configure two distinct Dokploy variables for the same release:
+Before starting the roles, build or pull the exact release image and configure two
+distinct Dokploy variables for it:
 
 ```text
 BACKEND_IMAGE=<unique Docker image reference or release tag>
 IMAGE_UPLOAD_BUILD_FINGERPRINT=sha256:<64 lowercase hexadecimal characters>
 ```
 
-`BACKEND_IMAGE` selects the image Docker builds/runs. `IMAGE_UPLOAD_BUILD_FINGERPRINT`
-is an immutable release identity recorded in the reconciler heartbeat; it must never
-contain the mutable image tag. When the deployment platform builds from a Git commit
-rather than publishing an image digest, derive the fingerprint from the exact full
-commit ID before deployment:
+`BACKEND_IMAGE` selects the image Docker runs. `IMAGE_UPLOAD_BUILD_FINGERPRINT` is
+the resolved immutable ID/digest of those exact built bytes and is recorded in the
+reconciler heartbeat; it must never contain the mutable image tag. Resolve it only
+after the image exists on the deployment host:
 
-```powershell
-$commit = (git rev-parse HEAD).Trim()
-$bytes = [Text.Encoding]::UTF8.GetBytes($commit)
-$hash = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($bytes)).ToLowerInvariant()
-"IMAGE_UPLOAD_BUILD_FINGERPRINT=sha256:$hash"
+```sh
+IMAGE_UPLOAD_BUILD_FINGERPRINT="$(docker image inspect \
+  --format '{{.Id}}' "$BACKEND_IMAGE")"
+case "$IMAGE_UPLOAD_BUILD_FINGERPRINT" in
+  sha256:????????????????????????????????????????????????????????????????) ;;
+  *) echo "invalid immutable backend image ID" >&2; exit 1 ;;
+esac
+printf '%s\n' "IMAGE_UPLOAD_BUILD_FINGERPRINT=$IMAGE_UPLOAD_BUILD_FINGERPRINT"
 ```
 
-Record the full commit ID and resulting fingerprint with the release evidence. A
-corrected source revision gets a new `BACKEND_IMAGE` tag and a newly derived
+Copy that exact output value into Dokploy before starting the generation. Record the
+full commit ID, `BACKEND_IMAGE`, and resolved fingerprint with the release evidence.
+A corrected source revision gets a new image reference and a newly resolved
 fingerprint; all API, migration, and reconciler containers for one deployment use
-the same source revision.
+the same built image.
 
 1. Start the recorded new API image with role `api` and presign disabled.
 2. Start the same release with role `reconciler`, its dedicated PostgreSQL advisory-lock connection, and its separate R2 credential.

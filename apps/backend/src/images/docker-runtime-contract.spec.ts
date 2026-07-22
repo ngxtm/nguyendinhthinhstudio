@@ -15,6 +15,10 @@ function collectTypeScriptFiles(directory: string): string[] {
   });
 }
 
+function containsSourceRootModuleSpecifier(source: string): boolean {
+  return /['"]src\//.test(source);
+}
+
 function expectBefore(source: string, earlier: string, later: string): void {
   const earlierIndex = source.indexOf(earlier);
   const laterIndex = source.indexOf(later);
@@ -129,22 +133,31 @@ describe('backend Docker runner', () => {
   });
 
   it('fails the image build when a compiled src alias remains unresolved', () => {
-    expect(dockerfile).toContain(`! grep -R -n 'require("src/' runtime-dist`);
-    expect(dockerfile).toContain(`! grep -R -n "require('src/" runtime-dist`);
+    expect(dockerfile).toContain(`! grep -R -n '"src/' runtime-dist`);
+    expect(dockerfile).toContain(`! grep -R -n "'src/" runtime-dist`);
   });
 });
 
 describe('backend production module resolution', () => {
+  it.each([
+    `import value from 'src/example'`,
+    `export { value } from "src/example"`,
+    `require('src/example')`,
+    `import("src/example")`,
+  ])('detects the source-root module specifier in %s', (source) => {
+    expect(containsSourceRootModuleSpecifier(source)).toBe(true);
+  });
+
   it('does not use source-root aliases that plain Node cannot resolve', () => {
     const sourceRoot = resolve(repositoryRoot, 'apps/backend/src');
-    const unresolvedImports = collectTypeScriptFiles(sourceRoot).flatMap(
-      (path) => {
+    const unresolvedImports = collectTypeScriptFiles(sourceRoot)
+      .filter((path) => !path.endsWith('.spec.ts'))
+      .flatMap((path) => {
         const source = readFileSync(path, 'utf8');
-        return /(?:from\s+|import\s*)['"]src\//.test(source)
+        return containsSourceRootModuleSpecifier(source)
           ? [path.replace(repositoryRoot, '')]
           : [];
-      },
-    );
+      });
 
     expect(unresolvedImports).toEqual([]);
   });

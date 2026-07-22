@@ -41,8 +41,8 @@ RUN mkdir -p runtime-dist/src runtime-dist/scripts && \
     test -f runtime-dist/scripts/reconcile-image-uploads.js && \
     test -f runtime-dist/scripts/resolve-image-upload-promotion-conflict.js && \
     test -f runtime-dist/scripts/image-upload-cutover.js && \
-    ! grep -R -n 'require("src/' runtime-dist && \
-    ! grep -R -n "require('src/" runtime-dist
+    ! grep -R -n '"src/' runtime-dist && \
+    ! grep -R -n "'src/" runtime-dist
 
 # Stage 2: Production
 FROM base AS runner
