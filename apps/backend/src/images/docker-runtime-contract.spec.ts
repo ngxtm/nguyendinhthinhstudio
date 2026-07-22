@@ -180,6 +180,7 @@ describe('reconciler runtime graph', () => {
 
 describe('Compose image-upload process roles', () => {
   const compose = readRepositoryFile('docker-compose.yml');
+  const workflow = readRepositoryFile('.github/workflows/image-upload.yml');
   const backend =
     compose.match(
       /\r?\n {2}backend:\r?\n([\s\S]*?)(?=\r?\n {2}[\w-]+:\r?\n|\r?\nnetworks:)/,
@@ -248,6 +249,15 @@ describe('Compose image-upload process roles', () => {
     );
     expect(reconciler).not.toContain(
       'IMAGE_UPLOAD_BUILD_FINGERPRINT=${BACKEND_IMAGE',
+    );
+  });
+
+  it('provides a canonical build fingerprint to the Compose packaging check', () => {
+    expect(workflow).toContain(
+      `fingerprint="$(docker image inspect --format '{{.Id}}' "$BACKEND_IMAGE")"`,
+    );
+    expect(workflow).toContain(
+      `echo "IMAGE_UPLOAD_BUILD_FINGERPRINT=$fingerprint" >> "$GITHUB_ENV"`,
     );
   });
 });
