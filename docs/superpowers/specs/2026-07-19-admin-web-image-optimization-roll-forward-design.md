@@ -202,12 +202,16 @@ Warnings fire when unresolved promotion work is 15 minutes old. Critical alerts 
 
 ## 9. Cold production cutover
 
-The cutover is serial and uses a bounded maintenance window:
+The cutover is serial and uses a bounded maintenance window.
+
+For this initial cutover, the operator-approved `maintenance_route_absent` exception may replace provisioning a new ingress maintenance Worker/rule only when all of the following are recorded in the protected cutover evidence: the public frontend is already in maintenance mode; route inventory for every currently deployed API generation proves that no upload-creation endpoint is registered; an authenticated admin canary against every known upload-creation path fails closed without creating an upload/session; and that route-absent state has remained unchanged for at least the maximum configured legacy signed-PUT lifetime plus clock skew. The beginning of that verified interval is `presignDisabledAt`. This exception does not waive the outstanding-PUT wait, old-writer quiescence, authoritative backups, audit, migration approval, `IMAGE_UPLOAD_PRESIGN_ENABLED=false` on the new generation, operator-only smoke acceptance, or any zero gate. A maintenance page or operator statement without route/canary evidence is insufficient. If any condition is missing or changes, use the standard ingress block and verify HTTP 503 `upload_presign_disabled`.
+
+The ordered cutover is:
 
 1. Build, test, and record the immutable new image digest.
 2. Optionally create an early encrypted preparation backup for rehearsal evidence; it is not the migration backup and cannot authorize audit, migration, or apply.
 3. Provision and read back the production R2 buckets, exact R2 CORS policy, and role-separated secrets.
-4. Disable new presign at ingress while the old backend finishes already-started confirms. Because the legacy schema predates `presignExpiresAt`, derive the drain deadline from the existing legacy `expiresAt` only when tests prove it equals the signed PUT expiry; otherwise conservatively use `presignDisabledAt + maximum legacy PUT lifetime`. Record the later deadline.
+4. Establish the no-new-upload boundary by either (a) disabling new presign at ingress and verifying HTTP 503 `upload_presign_disabled`, or (b) satisfying the protected `maintenance_route_absent` exception above without provisioning a new ingress Worker/rule. While the old backend finishes already-started confirms, derive the drain deadline from the existing legacy `expiresAt` only when tests prove it equals the signed PUT expiry; otherwise conservatively use `presignDisabledAt + maximum legacy PUT lifetime`. Record the later deadline.
 5. Keep the old HTTP `confirm`, `status`, and `abandon` routes available during the bounded drain while scheduled mutation jobs are stopped. Wait until that recorded outstanding-PUT deadline plus configured clock skew has passed and every active confirm/R2 operation/finalization lease has settled; the one-hour signed PUT lifetime, not merely the 10-minute lease, bounds this wait.
 6. Block confirm and abandon; status may remain read-only until API shutdown. Stop every old API, cleanup job, deletion job, and scheduler. Verify process inventory, database activity, lease non-renewal, and R2 canaries prove no old process, valid outstanding presigned PUT, or lease can mutate database or R2 state.
 7. Now create the mandatory encrypted full logical migration backup of the quiesced legacy database, restore it into a disposable PostgreSQL instance, verify existing `Image`/`ImageUpload` counts and digests, and record the ciphertext digest plus restore receipt. The audit/migration receipt must reference this quiesced backup digest; an earlier backup is insufficient. Do not require future tables.

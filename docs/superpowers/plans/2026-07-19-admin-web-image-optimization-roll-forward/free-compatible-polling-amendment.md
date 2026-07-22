@@ -331,7 +331,7 @@ Validate JSON Schema before semantics; recompute canonical JSON hashes; bind exa
 
 - [x] **Step 4: Write the polling-only production runbook**
 
-Document preparation, maintenance, pre-migration read-only audit, migration/apply, two zero polling snapshots, new-role startup, operator-only response-loss acceptance, general-ingress gate, and roll-forward drill. Keep every production mutation behind the existing explicit approval gates.
+Document preparation, the standard no-new-upload ingress block or the spec-approved protected `maintenance_route_absent` exception, pre-migration read-only audit, migration/apply, two zero polling snapshots, new-role startup, operator-only response-loss acceptance, general-ingress gate, and roll-forward drill. The exception avoids provisioning a new maintenance Worker/rule only; it must prove maintenance-page state, deployed route absence, authenticated fail-closed canaries, and a stable absence interval covering the maximum legacy signed-PUT lifetime plus skew. Keep every production mutation behind the existing explicit approval gates.
 
 - [x] **Step 5: Verify pass and all independent fail fixtures**
 

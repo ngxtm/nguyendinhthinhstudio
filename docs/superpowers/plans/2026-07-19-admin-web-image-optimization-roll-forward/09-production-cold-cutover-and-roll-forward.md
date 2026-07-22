@@ -652,9 +652,14 @@ Run the ruleset verifier by ID and store the sanitized result proving all three 
 
 - Modify: `docs/runbooks/image-upload-roll-forward.md`
 
-- [ ] **Step 1: Block new upload creation**
+- [ ] **Step 1: Establish and evidence the no-new-upload boundary**
 
-Set the ingress maintenance rule for `POST /images/upload-url` and verify HTTP 503 `upload_presign_disabled`. The pre-migration schema must not reference future `presignExpiresAt`: query legacy `expiresAt` only if a legacy signer contract test proves it equals the signed PUT expiry; otherwise record `presignDisabledAt + maximum configured legacy PUT lifetime`. Use the later conservative outstanding-PUT deadline. Keep HTTP confirm, status, and abandon available during the bounded drain; status is read-only, while confirm/abandon may settle already-started work.
+Use one closed path:
+
+1. **Standard path:** set the ingress maintenance rule for every upload-creation route and verify HTTP 503 `upload_presign_disabled`.
+2. **Approved initial-cutover exception — `maintenance_route_absent`:** do not provision a new Cloudflare maintenance Worker/rule. Instead, store protected evidence that the public frontend is already in maintenance mode; inventory every currently deployed API generation and prove no upload-creation endpoint is registered; run an authenticated admin canary against every known upload-creation path and prove it fails closed without creating an upload/session; and prove this exact route-absent state remained unchanged for at least the maximum configured legacy signed-PUT lifetime plus `IMAGE_UPLOAD_PRESIGN_CLOCK_SKEW_SECONDS`. Record the start of that verified interval as `presignDisabledAt`. A screenshot or operator statement alone does not satisfy the exception. Any reachable creation route, successful/ambiguous canary, deployment drift, or insufficient interval falls back to the standard path.
+
+For either path, the pre-migration schema must not reference future `presignExpiresAt`: query legacy `expiresAt` only if a legacy signer contract test proves it equals the signed PUT expiry; otherwise record `presignDisabledAt + maximum configured legacy PUT lifetime`. Use the later conservative outstanding-PUT deadline. Keep HTTP confirm, status, and abandon available during the bounded drain; status is read-only, while confirm/abandon may settle already-started work. The exception waives only creation of a new ingress maintenance Worker/rule; it does not waive any wait, quiescence, backup, audit, migration, approval, smoke, or zero gate.
 
 - [ ] **Step 2: Stop old scheduled mutations while events collect**
 

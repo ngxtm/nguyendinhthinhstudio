@@ -26,15 +26,21 @@ The API, reconciler, cutover, and imgproxy R2 fingerprints must all differ. Conf
 
 An early rehearsal backup is non-authoritative. It cannot authorize audit, migration, or apply.
 
-## 2. Block new uploads and drain old work
+## 2. Establish the no-new-upload boundary and drain old work
 
-This is a production ingress mutation and requires the maintenance-start approval.
+The standard path is a production ingress mutation and requires the maintenance-start approval. The approved initial-cutover exception avoids that mutation but still requires a protected maintenance-start evidence record.
 
-1. Block `POST /images/upload-url` at ingress and set old API presign disabled. Verify `503 upload_presign_disabled`.
-2. Keep only old confirm, status, and abandon routes during the bounded drain. Stop old scheduled cleanup, deletion, migration, and scheduler jobs.
-3. Record the conservative latest outstanding signed-PUT deadline. Use legacy `expiresAt` only when the legacy signer contract proves it equals the signed URL expiry; otherwise use presign-disabled time plus the maximum legacy PUT lifetime. Add configured clock skew.
-4. Wait past that deadline and every active confirm/R2/finalization deadline.
-5. Block confirm and abandon, stop every old API instance, and verify zero old ready replicas, zero scheduler processes, no lease renewal across two lease cadences, no in-flight R2 mutation, and a late-PUT canary that cannot mutate R2.
+Choose exactly one boundary:
+
+1. **Standard:** block every upload-creation route at ingress, set old API presign disabled, and verify `503 upload_presign_disabled`.
+2. **Approved initial-cutover exception — `maintenance_route_absent`:** do not provision a new maintenance Worker/rule. Record that the public frontend is in maintenance mode; inventory every deployed API generation and prove no upload-creation route is registered; run an authenticated admin canary against every known creation path and prove fail-closed behavior with no new upload/session; and prove the route/deployment state remained unchanged for at least the maximum legacy signed-PUT lifetime plus clock skew. Record the start of that stable interval as `presignDisabledAt`. Any missing, reachable, successful, ambiguous, or drifted evidence requires the standard path.
+
+The exception waives only the new ingress Worker/rule. It does not waive the drain deadline, stopping writers, backups, audit, migration approval, new-generation presign-disabled startup, operator smoke, or zero gates.
+
+3. Keep only old confirm, status, and abandon routes during the bounded drain. Stop old scheduled cleanup, deletion, migration, and scheduler jobs.
+4. Record the conservative latest outstanding signed-PUT deadline. Use legacy `expiresAt` only when the legacy signer contract proves it equals the signed URL expiry; otherwise use `presignDisabledAt` plus the maximum legacy PUT lifetime. Add configured clock skew.
+5. Wait past that deadline and every active confirm/R2/finalization deadline.
+6. Block confirm and abandon, stop every old API instance, and verify zero old ready replicas, zero scheduler processes, no lease renewal across two lease cadences, no in-flight R2 mutation, and a late-PUT canary that cannot mutate R2.
 
 Never restart an old process after this point.
 
