@@ -9,6 +9,7 @@ This plan set implements `docs/superpowers/specs/2026-07-19-admin-web-image-opti
 - Do not start a stage until the previous stage gate passes with fresh evidence.
 - Use TDD: write the focused failing test, observe the expected failure, implement the smallest complete behavior, and rerun the focused test.
 - Production uses one maintenance-window cold cutover. The old upload generation is stopped before the new generation starts.
+- For this initial cutover, the spec's protected `maintenance_route_absent` exception may replace creation of a new ingress maintenance Worker/rule. It requires maintenance-page evidence, deployed route inventory, authenticated fail-closed canaries for every known upload-creation path, and a stable route-absent interval covering the maximum legacy signed-PUT lifetime plus skew; otherwise the standard 503 ingress block remains mandatory.
 - Recovery is roll-forward only. Never start the old backend or old cleanup binary after the migration.
 - Keep `IMAGE_UPLOAD_PRESIGN_ENABLED=false` throughout migration, bridge reconciliation, and new-generation read-only checks. Enable it only behind authenticated operator-only ingress for mutating smoke; general ingress remains blocked until acceptance passes.
 - Never commit `0W9A1500.jpg`, credentials, presigned URLs, full object keys, or image bytes.
@@ -107,7 +108,7 @@ Expected: Node 24 or 26, npm 11, commands exit 0, frontend focused tests use the
 
 - After outstanding signed PUTs expire and every old writer/lease is proven quiesced, the authoritative encrypted pre-migration database backup is created, restored, and referenced by audit/migration/apply; an earlier preparation backup is invalid. A separate encrypted post-bridge backup is restored before startup. Receipts and distinct approvals are permission-checked and digest-verified outside the repository.
 - Production bucket, exact CORS, role-separated R2 identities, 30-second promotion grace, five-second scan cadence, and secrets are read back before maintenance.
-- New presign is blocked, HTTP confirm/status/abandon drain in a bounded window, and the cutover waits through the conservative latest legacy signed-PUT expiry plus clock skew and all active confirm/R2/lease deadlines.
+- The no-new-upload boundary is proven either by the standard HTTP 503 `upload_presign_disabled` ingress block or by the protected `maintenance_route_absent` exception. HTTP confirm/status/abandon drain in a bounded window, and the cutover waits through the conservative latest legacy signed-PUT expiry plus clock skew and all active confirm/R2/lease deadlines.
 - All old API and scheduled jobs stop with zero lease renewal and a late-PUT mutation canary before the authoritative backup, audit, and migration.
 - The pre-migration audit reads only the exact legacy schema and performs no database/R2-object mutation. It receives explicit authoritative backup receipt/approval paths, embeds their canonical paths and digests, and exits nonzero until every ambiguous row has one protected signed `committed_authorized` or `cleanup_authorized` disposition supplied through an explicit path. After migration, apply revalidates those exact bindings, writes proven pre-dispatch rows as `failed/upload_cutover_aborted` without a promotion, and requires their temporary keys to pass final absent HEAD verification. The bridge creates `legacy_bridge` rows only from exact persisted dispatch and destination HEAD/response evidence and derives the deterministic UUIDv5 finalization lease token.
 - Cutover completes with active uploads, expired pending uploads, unresolved promotions, invalid response/HEAD settlement, incomplete promotion-conflict evidence, unverified terminal temporary cleanup, open promotion conflicts, legacy pre-dispatch temporary sources, invalid committed/rejected authority, backup/disposition mismatches, production CORS mismatch, and image-deletion backlog all zero twice separated by 30 seconds.
@@ -118,7 +119,7 @@ Expected: Node 24 or 26, npm 11, commands exit 0, frontend focused tests use the
 
 ## Roll-forward summary
 
-1. Disable presign and block upload creation at ingress.
+1. Establish the no-new-upload boundary with the standard ingress block or the protected `maintenance_route_absent` exception; do not provision a new maintenance Worker/rule when the exception is fully evidenced.
 2. Preserve safe status/reconciliation only when their process-role health is proven.
 3. Capture sanitized database, polling, conflict, and heartbeat evidence.
 4. Fix the new version and build a new immutable image.
