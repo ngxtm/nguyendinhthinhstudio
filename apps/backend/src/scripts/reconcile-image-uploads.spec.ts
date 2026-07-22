@@ -52,14 +52,17 @@ describe('reconcile image uploads entrypoint', () => {
     ).toThrow(key);
   });
 
-  it('rejects a mutable reconciler build fingerprint', () => {
-    expect(() =>
-      assertReconcilerEnvironment({
-        ...reconcilerEnvironment,
-        IMAGE_UPLOAD_BUILD_FINGERPRINT: 'backend:latest',
-      }),
-    ).toThrow('IMAGE_UPLOAD_BUILD_FINGERPRINT');
-  });
+  it.each(['backend:latest', `backend@sha256:${'a'.repeat(64)}`])(
+    'rejects a non-canonical reconciler build fingerprint %s',
+    (fingerprint) => {
+      expect(() =>
+        assertReconcilerEnvironment({
+          ...reconcilerEnvironment,
+          IMAGE_UPLOAD_BUILD_FINGERPRINT: fingerprint,
+        }),
+      ).toThrow('IMAGE_UPLOAD_BUILD_FINGERPRINT');
+    },
+  );
 
   it('writes initialization and loop heartbeats through the lock client', async () => {
     const client = { query: jest.fn().mockResolvedValue({}) };

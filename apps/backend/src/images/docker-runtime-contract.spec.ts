@@ -1,10 +1,22 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const repositoryRoot = resolve(__dirname, '../../../..');
 
 function readRepositoryFile(path: string): string {
   return readFileSync(resolve(repositoryRoot, path), 'utf8');
+}
+
+function collectTypeScriptFiles(directory: string): string[] {
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const path = resolve(directory, entry.name);
+    if (entry.isDirectory()) return collectTypeScriptFiles(path);
+    return entry.isFile() && entry.name.endsWith('.ts') ? [path] : [];
+  });
+}
+
+function containsSourceRootModuleSpecifier(source: string): boolean {
+  return /['"]src\//.test(source);
 }
 
 function expectBefore(source: string, earlier: string, later: string): void {
@@ -119,6 +131,36 @@ describe('backend Docker runner', () => {
     );
     expect(dockerfile).not.toContain('RUN npx tsc-alias');
   });
+
+  it('fails the image build when a compiled src alias remains unresolved', () => {
+    expect(dockerfile).toContain(`! grep -R -n '"src/' runtime-dist`);
+    expect(dockerfile).toContain(`! grep -R -n "'src/" runtime-dist`);
+  });
+});
+
+describe('backend production module resolution', () => {
+  it.each([
+    `import value from 'src/example'`,
+    `export { value } from "src/example"`,
+    `require('src/example')`,
+    `import("src/example")`,
+  ])('detects the source-root module specifier in %s', (source) => {
+    expect(containsSourceRootModuleSpecifier(source)).toBe(true);
+  });
+
+  it('does not use source-root aliases that plain Node cannot resolve', () => {
+    const sourceRoot = resolve(repositoryRoot, 'apps/backend/src');
+    const unresolvedImports = collectTypeScriptFiles(sourceRoot)
+      .filter((path) => !path.endsWith('.spec.ts'))
+      .flatMap((path) => {
+        const source = readFileSync(path, 'utf8');
+        return containsSourceRootModuleSpecifier(source)
+          ? [path.replace(repositoryRoot, '')]
+          : [];
+      });
+
+    expect(unresolvedImports).toEqual([]);
+  });
 });
 
 describe('reconciler runtime graph', () => {
@@ -138,6 +180,7 @@ describe('reconciler runtime graph', () => {
 
 describe('Compose image-upload process roles', () => {
   const compose = readRepositoryFile('docker-compose.yml');
+  const workflow = readRepositoryFile('.github/workflows/image-upload.yml');
   const backend =
     compose.match(
       /\r?\n {2}backend:\r?\n([\s\S]*?)(?=\r?\n {2}[\w-]+:\r?\n|\r?\nnetworks:)/,
@@ -198,5 +241,23 @@ describe('Compose image-upload process roles', () => {
     expect(backend).toContain('image: *backend-image');
     expect(reconciler).toContain('image: *backend-image');
     expect(reconciler).not.toContain('build:');
+  });
+
+  it('keeps the image reference separate from the reconciler build fingerprint', () => {
+    expect(reconciler).toContain(
+      'IMAGE_UPLOAD_BUILD_FINGERPRINT=${IMAGE_UPLOAD_BUILD_FINGERPRINT:?IMAGE_UPLOAD_BUILD_FINGERPRINT is required}',
+    );
+    expect(reconciler).not.toContain(
+      'IMAGE_UPLOAD_BUILD_FINGERPRINT=${BACKEND_IMAGE',
+    );
+  });
+
+  it('provides a canonical build fingerprint to the Compose packaging check', () => {
+    expect(workflow).toContain(
+      `fingerprint="$(docker image inspect --format '{{.Id}}' "$BACKEND_IMAGE")"`,
+    );
+    expect(workflow).toContain(
+      `echo "IMAGE_UPLOAD_BUILD_FINGERPRINT=$fingerprint" >> "$GITHUB_ENV"`,
+    );
   });
 });

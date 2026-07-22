@@ -63,6 +63,14 @@ jobs:
         steps:
             - uses: actions/checkout@v4
             - run: docker build -f apps/backend/Dockerfile -t ndt-backend:image-upload-ci .
+            - name: Bind Compose heartbeat fingerprint to built image
+              run: |
+                  fingerprint="$(docker image inspect --format '{{.Id}}' "$BACKEND_IMAGE")"
+                  case "$fingerprint" in
+                    sha256:????????????????????????????????????????????????????????????????) ;;
+                    *) echo "invalid immutable backend image ID" >&2; exit 1 ;;
+                  esac
+                  echo "IMAGE_UPLOAD_BUILD_FINGERPRINT=$fingerprint" >> "$GITHUB_ENV"
             - run: docker build -f apps/frontend/Dockerfile -t ndt-frontend:image-upload-ci .
             - run: docker compose config --quiet
 

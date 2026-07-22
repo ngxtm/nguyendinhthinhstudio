@@ -153,6 +153,35 @@ if ($LASTEXITCODE -ne 0) { throw "production polling gates failed" }
 
 Starting the new roles requires the startup approval and a passing production-gate receipt.
 
+Before starting the roles, build or pull the exact release image and configure two
+distinct Dokploy variables for it:
+
+```text
+BACKEND_IMAGE=<unique Docker image reference or release tag>
+IMAGE_UPLOAD_BUILD_FINGERPRINT=sha256:<64 lowercase hexadecimal characters>
+```
+
+`BACKEND_IMAGE` selects the image Docker runs. `IMAGE_UPLOAD_BUILD_FINGERPRINT` is
+the resolved immutable ID/digest of those exact built bytes and is recorded in the
+reconciler heartbeat; it must never contain the mutable image tag. Resolve it only
+after the image exists on the deployment host:
+
+```sh
+IMAGE_UPLOAD_BUILD_FINGERPRINT="$(docker image inspect \
+  --format '{{.Id}}' "$BACKEND_IMAGE")"
+case "$IMAGE_UPLOAD_BUILD_FINGERPRINT" in
+  sha256:????????????????????????????????????????????????????????????????) ;;
+  *) echo "invalid immutable backend image ID" >&2; exit 1 ;;
+esac
+printf '%s\n' "IMAGE_UPLOAD_BUILD_FINGERPRINT=$IMAGE_UPLOAD_BUILD_FINGERPRINT"
+```
+
+Copy that exact output value into Dokploy before starting the generation. Record the
+full commit ID, `BACKEND_IMAGE`, and resolved fingerprint with the release evidence.
+A corrected source revision gets a new image reference and a newly resolved
+fingerprint; all API, migration, and reconciler containers for one deployment use
+the same built image.
+
 1. Start the recorded new API image with role `api` and presign disabled.
 2. Start the same release with role `reconciler`, its dedicated PostgreSQL advisory-lock connection, and its separate R2 credential.
 3. Verify no old digest runs; all cutover credentials, including the temporary config-read pair, are unmounted; API has no reconciler/cutover secret; exactly one reconciler owns the lock; all five loop timestamps advance.
