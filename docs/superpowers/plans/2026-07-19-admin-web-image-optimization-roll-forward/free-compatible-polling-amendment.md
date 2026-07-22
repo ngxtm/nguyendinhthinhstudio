@@ -297,11 +297,11 @@ Cloudflare bucket-scoped Object Read/Object Read & Write credentials support obj
 
 Provider evidence on 2026-07-22 reproduced the boundary with the production cutover credential: PostgreSQL read passed, R2 object LIST passed, and `GetBucketCors` failed with HTTP 403 `AccessDenied`. No audit receipt was created and no production mutation occurred.
 
-- [ ] **Step 1: Write failing role-isolation and client-routing tests**
+- [x] **Step 1: Write failing role-isolation and client-routing tests**
 
 Require cutover configuration to fail closed without the two config-read variables. Require API and reconciler configuration to reject them. Prove object commands use only the bucket-scoped data-plane client and `GetBucketCors` uses only the config-read client.
 
-- [ ] **Step 2: Implement the separate read-only CORS client**
+- [x] **Step 2: Implement the separate read-only CORS client**
 
 Create a second S3 client only in the one-shot cutover entrypoint. Pass it solely to the CORS readback path, keep all object operations on the existing cutover client, and destroy both clients on exit. Extend the closed production evidence schema with `cutoverR2ConfigReadCredentialFingerprintSha256`; require it to differ from every data-plane fingerprint and expose no credential value.
 

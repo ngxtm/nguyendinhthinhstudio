@@ -282,6 +282,7 @@ function assertSemanticGates(receipt) {
         receipt.provider.apiR2CredentialFingerprintSha256,
         receipt.provider.reconcilerR2CredentialFingerprintSha256,
         receipt.provider.cutoverR2CredentialFingerprintSha256,
+        receipt.provider.cutoverR2ConfigReadCredentialFingerprintSha256,
         receipt.provider.imgproxyCredentialFingerprintSha256,
     ];
     if (

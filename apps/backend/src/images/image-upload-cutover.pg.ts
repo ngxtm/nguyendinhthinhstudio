@@ -879,6 +879,7 @@ export class R2CutoverObjectStore implements CutoverObjectStore {
     private readonly bucket: string,
     private readonly expectedCorsOrigins: readonly string[] = [],
     private readonly operationTimeoutMs = 30_000,
+    private readonly corsClient: S3Client = client,
   ) {
     if (
       !Number.isSafeInteger(operationTimeoutMs) ||
@@ -942,7 +943,7 @@ export class R2CutoverObjectStore implements CutoverObjectStore {
 
   async corsMismatch(): Promise<number> {
     if (this.expectedCorsOrigins.length === 0) return 0;
-    const result = await this.client.send(
+    const result = await this.corsClient.send(
       new GetBucketCorsCommand({ Bucket: this.bucket }),
       { abortSignal: AbortSignal.timeout(this.operationTimeoutMs) },
     );
