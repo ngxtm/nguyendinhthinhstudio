@@ -191,20 +191,28 @@ optimized memory delta <= 0.50 × full-decode control delta
 
 ```powershell
 node scripts/verify-image-upload-workflow.mjs
+if ($LASTEXITCODE -ne 0) { throw "workflow contract verification failed" }
+npm run build --workspace=@ndt/image-upload-policy
+if ($LASTEXITCODE -ne 0) { throw "image-upload policy build failed" }
 npm test --workspace=frontend
+if ($LASTEXITCODE -ne 0) { throw "frontend unit tests failed" }
 Push-Location apps/frontend
 try {
     npx --no-install playwright test test/image-upload.browser.spec.ts --project=chromium
+    if ($LASTEXITCODE -ne 0) { throw "bundled Chromium gate failed" }
     $env:CFT_EXECUTABLE_PATH = "<path-to-pinned-Chrome-for-Testing-148.0.7778.96/chrome.exe>"
     npx --no-install playwright test test/image-upload.browser.spec.ts --project=stable-chrome
+    if ($LASTEXITCODE -ne 0) { throw "pinned stable-Chrome gate failed" }
 } finally {
     Pop-Location
 }
-$env:IMAGE_UPLOAD_MEMORY_FIXTURE = Join-Path $env:TEMP "ndt-image-upload-memory-fixture.jpg"
+$env:IMAGE_UPLOAD_MEMORY_FIXTURE = Join-Path $env:TEMP ("ndt-image-upload-memory-fixture-{0}.jpg" -f [guid]::NewGuid())
 npm exec --workspace=backend -- tsx -- test/generate-image-upload-memory-fixture.ts --output $env:IMAGE_UPLOAD_MEMORY_FIXTURE
+if ($LASTEXITCODE -ne 0) { throw "deterministic memory fixture generation failed" }
 Push-Location apps/frontend
 try {
     npx --no-install playwright test test/benchmark/image-upload-memory.benchmark.ts --project=chromium
+    if ($LASTEXITCODE -ne 0) { throw "browser memory benchmark failed" }
 } finally {
     Pop-Location
 }

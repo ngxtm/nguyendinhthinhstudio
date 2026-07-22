@@ -615,6 +615,8 @@ Expected: the pass fixture exits 0; every independent fail fixture exits nonzero
 
 ### Task 3: Prepare immutable build and provider resources before maintenance
 
+> **Current polling execution for Tasks 3–7:** Execute the polling-only procedure in `docs/runbooks/image-upload-roll-forward.md` and track Task A5 Steps 4–5 in `free-compatible-polling-amendment.md`. Every Queue, DLQ, consumer, event-rule, provider-event, ACK/replay, six-loop, or Queue-visibility instruction below is historical and must not be executed or used as acceptance evidence.
+
 **Files:**
 
 - Modify: `docs/runbooks/image-upload-roll-forward.md`
