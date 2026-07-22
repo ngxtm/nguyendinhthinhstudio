@@ -1,5 +1,10 @@
 import { createHash } from 'node:crypto';
-import { DeleteObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import {
+  DeleteObjectCommand,
+  GetBucketCorsCommand,
+  HeadObjectCommand,
+  S3Client,
+} from '@aws-sdk/client-s3';
 import { R2CutoverObjectStore } from './image-upload-cutover.pg';
 import {
   ImageUploadCutoverService,
@@ -204,6 +209,52 @@ describe('image upload cold-cutover service', () => {
 
     expect(captured).toBeInstanceOf(DeleteObjectCommand);
     expect((captured as DeleteObjectCommand).input.IfMatch).toBe('"AbCd0123"');
+  });
+
+  it('routes object HEAD through the data-plane client and CORS through the config-read client', async () => {
+    const dataPlaneCommands: unknown[] = [];
+    const configReadCommands: unknown[] = [];
+    const dataPlaneClient = {
+      send(command: unknown) {
+        dataPlaneCommands.push(command);
+        return Promise.resolve({
+          ETag: '"0123456789abcdef0123456789abcdef"',
+          ContentLength: 123,
+          ContentType: 'image/webp',
+          Metadata: { sha256: 'f'.repeat(64) },
+        });
+      },
+    } as unknown as S3Client;
+    const configReadClient = {
+      send(command: unknown) {
+        configReadCommands.push(command);
+        return Promise.resolve({
+          CORSRules: [
+            {
+              AllowedOrigins: ['https://admin.example.com'],
+              AllowedMethods: ['PUT'],
+              AllowedHeaders: ['Content-Type'],
+              ExposeHeaders: [],
+            },
+          ],
+        });
+      },
+    } as unknown as S3Client;
+    const objects = new R2CutoverObjectStore(
+      dataPlaneClient,
+      'non-production-test',
+      ['https://admin.example.com'],
+      30_000,
+      configReadClient,
+    );
+
+    await objects.head('uploads/private/source.webp');
+    await expect(objects.corsMismatch()).resolves.toBe(0);
+
+    expect(dataPlaneCommands).toHaveLength(1);
+    expect(dataPlaneCommands[0]).toBeInstanceOf(HeadObjectCommand);
+    expect(configReadCommands).toHaveLength(1);
+    expect(configReadCommands[0]).toBeInstanceOf(GetBucketCorsCommand);
   });
 
   it('treats production CORS as exact origins, PUT, Content-Type, and no exposed headers', async () => {

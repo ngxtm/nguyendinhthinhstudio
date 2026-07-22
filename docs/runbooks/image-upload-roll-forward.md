@@ -12,7 +12,7 @@ This runbook implements the polling-only production cutover in the canonical ima
 
 ## 1. Preparation before maintenance
 
-Record the immutable application image digest, commit, migration checksum, current policy hash, successful CI contexts, staging receipt, deterministic memory-fixture digest, manual browser-memory results, production bucket/CORS readback, exact polling readback (`reconcileGraceMs=30000`, `reconcileCadenceMs=5000`), and four distinct bucket-scoped R2 credential fingerprints.
+Record the immutable application image digest, commit, migration checksum, current policy hash, successful CI contexts, staging receipt, deterministic memory-fixture digest, manual browser-memory results, production bucket/CORS readback, exact polling readback (`reconcileGraceMs=30000`, `reconcileCadenceMs=5000`), four distinct bucket-scoped R2 data-plane credential fingerprints, and the distinct temporary production R2 Admin Read Only config-credential fingerprint.
 
 Require these exact CI contexts:
 
@@ -22,7 +22,7 @@ image-upload-packaging
 frontend-playwright-chromium
 ```
 
-The API, reconciler, cutover, and imgproxy R2 fingerprints must all differ. Confirm the production CORS readback has only explicit HTTPS admin origins, method `PUT`, allowed header `Content-Type`, no wildcard, and no exposed header.
+The API, reconciler, cutover, and imgproxy R2 data-plane fingerprints must all differ. The temporary config-read fingerprint must differ from all four and is supplied only to the cutover container as `IMAGE_UPLOAD_CUTOVER_R2_CONFIG_READ_ACCESS_KEY_ID`/`IMAGE_UPLOAD_CUTOVER_R2_CONFIG_READ_SECRET_ACCESS_KEY`. Confirm the bucket-scoped cutover credential passes object LIST/HEAD but is denied `GetBucketCors`; confirm the temporary Admin Read Only credential passes `GetBucketCors` and cannot write. Confirm the production CORS readback has only explicit HTTPS admin origins, method `PUT`, allowed header `Content-Type`, no wildcard, and no exposed header.
 
 An early rehearsal backup is non-authoritative. It cannot authorize audit, migration, or apply.
 
@@ -155,7 +155,7 @@ Starting the new roles requires the startup approval and a passing production-ga
 
 1. Start the recorded new API image with role `api` and presign disabled.
 2. Start the same release with role `reconciler`, its dedicated PostgreSQL advisory-lock connection, and its separate R2 credential.
-3. Verify no old digest runs; cutover credentials are unmounted; API has no reconciler/cutover secret; exactly one reconciler owns the lock; all five loop timestamps advance.
+3. Verify no old digest runs; all cutover credentials, including the temporary config-read pair, are unmounted; API has no reconciler/cutover secret; exactly one reconciler owns the lock; all five loop timestamps advance.
 4. Run only read-only health, schema, route, production CORS, pre-existing R2 HEAD, signed imgproxy, serializer/redaction, replica, and heartbeat checks.
 5. Deploy/purge the current frontend while general upload ingress remains blocked.
 
@@ -171,7 +171,7 @@ Regenerate both zero polling snapshots after smoke. General ingress may open onl
 
 Opening general upload ingress requires the final ingress approval. Remove the operator-only allowlist only after every gate remains zero across the second 30-second polling barrier. If any gate changes, disable presign and keep ingress closed.
 
-After stable acceptance, add/read back the `uploads/`-only 24-hour lifecycle fallback. Prove `albums/` is excluded.
+After stable acceptance, add/read back the `uploads/`-only 24-hour lifecycle fallback. Prove `albums/` is excluded. Revoke `ndt-prod-r2-config-ro`, verify its former Access Key ID is denied, remove `IMAGE_UPLOAD_CUTOVER_R2_CONFIG_READ_ACCESS_KEY_ID`/`IMAGE_UPLOAD_CUTOVER_R2_CONFIG_READ_SECRET_ACCESS_KEY` from Dokploy, and retain only the sanitized credential fingerprint plus revocation receipt.
 
 ## 10. Roll-forward incident drill
 

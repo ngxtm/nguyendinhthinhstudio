@@ -45,6 +45,10 @@ const cutover = {
   IMAGE_UPLOAD_PROCESS_ROLE: 'cutover',
   IMAGE_UPLOAD_CUTOVER_R2_ACCESS_KEY_ID: 'cutover-access-key',
   IMAGE_UPLOAD_CUTOVER_R2_SECRET_ACCESS_KEY: 'cutover-secret-key',
+  IMAGE_UPLOAD_CUTOVER_R2_CONFIG_READ_ACCESS_KEY_ID:
+    'cutover-config-read-access-key',
+  IMAGE_UPLOAD_CUTOVER_R2_CONFIG_READ_SECRET_ACCESS_KEY:
+    'cutover-config-read-secret-key',
   IMAGE_UPLOAD_OPERATOR_TOKEN: 'operator-token',
 };
 
@@ -111,6 +115,8 @@ describe('parseImageUploadRuntimeConfig', () => {
       'IMAGE_UPLOAD_RECONCILER_R2_SECRET_ACCESS_KEY',
       'IMAGE_UPLOAD_CUTOVER_R2_ACCESS_KEY_ID',
       'IMAGE_UPLOAD_CUTOVER_R2_SECRET_ACCESS_KEY',
+      'IMAGE_UPLOAD_CUTOVER_R2_CONFIG_READ_ACCESS_KEY_ID',
+      'IMAGE_UPLOAD_CUTOVER_R2_CONFIG_READ_SECRET_ACCESS_KEY',
       'NDT_STAGING_QUEUE_TOKEN',
       'NDT_STAGING_CUTOVER_QUEUE_TOKEN',
       'NDT_STAGING_CF_READ_TOKEN',
@@ -129,6 +135,8 @@ describe('parseImageUploadRuntimeConfig', () => {
       'IMAGE_UPLOAD_API_R2_SECRET_ACCESS_KEY',
       'IMAGE_UPLOAD_CUTOVER_R2_ACCESS_KEY_ID',
       'IMAGE_UPLOAD_CUTOVER_R2_SECRET_ACCESS_KEY',
+      'IMAGE_UPLOAD_CUTOVER_R2_CONFIG_READ_ACCESS_KEY_ID',
+      'IMAGE_UPLOAD_CUTOVER_R2_CONFIG_READ_SECRET_ACCESS_KEY',
       'NDT_STAGING_QUEUE_TOKEN',
       'NDT_STAGING_CUTOVER_QUEUE_TOKEN',
       'NDT_STAGING_CF_READ_TOKEN',
@@ -217,6 +225,16 @@ describe('parseImageUploadRuntimeConfig', () => {
     ['reconciler', reconciler, 'IMAGE_UPLOAD_RECONCILE_GRACE_MS'],
     ['reconciler', reconciler, 'IMAGE_UPLOAD_RECONCILE_CADENCE_MS'],
     ['cutover', cutover, 'IMAGE_UPLOAD_OPERATOR_TOKEN'],
+    [
+      'cutover',
+      cutover,
+      'IMAGE_UPLOAD_CUTOVER_R2_CONFIG_READ_ACCESS_KEY_ID',
+    ],
+    [
+      'cutover',
+      cutover,
+      'IMAGE_UPLOAD_CUTOVER_R2_CONFIG_READ_SECRET_ACCESS_KEY',
+    ],
   ] as const)('requires %s variable %s', (role, env, key) => {
     const missing = { ...env };
     delete (missing as Record<string, string | undefined>)[key];

@@ -430,6 +430,16 @@ export async function runCutoverCommand(
       secretAccessKey: config.values.IMAGE_UPLOAD_CUTOVER_R2_SECRET_ACCESS_KEY,
     },
   });
+  const configReadClient = new S3Client({
+    region: 'auto',
+    endpoint: config.r2Endpoint,
+    credentials: {
+      accessKeyId:
+        config.values.IMAGE_UPLOAD_CUTOVER_R2_CONFIG_READ_ACCESS_KEY_ID,
+      secretAccessKey:
+        config.values.IMAGE_UPLOAD_CUTOVER_R2_CONFIG_READ_SECRET_ACCESS_KEY,
+    },
+  });
   const objects = new R2CutoverObjectStore(
     client,
     config.r2Bucket,
@@ -438,6 +448,7 @@ export async function runCutoverCommand(
       .map((entry) => entry.trim())
       .filter(Boolean),
     config.r2ControlTimeoutSeconds * 1000,
+    configReadClient,
   );
   const pool = new Pool({ connectionString: config.databaseUrl });
   const repository = new PgCutoverRepository(
@@ -491,6 +502,7 @@ export async function runCutoverCommand(
   } finally {
     await pool.end();
     client.destroy();
+    configReadClient.destroy();
   }
 }
 
