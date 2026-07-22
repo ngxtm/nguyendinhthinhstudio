@@ -55,7 +55,7 @@ The same new release produces two separately configured processes:
 
 - runs as one logical singleton using a dedicated PostgreSQL connection that owns the session advisory lock;
 - stops all mutation work immediately if the lock connection is lost;
-- publishes a database heartbeat with owner and build fingerprints;
+- publishes a database heartbeat with owner and immutable release fingerprints;
 - resumes stale finalization and create-only CopyObject dispatch from durable inspected facts;
 - runs five bounded loops for pending-session expiry CAS, promotion reconciliation, expired temporary-session cleanup, applicable R2 `ImageObjectDeletion`, and rate-limit event cleanup; the pending-expiry and rate-limit loops have no API/cron owner outside this singleton;
 - deletes canonical objects only through explicit promotion-cleanup or user-deletion authority;
@@ -138,7 +138,11 @@ All persisted ETags use one canonical unquoted opaque representation. R2 HEAD an
 
 ### `ImageUploadReconcilerHeartbeat`
 
-Stores the singleton owner ID, immutable build fingerprint, lock-acquired time, last heartbeat time, and five last-completed loop times: `pendingSessionExpiryCompletedAt`, `promotionRecoveryCompletedAt`, `temporaryCleanupCompletedAt`, `imageDeletionCompletedAt`, and `rateLimitCleanupCompletedAt`. The reconciler updates it through the same dedicated PostgreSQL connection that owns the session advisory lock. Loss of that connection aborts all in-flight loop controllers before the process reconnects or exits. A healthy heartbeat is newer than two one-minute loop cadences and corresponds to exactly one advisory-lock owner.
+Stores the singleton owner ID, immutable release fingerprint, lock-acquired time, last heartbeat time, and five last-completed loop times: `pendingSessionExpiryCompletedAt`, `promotionRecoveryCompletedAt`, `temporaryCleanupCompletedAt`, `imageDeletionCompletedAt`, and `rateLimitCleanupCompletedAt`. The reconciler updates it through the same dedicated PostgreSQL connection that owns the session advisory lock. Loss of that connection aborts all in-flight loop controllers before the process reconnects or exits. A healthy heartbeat is newer than two one-minute loop cadences and corresponds to exactly one advisory-lock owner.
+
+`IMAGE_UPLOAD_BUILD_FINGERPRINT` uses the version-1 release-fingerprint contract: lowercase SHA-256 of the exact lowercase 40-character Git commit ID encoded as UTF-8 with no trailing newline. The input is the deployed `main` commit after merge, not a branch name, short commit, Docker tag, Docker manifest digest, or Docker configuration ID. The production Dockerfile pins its base image by digest, `package-lock.json` remains committed, and the production build uses a clean checkout, so the release commit identifies the reviewed source, dependency lock, Dockerfile, and pinned base. Runtime validation accepts only `sha256:<64 lowercase hex>`.
+
+The actual Docker image ID/digest is separate deployment evidence. Dokploy may produce different layer or image IDs when it rebuilds identical file content because generated layer metadata and timestamps differ; that output identity therefore does not replace the stable release fingerprint. Production evidence records both values and binds them to the same deployment generation. API, migration, and reconciler containers must reference the same Docker tag and actual running image ID, while the reconciler heartbeat must equal the release fingerprint recomputed from the recorded deployed commit.
 
 ## 6. Polling settlement state matrix
 
@@ -208,7 +212,7 @@ For this initial cutover, the operator-approved `maintenance_route_absent` excep
 
 The ordered cutover is:
 
-1. Build, test, and record the immutable new image digest.
+1. Record the exact merged release commit and its version-1 release fingerprint, build and test from a clean checkout with the digest-pinned base image, then separately record the actual produced image ID/digest. The heartbeat fingerprint and Docker output identity are distinct evidence fields bound to the same generation.
 2. Optionally create an early encrypted preparation backup for rehearsal evidence; it is not the migration backup and cannot authorize audit, migration, or apply.
 3. Provision and read back the production R2 buckets, exact R2 CORS policy, and role-separated secrets.
 4. Establish the no-new-upload boundary by either (a) disabling new presign at ingress and verifying HTTP 503 `upload_presign_disabled`, or (b) satisfying the protected `maintenance_route_absent` exception above without provisioning a new ingress Worker/rule. While the old backend finishes already-started confirms, derive the drain deadline from the existing legacy `expiresAt` only when tests prove it equals the signed PUT expiry; otherwise conservatively use `presignDisabledAt + maximum legacy PUT lifetime`. Record the later deadline.
@@ -275,6 +279,8 @@ The shared policy package emits and the Docker smoke checks the actual files:
 - `dist/cjs/index.js`;
 - `dist/index.d.ts`;
 - `dist/cjs/package.json`.
+
+The backend Dockerfile pins the Node base image by immutable digest. Packaging CI computes `IMAGE_UPLOAD_BUILD_FINGERPRINT` from the exact checked-out full Git commit using the version-1 no-newline algorithm before Compose interpolation. Tests reject a short commit, branch/tag value, prefixed image reference, uppercase/noncanonical digest, mutable base-image tag, or any attempt to derive the heartbeat fingerprint from Docker output identity. Docker smoke still records its actual image ID independently.
 
 Both production images test package resolution through public exports. The backend image also contains the compiled reconciler and cutover entrypoints.
 
