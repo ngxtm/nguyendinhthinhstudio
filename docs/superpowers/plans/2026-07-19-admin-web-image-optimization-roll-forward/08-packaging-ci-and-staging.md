@@ -168,10 +168,7 @@ const jpeg = await sharp(raw, {
     .toBuffer();
 const digest = createHash('sha256').update(jpeg).digest('hex');
 assert.equal(jpeg.byteLength, 53_114_115);
-assert.equal(
-    digest,
-    '1ac11dd1c64d39e79bdd3682bb11871ee2619b07a86fb923ba8412ab6dc3d581',
-);
+assert.equal(digest, '1ac11dd1c64d39e79bdd3682bb11871ee2619b07a86fb923ba8412ab6dc3d581');
 ```
 
 Do not call `withMetadata`; the output must contain no optional metadata. With the pinned Sharp build, require exactly 53,114,115 bytes and SHA-256 `1ac11dd1c64d39e79bdd3682bb11871ee2619b07a86fb923ba8412ab6dc3d581`. Any byte count or digest drift fails and prints the observed values. The generator refuses repository output paths and prints only the temp path, byte count, and digest; the manual release command passes that path to the benchmark.
@@ -364,6 +361,8 @@ albums/staging/{runId}/
 
 Persist a non-secret run receipt outside the repository containing run ID, both exact prefixes, the SHA-256 fingerprint of the staging Supabase project ref, consumed event IDs, and cleanup status. On POSIX use mode 0600; on Windows apply an owner-only ACL. Long-lived provider resource IDs and the Supabase staging project are configuration, not deleted per run.
 
+> **Polling receipt amendment:** The closed `image-upload-staging-receipt/v1-polling` replaces the historical event field with the exact release commit, workflow run ID/attempt, hashed database identity, qualification status, and cleanup status. The workflow uploads it after cleanup with `actions/upload-artifact@v4`, fails when it is missing, and retains it for 30 days. Production never accepts a reconstructed log digest.
+
 - [x] **Step 3: Implement the single command**
 
 Add scripts:
@@ -423,17 +422,17 @@ CI adds a fourth, non-ruleset staging job that runs only for explicit `workflow_
 
 ```yaml
 image-upload-staging:
-  if: github.event_name == 'workflow_dispatch'
-  environment: staging
-  concurrency:
-    group: image-upload-staging
-    cancel-in-progress: false
-  steps:
-    - name: Run staging qualification
-      run: npm run test:staging:run --workspace=backend
-    - name: Cleanup staging run
-      if: always()
-      run: npm run test:staging:cleanup --workspace=backend
+    if: github.event_name == 'workflow_dispatch'
+    environment: staging
+    concurrency:
+        group: image-upload-staging
+        cancel-in-progress: false
+    steps:
+        - name: Run staging qualification
+          run: npm run test:staging:run --workspace=backend
+        - name: Cleanup staging run
+          if: always()
+          run: npm run test:staging:cleanup --workspace=backend
 ```
 
 The protected environment owns the staging secrets and requires operator approval before release. The workflow verifier permits this explicit event guard only for `image-upload-staging`; none of the three ruleset-required jobs may be conditionally skipped.

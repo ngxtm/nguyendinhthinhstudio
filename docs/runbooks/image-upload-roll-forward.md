@@ -208,9 +208,12 @@ Verify the protected post-start receipt and its distinct approval:
 node scripts/verify-image-upload-production-gates.mjs `
   --receipt $env:IMAGE_UPLOAD_PRODUCTION_GATE_RECEIPT `
   --approval $env:IMAGE_UPLOAD_PRODUCTION_GATE_APPROVAL `
-  --startup-approval $env:IMAGE_UPLOAD_PRODUCTION_STARTUP_APPROVAL
+  --startup-approval $env:IMAGE_UPLOAD_PRODUCTION_STARTUP_APPROVAL `
+  --staging-receipt $env:IMAGE_UPLOAD_STAGING_RECEIPT
 if ($LASTEXITCODE -ne 0) { throw "production polling gates failed" }
 ```
+
+This is the **Phase 1 post-start approval**. It authorizes only operator-only ingress and smoke; it cannot authorize general ingress and deliberately contains no smoke or drill decision.
 
 ## 8. Operator-only mutating acceptance
 
@@ -218,25 +221,56 @@ Presign enablement is a production mutation and requires both the passing protec
 
 Exercise representative browser uploads, fixed absolute presign-expiry retries, allowed and denied browser CORS, response-first settlement, deliberate CopyObject response loss followed by exact destination HEAD settlement in 30–35 seconds, unchanged destination on retry, conflict fail-closed behavior, committed-result deletion, failed-promotion cleanup, temporary cleanup after expiry plus skew, and imgproxy rendering.
 
-Create the separate operator-smoke receipt, then regenerate both zero polling snapshots after smoke. General ingress may open only when the protected post-start production receipt, operator-smoke receipt, exact CI contexts, manual stable-Chrome result, deterministic memory evidence, and roll-forward drill all pass.
+Create the protected operator-smoke receipt. Keep general ingress blocked.
 
-## 9. Open general ingress
+## 9. Complete the roll-forward drill and final-ingress admission
 
-Opening general upload ingress requires the final ingress approval. Remove the operator-only allowlist only after every gate remains zero across the second 30-second polling barrier. If any gate changes, disable presign and keep ingress closed.
+The release transition used to correct Stage 09 may serve as the drill transition only when its receipt binds the distinct previous and active releases and proves the sequence below. Never relabel a same-release restart or a log summary as a drill.
+
+1. Disable presign on every new API and prove general ingress is blocked.
+2. Capture sanitized session, promotion, polling, conflict, object-deletion, replica, role, and heartbeat evidence.
+3. Keep a new reconciler running only while its dedicated lock, five loop timestamps, role secrets, provider readback, and database invariants remain healthy.
+4. Build the forward release and apply only forward-compatible migrations.
+5. Start the forward API/reconciler with presign disabled and obtain its Phase 1 receipt and approval.
+6. Enable presign only behind operator-only ingress and smoke; create the protected smoke authorization and receipt.
+7. Create the protected drill receipt and approval ending at that active release.
+8. Capture **two final zero polling snapshots** at least 30 seconds apart after smoke and drill.
+9. Build and verify the Phase 2 final-ingress receipt with every protected input.
+
+The operational order is closed and may not be rearranged:
+
+1. Phase 1 post-start approval
+2. operator-only ingress and smoke
+3. roll-forward drill ending at the active release
+4. two final zero polling snapshots
+5. Phase 2 final-ingress approval
+6. open general ingress
+7. rollback-window cleanup
+
+Verify Phase 2:
+
+```powershell
+npm run verify:image-upload-final-ingress -- `
+  --receipt $env:IMAGE_UPLOAD_FINAL_INGRESS_RECEIPT `
+  --approval $env:IMAGE_UPLOAD_FINAL_INGRESS_APPROVAL `
+  --post-start-receipt $env:IMAGE_UPLOAD_PRODUCTION_GATE_RECEIPT `
+  --post-start-approval $env:IMAGE_UPLOAD_PRODUCTION_GATE_APPROVAL `
+  --smoke-authorization $env:IMAGE_UPLOAD_OPERATOR_SMOKE_AUTHORIZATION `
+  --smoke-receipt $env:IMAGE_UPLOAD_OPERATOR_SMOKE_RECEIPT `
+  --drill-receipt $env:IMAGE_UPLOAD_ROLL_FORWARD_DRILL_RECEIPT `
+  --drill-approval $env:IMAGE_UPLOAD_ROLL_FORWARD_DRILL_APPROVAL
+if ($LASTEXITCODE -ne 0) { throw "final ingress gates failed" }
+```
+
+Never start a prior application generation during this drill.
+
+## 10. Open general ingress and schedule cleanup
+
+Opening general upload ingress requires the Phase 2 final-ingress approval. Remove the operator-only allowlist only after the verifier passes. If any gate changes, disable presign and keep ingress closed.
 
 After stable acceptance, add/read back the `uploads/`-only 24-hour lifecycle fallback. Prove `albums/` is excluded. Revoke `ndt-prod-r2-config-ro`, verify its former Access Key ID is denied, remove `IMAGE_UPLOAD_CUTOVER_R2_CONFIG_READ_ACCESS_KEY_ID`/`IMAGE_UPLOAD_CUTOVER_R2_CONFIG_READ_SECRET_ACCESS_KEY` from Dokploy, and retain only the sanitized credential fingerprint plus revocation receipt.
 
-## 10. Roll-forward incident drill
-
-1. Disable presign on every new API and block general upload ingress.
-2. Capture sanitized session, promotion, polling, conflict, object-deletion, replica, role, and heartbeat evidence.
-3. Keep a new reconciler running only while its dedicated lock, five loop timestamps, role secrets, provider readback, and database invariants remain healthy.
-4. Fix the new version, build a new immutable digest, and apply only forward-compatible migrations.
-5. Start the corrected new API/reconciler with presign disabled; repeat read-only checks.
-6. Enable presign only behind operator-only ingress; repeat the complete mutating acceptance and two polling snapshots.
-7. Open general ingress only after a new approved production receipt passes.
-
-Never start a prior application generation during this drill.
+Perform cleanup only through `docs/runbooks/image-upload-evidence-cleanup.md`, after the rollback window.
 
 ## Local verifier regression
 

@@ -69,22 +69,22 @@ Existing unfinished upload rows are handled once by the cutover bridge command w
 
 ## Closure mapping
 
-| Requirement | Closed in |
-| --- | --- |
-| Durable promotion exists before CopyObject | Stages 03 and 05 |
-| Response loss recovers through exact destination HEAD after 30 seconds | Stages 03, 05, 08, and 09 |
-| Destination mismatch cannot overwrite or delete automatically | Stages 03, 05, 08, and 09 |
-| Reconciler has a dedicated advisory-lock connection and five bounded loops | Stages 03, 05, 08, and 09 |
-| Temporary and committed-result deletion authorities remain separate | Stages 03, 04, 05, and 09 |
-| Soft-deleted albums retain compact evidence | Stages 03, 04, 05, and 09 |
-| Presign retries never extend absolute expiry | Stages 03, 04, 08, and 09 |
-| Staging uses free-compatible R2 without Event Notifications or Queues | Stage 08 |
-| Staging cleanup covers both exact run prefixes | Stage 08 |
-| Production cutover verifies polling recovery before general ingress | Stage 09 |
+| Requirement                                                                                                                         | Closed in                 |
+| ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------- |
+| Durable promotion exists before CopyObject                                                                                          | Stages 03 and 05          |
+| Response loss recovers through exact destination HEAD after 30 seconds                                                              | Stages 03, 05, 08, and 09 |
+| Destination mismatch cannot overwrite or delete automatically                                                                       | Stages 03, 05, 08, and 09 |
+| Reconciler has a dedicated advisory-lock connection and five bounded loops                                                          | Stages 03, 05, 08, and 09 |
+| Temporary and committed-result deletion authorities remain separate                                                                 | Stages 03, 04, 05, and 09 |
+| Soft-deleted albums retain compact evidence                                                                                         | Stages 03, 04, 05, and 09 |
+| Presign retries never extend absolute expiry                                                                                        | Stages 03, 04, 08, and 09 |
+| Staging uses free-compatible R2 without Event Notifications or Queues                                                               | Stage 08                  |
+| Staging cleanup covers both exact run prefixes                                                                                      | Stage 08                  |
+| Production cutover verifies polling recovery before general ingress                                                                 | Stage 09                  |
 | R2 data-plane credentials remain role-separated and bucket-scoped; temporary production config readback is account-scoped read-only | Stages 04, 05, 08, and 09 |
-| Browser memory tests use a deterministic fixture | Stage 08 |
-| Required ruleset contexts are verified exactly | Stages 08 and 09 |
-| Existing legacy ambiguity is resolved through protected dispositions | Stage 09 |
+| Browser memory tests use a deterministic fixture                                                                                    | Stage 08                  |
+| Required ruleset contexts are verified exactly                                                                                      | Stages 08 and 09          |
+| Existing legacy ambiguity is resolved through protected dispositions                                                                | Stage 09                  |
 
 ## Baseline commands
 
@@ -115,7 +115,8 @@ Expected: Node 24 or 26, npm 11, commands exit 0, frontend focused tests use the
 - Only the new API and reconciler start, both with presign disabled.
 - Process roles, secret isolation, dedicated singleton lock/heartbeat, actual replica count, read-only R2/imgproxy paths, routes, and schema pass.
 - Presign is enabled while general ingress remains blocked and only the authenticated operator smoke path is allowlisted.
-- General ingress opens only after fixed-absolute-expiry retry tests, exact CORS readback plus real allowed/denied cross-origin PUT tests, browser/R2 mutation, response-loss polling settlement, image-deletion, and cleanup gates pass.
+- Phase 1 post-start approval authorizes only operator-only smoke and binds the retained successful staging receipt as a protected input. General ingress opens only after the separate Phase 2 verifier binds smoke, a roll-forward drill ending at the active release, and two final zero snapshots.
+- Cleanup is dry-run and manifest-driven after the rollback window; encrypted backups and images referenced by containers are never automatic purge targets.
 
 ## Roll-forward summary
 
