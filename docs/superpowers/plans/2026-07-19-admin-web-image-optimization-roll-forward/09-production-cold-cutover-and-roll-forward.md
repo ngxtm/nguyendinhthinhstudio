@@ -768,6 +768,8 @@ Run active-upload, `unterminalized_expired_uploads`, unresolved-promotion, inval
 
 ### Task 5: Start only the new generation
 
+> **Corrective prerequisite:** Execute every task in `../2026-07-23-stage09-stable-release-fingerprint.md` before continuing this task. The corrective plan defines the canonical commit-derived heartbeat fingerprint and keeps the actual Docker image ID as separate deployment evidence.
+
 **Files:**
 
 - Modify: `docs/runbooks/image-upload-roll-forward.md`
