@@ -63,6 +63,10 @@ describe('parseImageUploadRuntimeConfig', () => {
       const config = parseImageUploadRuntimeConfig(env, role);
 
       expect(config.processRole).toBe(role);
+      expect(config.ingress).toEqual({
+        presignEnabled: false,
+        mode: 'disabled',
+      });
       expect(config.fingerprint).toMatchObject({
         role,
         policyVersion: INITIAL_IMAGE_UPLOAD_POLICY_VERSION,
@@ -72,6 +76,7 @@ describe('parseImageUploadRuntimeConfig', () => {
         decodePermitsPerProcess: 2,
         r2ControlTimeoutSeconds: 30,
         r2ReadTimeoutSeconds: 60,
+        ingressMode: 'disabled',
         ...(role === 'reconciler'
           ? { reconcileGraceMs: 30_000, reconcileCadenceMs: 5_000 }
           : {}),
@@ -82,6 +87,68 @@ describe('parseImageUploadRuntimeConfig', () => {
       );
     },
   );
+
+  it.each([
+    [
+      {
+        ...api,
+        IMAGE_UPLOAD_PRESIGN_ENABLED: 'true',
+        IMAGE_UPLOAD_INGRESS_MODE: 'operator-smoke',
+        IMAGE_UPLOAD_OPERATOR_SMOKE_TOKEN:
+          'operator-smoke-token-with-at-least-32-bytes',
+      },
+      'operator-smoke',
+    ],
+    [
+      {
+        ...api,
+        IMAGE_UPLOAD_PRESIGN_ENABLED: 'true',
+        IMAGE_UPLOAD_INGRESS_MODE: 'general',
+      },
+      'general',
+    ],
+  ])('binds API ingress mode %s into sanitized runtime', (env, mode) => {
+    const config = parseImageUploadRuntimeConfig(env, 'api');
+
+    expect(config.ingress.mode).toBe(mode);
+    expect(config.fingerprint.ingressMode).toBe(mode);
+    if (mode === 'operator-smoke') {
+      expect(config.fingerprint.operatorSmokeTokenSha256).toMatch(
+        /^[a-f0-9]{64}$/,
+      );
+    } else {
+      expect(config.fingerprint).not.toHaveProperty(
+        'operatorSmokeTokenSha256',
+      );
+    }
+    expect(config.values).not.toHaveProperty(
+      'IMAGE_UPLOAD_OPERATOR_SMOKE_TOKEN',
+    );
+    if (env.IMAGE_UPLOAD_OPERATOR_SMOKE_TOKEN) {
+      expect(JSON.stringify(config.fingerprint)).not.toContain(
+        env.IMAGE_UPLOAD_OPERATOR_SMOKE_TOKEN,
+      );
+    }
+  });
+
+  it.each([
+    {
+      ...api,
+      IMAGE_UPLOAD_PRESIGN_ENABLED: 'true',
+    },
+    {
+      ...api,
+      IMAGE_UPLOAD_PRESIGN_ENABLED: 'false',
+      IMAGE_UPLOAD_INGRESS_MODE: 'general',
+    },
+    {
+      ...api,
+      IMAGE_UPLOAD_PRESIGN_ENABLED: 'true',
+      IMAGE_UPLOAD_INGRESS_MODE: 'operator-smoke',
+    },
+  ])('rejects unsafe runtime ingress binding %#', (env) => {
+    expect(() => parseImageUploadRuntimeConfig(env, 'api')).toThrow();
+  });
 
   it.each([
     ['IMAGE_UPLOAD_PROCESS_COUNT', '0'],
@@ -140,6 +207,7 @@ describe('parseImageUploadRuntimeConfig', () => {
       'NDT_STAGING_QUEUE_TOKEN',
       'NDT_STAGING_CUTOVER_QUEUE_TOKEN',
       'NDT_STAGING_CF_READ_TOKEN',
+      'IMAGE_UPLOAD_OPERATOR_SMOKE_TOKEN',
     ],
     cutover: [
       'IMAGE_UPLOAD_QUEUE_ID',
@@ -157,6 +225,7 @@ describe('parseImageUploadRuntimeConfig', () => {
       'NDT_STAGING_QUEUE_TOKEN',
       'NDT_STAGING_CUTOVER_QUEUE_TOKEN',
       'NDT_STAGING_CF_READ_TOKEN',
+      'IMAGE_UPLOAD_OPERATOR_SMOKE_TOKEN',
     ],
   } as const;
 
