@@ -1,0 +1,7 @@
+{
+    "base": "../pass.json",
+    "expectedGate": "stagingReceiptBinding",
+    "set": {
+        "stagingReceiptPathSha256": "1111111111111111111111111111111111111111111111111111111111111111"
+    }
+}

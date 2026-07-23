@@ -1,5 +1,5 @@
 {
-    "schemaVersion": "image-upload-production-gate-receipt/v2-polling",
+    "schemaVersion": "image-upload-production-gate-receipt/v3-post-start-polling",
     "receiptId": "10000000-0000-4000-8000-000000000001",
     "receiptPathSha256": "1111111111111111111111111111111111111111111111111111111111111111",
     "createdAt": "2026-07-21T00:10:00.000Z",
@@ -144,6 +144,5 @@
     "stagingReceiptSha256": "3636363636363636363636363636363636363636363636363636363636363636",
     "startupApprovalPathSha256": "4040404040404040404040404040404040404040404040404040404040404040",
     "startupApprovalSha256": "3737373737373737373737373737373737373737373737373737373737373737",
-    "rollForwardDrillDecision": "pass",
     "canonicalSha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
 }

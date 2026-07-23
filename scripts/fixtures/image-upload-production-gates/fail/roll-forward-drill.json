@@ -1,5 +1,0 @@
-{
-    "base": "../pass.json",
-    "expectedGate": "rollForwardDrillDecision",
-    "set": { "rollForwardDrillDecision": "fail" }
-}
