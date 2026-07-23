@@ -13,13 +13,14 @@
         "roles",
         "provider",
         "cutover",
+        "preDeployPollingSnapshotSha256",
         "pollingSnapshots",
         "ci",
         "memory",
         "stagingReceiptPathSha256",
         "stagingReceiptSha256",
-        "operatorSmokeReceiptPathSha256",
-        "operatorSmokeReceiptSha256",
+        "startupApprovalPathSha256",
+        "startupApprovalSha256",
         "rollForwardDrillDecision",
         "canonicalSha256"
     ],
@@ -32,7 +33,9 @@
             "type": "object",
             "additionalProperties": false,
             "required": [
+                "imageReference",
                 "imageDigest",
+                "imageCommitSha",
                 "commitSha",
                 "releaseFingerprint",
                 "migrationChecksumSha256",
@@ -41,7 +44,12 @@
                 "policyHash"
             ],
             "properties": {
+                "imageReference": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9._/:@-]{0,254}$"
+                },
                 "imageDigest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+                "imageCommitSha": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
                 "commitSha": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
                 "releaseFingerprint": {
                     "type": "string",
@@ -72,6 +80,11 @@
                 "apiFingerprintSha256",
                 "reconcilerFingerprintSha256",
                 "cutoverFingerprintSha256",
+                "apiImageDigest",
+                "migrationImageDigest",
+                "reconcilerImageDigest",
+                "reconcilerEnvironmentBuildFingerprint",
+                "heartbeatBuildFingerprint",
                 "readyApiProcesses",
                 "configuredApiProcesses",
                 "permitsPerProcess",
@@ -87,6 +100,23 @@
                 "apiFingerprintSha256": { "$ref": "#/$defs/sha256" },
                 "reconcilerFingerprintSha256": { "$ref": "#/$defs/sha256" },
                 "cutoverFingerprintSha256": { "$ref": "#/$defs/sha256" },
+                "apiImageDigest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+                "migrationImageDigest": {
+                    "type": "string",
+                    "pattern": "^sha256:[a-f0-9]{64}$"
+                },
+                "reconcilerImageDigest": {
+                    "type": "string",
+                    "pattern": "^sha256:[a-f0-9]{64}$"
+                },
+                "reconcilerEnvironmentBuildFingerprint": {
+                    "type": "string",
+                    "pattern": "^sha256:[a-f0-9]{64}$"
+                },
+                "heartbeatBuildFingerprint": {
+                    "type": "string",
+                    "pattern": "^sha256:[a-f0-9]{64}$"
+                },
                 "readyApiProcesses": { "$ref": "#/$defs/nonNegativeInteger" },
                 "configuredApiProcesses": { "$ref": "#/$defs/nonNegativeInteger" },
                 "permitsPerProcess": { "type": "integer", "minimum": 1 },
@@ -159,6 +189,13 @@
                 "dispositionInvalidCount": { "$ref": "#/$defs/nonNegativeInteger" }
             }
         },
+        "preDeployPollingSnapshotSha256": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 2,
+            "uniqueItems": true,
+            "items": { "$ref": "#/$defs/sha256" }
+        },
         "pollingSnapshots": {
             "type": "array",
             "minItems": 2,
@@ -216,8 +253,8 @@
         },
         "stagingReceiptPathSha256": { "$ref": "#/$defs/sha256" },
         "stagingReceiptSha256": { "$ref": "#/$defs/sha256" },
-        "operatorSmokeReceiptPathSha256": { "$ref": "#/$defs/sha256" },
-        "operatorSmokeReceiptSha256": { "$ref": "#/$defs/sha256" },
+        "startupApprovalPathSha256": { "$ref": "#/$defs/sha256" },
+        "startupApprovalSha256": { "$ref": "#/$defs/sha256" },
         "rollForwardDrillDecision": { "enum": ["pass", "fail"] },
         "canonicalSha256": { "$ref": "#/$defs/sha256" }
     },

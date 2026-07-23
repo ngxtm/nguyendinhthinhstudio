@@ -96,7 +96,7 @@ requireFragments(jobs.get('backend-image-upload'), 'backend-image-upload', [
     'npm run test:image-upload:ci --workspace=backend',
 ]);
 requireFragments(jobs.get('image-upload-packaging'), 'image-upload-packaging', [
-    'docker build -f apps/backend/Dockerfile',
+    'docker build --build-arg "IMAGE_UPLOAD_RELEASE_COMMIT=$IMAGE_UPLOAD_RELEASE_COMMIT" -f apps/backend/Dockerfile',
     'docker build -f apps/frontend/Dockerfile',
     'docker compose config --quiet',
 ]);

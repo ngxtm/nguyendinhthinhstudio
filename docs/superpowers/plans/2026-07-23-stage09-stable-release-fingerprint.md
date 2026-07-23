@@ -4,7 +4,7 @@
 
 **Goal:** Replace the circular Docker-output heartbeat identity with a stable fingerprint derived from the exact merged release commit while retaining the actual running Docker image ID as separate deployment evidence.
 
-**Architecture:** One small Node CLI owns the version-1 fingerprint algorithm and is reused by CI, the production evidence verifier, and the runbook. The backend base image is pinned by digest, the production receipt binds `commitSha`, `releaseFingerprint`, and the independently observed `imageDigest`, and Dokploy may rebuild without changing the heartbeat identity for that release.
+**Architecture:** One small Node CLI owns the version-1 fingerprint algorithm and is reused by CI, the production evidence verifier, and the runbook. The backend base image is pinned by digest, its final image carries the exact release commit in an immutable label, and the post-start production receipt closes every commit, image, environment, and heartbeat binding while keeping Docker output identity separate from the stable heartbeat identity. A distinct pre-deploy startup approval authorizes only presign-disabled startup; it is not the post-start acceptance receipt.
 
 **Tech Stack:** Node.js 24, node:test, Docker/BuildKit, GitHub Actions, JSON Schema/Ajv, Docker Compose/Dokploy, PostgreSQL.
 
@@ -209,6 +209,7 @@ git commit -m "feat(images): bind release evidence fingerprint"
 
 - Modify: `apps/backend/Dockerfile`
 - Modify: `.github/workflows/image-upload.yml`
+- Modify: `scripts/verify-image-upload-workflow.mjs`
 - Test: `apps/backend/src/images/docker-runtime-contract.spec.ts`
 
 - [x] **Step 1: Write failing Docker and workflow contract tests**
@@ -269,7 +270,8 @@ Run:
 ```powershell
 npm run build --workspace=@ndt/image-upload-policy
 npm test --workspace=backend -- --runInBand --runTestsByPath src/images/docker-runtime-contract.spec.ts src/scripts/reconcile-image-uploads.spec.ts
-docker build -f apps/backend/Dockerfile -t ndt-stable-release-fingerprint:test .
+$releaseCommit = git rev-parse HEAD
+docker build --build-arg "IMAGE_UPLOAD_RELEASE_COMMIT=$releaseCommit" -f apps/backend/Dockerfile -t ndt-stable-release-fingerprint:test .
 ```
 
 Expected: contract tests PASS, the pinned base resolves, runtime alias guards pass, and the image builds successfully.
@@ -332,7 +334,7 @@ git commit -m "docs(images): synchronize stable release fingerprint rollout"
 
 - Verify: all files changed in Tasks 1–4
 
-- [ ] **Step 1: Install the locked workspace and run complete verification**
+- [x] **Step 1: Install the locked workspace and run complete verification**
 
 Run:
 
@@ -342,14 +344,15 @@ npm run build --workspace=@ndt/image-upload-policy
 npm run build --workspace=backend
 node --test scripts/image-upload-release-fingerprint.test.mjs scripts/verify-image-upload-production-gates.test.mjs
 npm test --workspace=backend -- --runInBand
-docker build -f apps/backend/Dockerfile -t ndt-stable-release-fingerprint:test .
+$releaseCommit = git rev-parse HEAD
+docker build --build-arg "IMAGE_UPLOAD_RELEASE_COMMIT=$releaseCommit" -f apps/backend/Dockerfile -t ndt-stable-release-fingerprint:test .
 git diff --check
 git status --short --branch
 ```
 
 Expected: backend build exits 0, all script/backend tests pass, Docker packaging passes with the pinned base, and only planned files differ from `origin/main`.
 
-- [ ] **Step 2: Request independent code review**
+- [x] **Step 2: Request independent code review**
 
 Review `origin/main...HEAD` against the canonical spec. Fix every Critical or Important finding and rerun the affected focused plus full verification.
 
@@ -362,6 +365,124 @@ gh pr create --base main --head fix/stage09-stable-release-fingerprint --title "
 ```
 
 The PR body records the production-safe state (`IMAGE_UPLOAD_PRESIGN_ENABLED=false`), the identical 61,200-file content-hash evidence, the old/new image-ID mismatch that motivated the correction, and all verification commands. Do not merge automatically; the operator merges after required checks pass.
+
+### Task 5A: Close production runtime evidence bindings
+
+**Files:**
+
+- Modify: `scripts/schemas/image-upload-production-evidence.schema.json`
+- Modify: `scripts/fixtures/image-upload-production-gates/pass.json`
+- Create: `scripts/fixtures/image-upload-production-gates/fail/image-commit-binding.json`
+- Create: `scripts/fixtures/image-upload-production-gates/fail/runtime-image-binding.json`
+- Create: `scripts/fixtures/image-upload-production-gates/fail/runtime-fingerprint-binding.json`
+- Create: `scripts/fixtures/image-upload-production-gates/fail/startup-approval-binding.json`
+- Modify: `scripts/verify-image-upload-production-gates.mjs`
+- Test: `scripts/verify-image-upload-production-gates.test.mjs`
+
+- [x] **Step 1: Synchronize the canonical spec before code**
+
+Record the approved contract: the receipt is post-start evidence; it stores the selected image reference, independently observed Docker image ID, image commit label, per-role observed image IDs, reconciler environment fingerprint, and heartbeat fingerprint. Require `imageCommitSha == commitSha`, every role image ID to equal `release.imageDigest`, and both runtime fingerprints to equal the recomputed release fingerprint.
+
+- [x] **Step 2: Add closed schema fields and failing fixtures**
+
+Extend `release` with `imageReference` and `imageCommitSha`. Extend `roles` with `apiImageDigest`, `migrationImageDigest`, `reconcilerImageDigest`, `reconcilerEnvironmentBuildFingerprint`, and `heartbeatBuildFingerprint`. Add one independent fail fixture for each of `imageCommitBinding`, `runtimeImageBinding`, and `runtimeFingerprintBinding`.
+
+- [x] **Step 3: Run verifier tests and observe RED**
+
+```powershell
+node --test scripts/verify-image-upload-production-gates.test.mjs
+```
+
+Expected: the new semantic mismatch fixtures unexpectedly pass until the verifier implements the bindings.
+
+- [x] **Step 4: Implement the semantic gates and observe GREEN**
+
+Enforce the three bindings before the remaining role/heartbeat gates, then run:
+
+```powershell
+node --test scripts/image-upload-release-fingerprint.test.mjs scripts/verify-image-upload-production-gates.test.mjs
+```
+
+Expected: all fixtures pass and each new fixture reports its exact expected gate.
+
+### Task 5B: Bind the final image to the exact merged commit
+
+**Files:**
+
+- Modify: `apps/backend/src/images/docker-runtime-contract.spec.ts`
+- Modify: `apps/backend/Dockerfile`
+- Modify: `docker-compose.yml`
+- Modify: `.github/workflows/image-upload.yml`
+
+- [x] **Step 1: Add failing Docker, Compose, and workflow contract assertions**
+
+Require `IMAGE_UPLOAD_RELEASE_COMMIT` as a Compose build argument, require the Dockerfile to validate the lowercase full commit and set `studio.nguyendinhthinh.image-upload.release-commit`, and require packaging CI to derive and pass the same checked-out commit before building.
+
+- [x] **Step 2: Run the focused contract and observe RED**
+
+```powershell
+npm test --workspace=backend -- --runInBand --runTestsByPath src/images/docker-runtime-contract.spec.ts
+```
+
+- [x] **Step 3: Implement the minimal build provenance contract**
+
+Add the build arg and immutable label to the final backend stage, pass the required arg from Compose, and reorder packaging CI so the checked-out commit is derived before Docker build and passed with `--build-arg`.
+
+- [x] **Step 4: Run focused tests and a provenance-aware Docker build**
+
+```powershell
+$releaseCommit = git rev-parse HEAD
+npm test --workspace=backend -- --runInBand --runTestsByPath src/images/docker-runtime-contract.spec.ts
+docker build --build-arg "IMAGE_UPLOAD_RELEASE_COMMIT=$releaseCommit" -f apps/backend/Dockerfile -t ndt-stable-release-fingerprint:test .
+docker image inspect --format '{{ index .Config.Labels "studio.nguyendinhthinh.image-upload.release-commit" }}' ndt-stable-release-fingerprint:test
+```
+
+Expected: focused tests pass, the build passes, and the label equals `$releaseCommit`.
+
+### Task 5C: Remove circular production-gate ordering
+
+**Files:**
+
+- Modify: `docs/runbooks/image-upload-roll-forward.md`
+- Modify: `docs/superpowers/plans/2026-07-19-admin-web-image-optimization-roll-forward/09-production-cold-cutover-and-roll-forward.md`
+
+- [x] **Step 1: Document exact clean-checkout and two-phase approval ordering**
+
+Require branch `main`, an empty `git status --porcelain --untracked-files=all`, and `HEAD == origin/main` before computing the release identity. Define the order as: protected startup approval and completed pre-deploy gates; presign-disabled deploy; collection of actual per-role image IDs, image label, environment fingerprint, heartbeat, and five-loop evidence; protected post-start production acceptance receipt and approval; only then operator-only mutating smoke or ingress changes. The post-start receipt binds the startup-approval path/digest and excludes the later operator-smoke receipt fields so it does not depend on evidence for the mutation it authorizes.
+
+- [x] **Step 2: Synchronize the Stage 09 closed-contract amendment**
+
+Replace the v2 polling amendment with the exact new `release` and `roles` fields and remove every instruction requiring the complete production receipt before roles start.
+
+- [x] **Step 3: Scan for contradictions and verify formatting**
+
+```powershell
+rg -n "passing production-gate receipt|startup approval|imageReference|imageCommitSha|apiImageDigest|heartbeatBuildFingerprint|HEAD == origin/main|IMAGE_UPLOAD_RELEASE_COMMIT" docs/runbooks/image-upload-roll-forward.md docs/superpowers/specs/2026-07-19-admin-web-image-optimization-roll-forward-design.md docs/superpowers/plans/2026-07-19-admin-web-image-optimization-roll-forward/09-production-cold-cutover-and-roll-forward.md
+git diff --check
+```
+
+### Task 5D: Close independent-review findings
+
+**Files:**
+
+- Modify: `scripts/verify-image-upload-production-gates.mjs`
+- Modify: `scripts/verify-image-upload-production-gates.test.mjs`
+- Modify: `apps/backend/Dockerfile`
+- Modify: `apps/backend/src/images/docker-runtime-contract.spec.ts`
+- Modify: `docs/runbooks/image-upload-roll-forward.md`
+- Modify: `docs/superpowers/plans/2026-07-23-stage09-stable-release-fingerprint.md`
+
+- [x] **Step 1: Add RED tests for protected startup approval bytes and multiline commit rejection**
+
+Production verification must require a third distinct absolute `--startup-approval` path, validate the artifact's closed keys/canonical hash, recompute its path and byte digests, and cross-bind its release/backups/audit plus exactly two distinct pre-deploy polling snapshot digests to the post-start receipt. Docker contract tests must reject the line-oriented `grep` predicate and require exact length plus an all-character shell case check.
+
+- [x] **Step 2: Implement startup artifact binding and exact Docker validation**
+
+Add the minimal verifier and Dockerfile changes, then observe the focused tests GREEN. Explicitly test tampered startup bytes and a multiline Docker build argument.
+
+- [x] **Step 3: Repair every final verification command and rerun full verification**
+
+Every final-state backend Docker build command must pass `IMAGE_UPLOAD_RELEASE_COMMIT`. Rerun script tests, workflow contract, 51 backend suites, Compose interpolation, valid/multiline-invalid Docker builds, formatting, syntax, and `git diff --check`.
 
 ### Task 6: Redeploy the corrected release and verify heartbeat evidence
 
@@ -376,6 +497,9 @@ From a clean production checkout of merged `main`, run:
 ```sh
 git fetch origin main
 git merge --ff-only origin/main
+test "$(git branch --show-current)" = main
+test -z "$(git status --porcelain --untracked-files=all)"
+test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
 RELEASE_COMMIT="$(git rev-parse HEAD)"
 IMAGE_UPLOAD_BUILD_FINGERPRINT="$(
   node scripts/image-upload-release-fingerprint.mjs "$RELEASE_COMMIT"
@@ -383,6 +507,7 @@ IMAGE_UPLOAD_BUILD_FINGERPRINT="$(
 BACKEND_IMAGE="ndt-studio-backend:$(printf '%s' "$RELEASE_COMMIT" | cut -c1-12)"
 printf '%s\n' "RELEASE_COMMIT=$RELEASE_COMMIT"
 printf '%s\n' "BACKEND_IMAGE=$BACKEND_IMAGE"
+printf '%s\n' "IMAGE_UPLOAD_RELEASE_COMMIT=$RELEASE_COMMIT"
 printf '%s\n' "IMAGE_UPLOAD_BUILD_FINGERPRINT=$IMAGE_UPLOAD_BUILD_FINGERPRINT"
 ```
 
@@ -390,7 +515,7 @@ Expected: one full 40-character commit, one unique image tag, and one canonical 
 
 - [ ] **Step 2: Configure Dokploy and redeploy once**
 
-Set the printed `BACKEND_IMAGE` and `IMAGE_UPLOAD_BUILD_FINGERPRINT`, keep `IMAGE_UPLOAD_PRESIGN_ENABLED=false`, save, and redeploy. Do not enable upload ingress or perform PUT/COPY/DELETE smoke in this step.
+After the distinct protected startup approval is present, set the printed `BACKEND_IMAGE`, `IMAGE_UPLOAD_RELEASE_COMMIT`, and `IMAGE_UPLOAD_BUILD_FINGERPRINT`, keep `IMAGE_UPLOAD_PRESIGN_ENABLED=false`, save, and redeploy. Do not enable upload ingress or perform PUT/COPY/DELETE smoke in this step.
 
 - [ ] **Step 3: Verify container and heartbeat bindings**
 
@@ -401,12 +526,15 @@ backend-migrate exit code = 0
 backend health = healthy
 frontend health = healthy
 backend, migration, and reconciler actual Docker image IDs are equal
+running image label studio.nguyendinhthinh.image-upload.release-commit = merged release commit
 reconciler environment fingerprint = recomputed release fingerprint
 database heartbeat buildFingerprint = recomputed release fingerprint
 exactly one advisory-lock owner
 all five loop completion timestamps are non-null and advance
 IMAGE_UPLOAD_PRESIGN_ENABLED=false
 ```
+
+After these observations and two fresh polling snapshots, create and independently approve the complete post-start production receipt. Bind its `startupApprovalPathSha256`/`startupApprovalSha256`, image reference, actual image ID, image commit label, three observed role image IDs, environment fingerprint, heartbeat fingerprint, and five loop timestamps. Verify it with `scripts/verify-image-upload-production-gates.mjs`. Do not start operator-only mutating smoke until this receipt and approval pass.
 
 Read the heartbeat without printing the database URL:
 
@@ -440,6 +568,6 @@ const { Client } = require("pg");
 
 - [ ] **Step 4: Record evidence and remove only the diagnostic image**
 
-Record the release commit, release fingerprint, Docker tag, actual image ID, container-role binding, heartbeat snapshot, and five-loop snapshot. After acceptance and explicit operator confirmation, remove only `ndt-runtime-diagnostic:e5def03130fe`; do not remove the running release image or either encrypted database backup.
+Record the release commit, release fingerprint, Docker tag, image commit label, actual image ID, container-role binding, startup-approval binding, protected post-start receipt/approval, heartbeat snapshot, and five-loop snapshot. After acceptance and explicit operator confirmation, remove only `ndt-runtime-diagnostic:e5def03130fe`; do not remove the running release image or either encrypted database backup.
 
 Expected: Stage 09 Task 5 Step 1 has fresh evidence and no Docker-ID/fingerprint redeploy loop remains.

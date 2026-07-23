@@ -118,6 +118,20 @@ describe('backend Docker runner', () => {
     );
     expect(dockerfile).not.toContain('FROM node:24-alpine AS base');
   });
+
+  it('validates and labels the exact release commit in the final image', () => {
+    expect(dockerfile).toContain('ARG IMAGE_UPLOAD_RELEASE_COMMIT');
+    expect(dockerfile).toContain(
+      'RUN test "${#IMAGE_UPLOAD_RELEASE_COMMIT}" -eq 40',
+    );
+    expect(dockerfile).toContain(
+      'case "$IMAGE_UPLOAD_RELEASE_COMMIT" in *[!a-f0-9]*) exit 1 ;; *) exit 0 ;; esac',
+    );
+    expect(dockerfile).not.toContain("grep -Eq '^[a-f0-9]{40}$'");
+    expect(dockerfile).toContain(
+      'LABEL studio.nguyendinhthinh.image-upload.release-commit=$IMAGE_UPLOAD_RELEASE_COMMIT',
+    );
+  });
   const backendPackage = JSON.parse(
     readRepositoryFile('apps/backend/package.json'),
   ) as { devDependencies?: Record<string, string> };
@@ -266,6 +280,20 @@ describe('Compose image-upload process roles', () => {
     );
     expect(workflow).toContain(
       `echo "IMAGE_UPLOAD_BUILD_FINGERPRINT=$fingerprint" >> "$GITHUB_ENV"`,
+    );
+    expect(workflow).toContain(
+      `echo "IMAGE_UPLOAD_RELEASE_COMMIT=$release_commit" >> "$GITHUB_ENV"`,
+    );
+    expectBefore(
+      workflow,
+      'name: Bind Compose heartbeat fingerprint to checked-out release',
+      'docker build --build-arg "IMAGE_UPLOAD_RELEASE_COMMIT=$IMAGE_UPLOAD_RELEASE_COMMIT"',
+    );
+    expect(workflow).toContain(
+      'docker build --build-arg "IMAGE_UPLOAD_RELEASE_COMMIT=$IMAGE_UPLOAD_RELEASE_COMMIT" -f apps/backend/Dockerfile -t ndt-backend:image-upload-ci .',
+    );
+    expect(compose).toContain(
+      'IMAGE_UPLOAD_RELEASE_COMMIT: ${IMAGE_UPLOAD_RELEASE_COMMIT:?IMAGE_UPLOAD_RELEASE_COMMIT is required}',
     );
     expect(workflow).not.toContain(
       `fingerprint="$(docker image inspect --format '{{.Id}}' "$BACKEND_IMAGE")"`,

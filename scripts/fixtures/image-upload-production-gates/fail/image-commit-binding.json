@@ -1,0 +1,7 @@
+{
+    "base": "../pass.json",
+    "expectedGate": "imageCommitBinding",
+    "set": {
+        "release.imageCommitSha": "cccccccccccccccccccccccccccccccccccccccc"
+    }
+}

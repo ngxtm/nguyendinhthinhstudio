@@ -48,6 +48,12 @@ RUN mkdir -p runtime-dist/src runtime-dist/scripts && \
 FROM base AS runner
 WORKDIR /app
 ENV NODE_ENV=production
+ARG IMAGE_UPLOAD_RELEASE_COMMIT
+
+# Bind the packaged runtime to the exact reviewed release commit.
+RUN test "${#IMAGE_UPLOAD_RELEASE_COMMIT}" -eq 40 && \
+    case "$IMAGE_UPLOAD_RELEASE_COMMIT" in *[!a-f0-9]*) exit 1 ;; *) exit 0 ;; esac
+LABEL studio.nguyendinhthinh.image-upload.release-commit=$IMAGE_UPLOAD_RELEASE_COMMIT
 
 # Create non-root user for security
 RUN addgroup --system --gid 1001 nodejs && \
