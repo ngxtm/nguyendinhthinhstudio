@@ -189,6 +189,18 @@ for (const name of ['test:image-upload:unit', 'test:image-upload:integration']) 
         fail(`${name} must contain an explicit committed test-path list`);
     }
 }
+for (const path of [
+    'src/images/image-upload-ingress.spec.ts',
+    'src/scripts/image-upload-production-smoke-contract.spec.ts',
+    'src/scripts/image-upload-production-smoke-live.spec.ts',
+    'src/scripts/image-upload-production-smoke-orchestrator.spec.ts',
+    'src/scripts/image-upload-production-smoke-pg.spec.ts',
+    'src/scripts/run-image-upload-production-smoke.spec.ts',
+]) {
+    if (!backendScripts['test:image-upload:unit'].includes(path)) {
+        fail(`test:image-upload:unit must include ${path}`);
+    }
+}
 
 const frontendPackage = JSON.parse(read('apps/frontend/package.json'));
 if (frontendPackage.scripts?.['test:focused'] !== 'node --import tsx --test') {
