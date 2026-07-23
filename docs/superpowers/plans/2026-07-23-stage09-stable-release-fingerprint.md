@@ -356,7 +356,7 @@ Expected: backend build exits 0, all script/backend tests pass, Docker packaging
 
 Review `origin/main...HEAD` against the canonical spec. Fix every Critical or Important finding and rerun the affected focused plus full verification.
 
-- [ ] **Step 3: Push and create the PR**
+- [x] **Step 3: Push and create the PR**
 
 ```powershell
 git push -u origin fix/stage09-stable-release-fingerprint
