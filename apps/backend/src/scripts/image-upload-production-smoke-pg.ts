@@ -609,9 +609,17 @@ export class ProductionSmokePgAdapter {
       }
       for (const resource of byKind('image')) {
         assertClosedId(resource.id, 'image id');
-        await client.query(`DELETE FROM "Image" WHERE "id" = $1`, [
-          resource.id,
-        ]);
+        await client.query(
+          `WITH deleted AS (
+             DELETE FROM "Image"
+             WHERE "id" = $1
+             RETURNING "albumId"
+           )
+           UPDATE "Album"
+           SET "imageCount" = GREATEST("imageCount" - 1, 0)
+           WHERE "id" IN (SELECT "albumId" FROM deleted)`,
+          [resource.id],
+        );
       }
       for (const resource of byKind('upload')) {
         assertClosedId(resource.id, 'upload id');

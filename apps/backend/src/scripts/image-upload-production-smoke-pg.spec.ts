@@ -121,6 +121,8 @@ describe('ProductionSmokePgAdapter', () => {
     const sql = queries.map((query) => query.text).join('\n');
     expect(sql).not.toMatch(/\bLIKE\b/i);
     expect(sql).not.toContain('ImageUploadRateLimitEvent');
+    expect(sql).toContain('RETURNING "albumId"');
+    expect(sql).toContain('"imageCount" = GREATEST("imageCount" - 1, 0)');
     expect(queries.flatMap((query) => query.values ?? [])).not.toContain(
       'uploads/%',
     );
