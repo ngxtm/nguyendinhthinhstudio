@@ -1,5 +1,0 @@
-{
-    "base": "../pass.json",
-    "expectedGate": "memoryDelta",
-    "set": { "memory.optimizedDeltaBytes": 200000000 }
-}

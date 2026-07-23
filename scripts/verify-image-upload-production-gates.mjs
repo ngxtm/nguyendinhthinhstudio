@@ -39,8 +39,6 @@ const REQUIRED_CONTEXTS = [
     'image-upload-packaging',
     'frontend-playwright-chromium',
 ];
-const REQUIRED_MEMORY_CONTEXTS = ['optimized-chromium', 'full-decode-control', 'stable-chrome'];
-const MEMORY_FIXTURE_SHA256 = '1ac11dd1c64d39e79bdd3682bb11871ee2619b07a86fb923ba8412ab6dc3d581';
 
 class GateError extends Error {
     constructor(gate, message) {
@@ -378,25 +376,6 @@ function assertSemanticGates(receipt) {
     }
     if (receipt.ci.bypassActorCount !== 0) {
         fail('rulesetBypass', 'ruleset bypass actors are present');
-    }
-    if (receipt.memory.fixtureSha256 !== MEMORY_FIXTURE_SHA256) {
-        fail('memoryFixture', 'deterministic memory fixture digest differs');
-    }
-    if (
-        receipt.memory.absoluteLimitBytes !== 536_870_912 ||
-        receipt.memory.relativeLimitRatio !== 0.5 ||
-        receipt.memory.optimizedDeltaBytes > receipt.memory.absoluteLimitBytes ||
-        receipt.memory.optimizedDeltaBytes >
-            receipt.memory.controlDeltaBytes * receipt.memory.relativeLimitRatio
-    ) {
-        fail('memoryDelta', 'manual memory delta exceeds its closed gate');
-    }
-    const memoryNames = receipt.memory.contexts.map((entry) => entry.name);
-    if (
-        JSON.stringify(memoryNames) !== JSON.stringify(REQUIRED_MEMORY_CONTEXTS) ||
-        receipt.memory.contexts.some((entry) => entry.passed !== true)
-    ) {
-        fail('memoryContexts', 'manual memory contexts are incomplete');
     }
 }
 

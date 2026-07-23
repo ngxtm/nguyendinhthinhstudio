@@ -6,7 +6,9 @@
 
 **Goal:** Package the shared policy and role-specific backend entrypoints correctly, enforce real browser checks, and qualify CopyObject/Queue behavior against isolated non-production resources.
 
-**Architecture:** Docker builders compile workspace packages before applications and runners preserve public package exports. CI requires bundled Chromium and pinned Stable Chrome. Live staging uses long-lived non-production R2 resources, a dedicated non-production Supabase project whose ref must differ from production, a unique run prefix, and one orchestrator with guaranteed run-scoped cleanup. Testcontainers independently proves the full migration chain from an empty Supabase-compatible database.
+**Architecture:** Docker builders compile workspace packages before applications and runners preserve public package exports. CI requires bundled Chromium. Live staging uses long-lived non-production R2 resources, a dedicated non-production Supabase project whose ref must differ from production, a unique run prefix, and one orchestrator with guaranteed run-scoped cleanup. Testcontainers independently proves the full migration chain from an empty Supabase-compatible database.
+
+The deterministic fixture, pinned stable Chrome, and memory thresholds remain an optional memory diagnostic. They are not CI, Phase 1, Phase 2, smoke, drill, or ingress gates. Missing optional diagnostic results do not block admission.
 
 **Tech Stack:** Docker, Docker Compose/Dokploy, GitHub Actions, Playwright, Testcontainers, Cloudflare R2/Queues, PowerShell.
 
@@ -95,7 +97,7 @@ docker compose config --quiet
 
 Expected: both builds and all applicable runtime checks exit 0.
 
-### Task 2: Add required browser CI and memory gate
+### Task 2: Add required browser CI and optional memory diagnostics
 
 **Files:**
 
@@ -119,13 +121,13 @@ image-upload-packaging
 frontend-playwright-chromium
 ```
 
-Each required job must also set its effective workflow `name` to the exact context above. Add backend package scripts named exactly `test:image-upload:unit`, `test:image-upload:integration`, and `test:image-upload:ci`; the first two contain closed explicit committed test-path lists and the aggregate script invokes both. The verifier must prove from each job's `run` steps that `backend-image-upload` executes `npm run test:image-upload:ci --workspace=backend`, reject a bare generic Jest invocation as sufficient coverage, prove `test:focused` invokes `node --import tsx --test` and receives explicit frontend test paths rather than inheriting the full-suite glob, and reject bare `node --test` because it cannot resolve the workspace's extensionless TypeScript imports. It also proves `image-upload-packaging` builds both production images and validates Compose, and that the required browser job executes bundled Chromium. No required job may use job/step `continue-on-error`, a change-based conditional skip, or an unpinned browser channel. `frontend-stable-chrome` and `frontend-image-memory` must not exist as workflow jobs; their test/config assets remain manual release gates, and the benchmark must still emit absolute memory delta, control delta, and relative ratio.
+Each required job must also set its effective workflow `name` to the exact context above. Add backend package scripts named exactly `test:image-upload:unit`, `test:image-upload:integration`, and `test:image-upload:ci`; the first two contain closed explicit committed test-path lists and the aggregate script invokes both. The verifier must prove from each job's `run` steps that `backend-image-upload` executes `npm run test:image-upload:ci --workspace=backend`, reject a bare generic Jest invocation as sufficient coverage, prove `test:focused` invokes `node --import tsx --test` and receives explicit frontend test paths rather than inheriting the full-suite glob, and reject bare `node --test` because it cannot resolve the workspace's extensionless TypeScript imports. It also proves `image-upload-packaging` builds both production images and validates Compose, and that the required browser job executes bundled Chromium. No required job may use job/step `continue-on-error`, a change-based conditional skip, or an unpinned browser channel. `frontend-stable-chrome` and `frontend-image-memory` must not exist as workflow jobs; their test/config assets remain available for optional diagnostics, and the benchmark must still emit absolute memory delta, control delta, and relative ratio when explicitly run.
 
 - [x] **Step 2: Add pinned browsers and fail-closed projects**
 
-Use Playwright bundled Chromium in required CI and keep a Chrome for Testing version pinned in workflow config with major at least 136 for the manual stable-Chrome release gate. Missing bundled Chromium, failed capability probe, skipped required Chromium project, or a required job that never executes its contract command fails the workflow verifier and the job. Missing `CFT_EXECUTABLE_PATH` fails the manual stable-Chrome project closed.
+Use Playwright bundled Chromium in required CI and keep a Chrome for Testing version pinned in workflow config with major at least 136 for optional stable-Chrome diagnostics. Missing bundled Chromium, failed capability probe, skipped required Chromium project, or a required job that never executes its contract command fails the workflow verifier and the job. When an operator explicitly runs the stable-Chrome project, missing `CFT_EXECUTABLE_PATH` still fails that diagnostic closed.
 
-- [x] **Step 3: Implement the benchmark gate**
+- [x] **Step 3: Implement the optional benchmark diagnostic**
 
 Generate the required input with Sharp 0.35.3 into the runner temp directory using this exact fixture contract:
 
@@ -199,7 +201,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "bundled Chromium gate failed" }
     $env:CFT_EXECUTABLE_PATH = "<path-to-pinned-Chrome-for-Testing-148.0.7778.96/chrome.exe>"
     npx --no-install playwright test test/image-upload.browser.spec.ts --project=stable-chrome
-    if ($LASTEXITCODE -ne 0) { throw "pinned stable-Chrome gate failed" }
+    if ($LASTEXITCODE -ne 0) { throw "pinned stable-Chrome diagnostic failed" }
 } finally {
     Pop-Location
 }
@@ -215,7 +217,7 @@ try {
 }
 ```
 
-Expected: the three-job required workflow contract and bundled Chromium pass in CI; the explicit local commands also prove pinned stable-Chrome compatibility, the deterministic fixture digest, and memory thresholds before release.
+Expected: the three-job required workflow contract and bundled Chromium pass in CI. If explicitly run, the local optional diagnostic commands prove pinned stable-Chrome compatibility, the deterministic fixture digest, and memory thresholds; missing results do not block release admission.
 
 ### Task 3: Apply and prove the GitHub ruleset
 

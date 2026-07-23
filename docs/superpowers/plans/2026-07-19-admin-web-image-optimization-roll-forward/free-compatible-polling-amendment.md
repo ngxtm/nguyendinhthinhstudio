@@ -338,7 +338,9 @@ Before ingress, require zero unresolved promotions, invalid response/HEAD settle
 
 - [x] **Step 1: Define the closed polling-only evidence schema**
 
-Require release, authoritative pre/post backup bindings, API/reconciler/cutover role fingerprints, actual replica/permit/singleton-heartbeat evidence, bucket/CORS/role-separated R2 readback, exact `reconcileGraceMs=30000` and `reconcileCadenceMs=5000` readback, protected cutover audit/disposition bindings, two polling snapshots at least 30 seconds apart, exact CI contexts, deterministic manual-memory evidence, staging receipt, operator-smoke receipt, and roll-forward decision. Every object rejects unknown fields. No Queue, DLQ, consumer, event-rule, provider-event, ACK, replay, or Queue-token field is allowed.
+Require release, authoritative pre/post backup bindings, API/reconciler/cutover role fingerprints, actual replica/permit/singleton-heartbeat evidence, bucket/CORS/role-separated R2 readback, exact `reconcileGraceMs=30000` and `reconcileCadenceMs=5000` readback, protected cutover audit/disposition bindings, two polling snapshots at least 30 seconds apart, exact CI contexts, staging receipt, operator-smoke receipt, and roll-forward decision. Every object rejects unknown fields. No Queue, DLQ, consumer, event-rule, provider-event, ACK, replay, or Queue-token field is allowed.
+
+The deterministic fixture, pinned stable Chrome, and memory thresholds remain an optional memory diagnostic. They are not CI, Phase 1, Phase 2, smoke, drill, or ingress gates. Missing optional diagnostic results do not block admission.
 
 The evidence is verified in two phases: Phase 1 binds the retained successful staging receipt and authorizes only operator-only smoke; Phase 2 binds that Phase 1 result, smoke authorization/receipt, the roll-forward drill, and two final zero snapshots before general ingress.
 

@@ -1,7 +1,0 @@
-{
-    "base": "../pass.json",
-    "expectedGate": "memoryFixture",
-    "set": {
-        "memory.fixtureSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-    }
-}

@@ -114,6 +114,7 @@ test('schema is closed and rejects asynchronous or sensitive evidence fields', (
 
 test('post-start acceptance binds startup approval without circular smoke evidence', () => {
     const schema = JSON.parse(readFileSync(schemaPath, 'utf8'));
+    const passReceipt = JSON.parse(readFileSync(passFixture, 'utf8'));
     const required = new Set(schema.required);
     const properties = new Set(Object.keys(schema.properties));
 
@@ -123,6 +124,9 @@ test('post-start acceptance binds startup approval without circular smoke eviden
     }
     assert.equal(required.has('preDeployPollingSnapshotSha256'), true);
     assert.equal(properties.has('preDeployPollingSnapshotSha256'), true);
+    assert.equal(required.has('memory'), false, 'memory must not be a Phase 1 requirement');
+    assert.equal(properties.has('memory'), false, 'memory must not be accepted by Phase 1');
+    assert.equal(Object.hasOwn(passReceipt, 'memory'), false, 'pass fixture must omit memory');
     assert.equal(
         schema.properties.schemaVersion.const,
         'image-upload-production-gate-receipt/v3-post-start-polling',
