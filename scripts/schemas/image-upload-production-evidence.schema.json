@@ -16,7 +16,6 @@
         "preDeployPollingSnapshotSha256",
         "pollingSnapshots",
         "ci",
-        "memory",
         "stagingReceiptPathSha256",
         "stagingReceiptSha256",
         "startupApprovalPathSha256",
@@ -226,32 +225,6 @@
                 }
             }
         },
-        "memory": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": [
-                "fixtureSha256",
-                "optimizedDeltaBytes",
-                "controlDeltaBytes",
-                "absoluteLimitBytes",
-                "relativeLimitRatio",
-                "contexts"
-            ],
-            "properties": {
-                "fixtureSha256": { "$ref": "#/$defs/sha256" },
-                "optimizedDeltaBytes": { "$ref": "#/$defs/nonNegativeInteger" },
-                "controlDeltaBytes": { "type": "integer", "minimum": 1 },
-                "absoluteLimitBytes": { "type": "integer", "minimum": 1 },
-                "relativeLimitRatio": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
-                "contexts": {
-                    "type": "array",
-                    "minItems": 3,
-                    "maxItems": 3,
-                    "uniqueItems": true,
-                    "items": { "$ref": "#/$defs/memoryContext" }
-                }
-            }
-        },
         "stagingReceiptPathSha256": { "$ref": "#/$defs/sha256" },
         "stagingReceiptSha256": { "$ref": "#/$defs/sha256" },
         "startupApprovalPathSha256": { "$ref": "#/$defs/sha256" },
@@ -322,17 +295,6 @@
                 "legacyTerminalTempPresent": { "$ref": "#/$defs/nonNegativeInteger" },
                 "legacyPreDispatchTempPresent": { "$ref": "#/$defs/nonNegativeInteger" },
                 "corsMismatch": { "$ref": "#/$defs/nonNegativeInteger" }
-            }
-        },
-        "memoryContext": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": ["name", "passed"],
-            "properties": {
-                "name": {
-                    "enum": ["optimized-chromium", "full-decode-control", "stable-chrome"]
-                },
-                "passed": { "const": true }
             }
         }
     }

@@ -128,18 +128,6 @@
             "frontend-playwright-chromium"
         ]
     },
-    "memory": {
-        "fixtureSha256": "1ac11dd1c64d39e79bdd3682bb11871ee2619b07a86fb923ba8412ab6dc3d581",
-        "optimizedDeltaBytes": 100000000,
-        "controlDeltaBytes": 300000000,
-        "absoluteLimitBytes": 536870912,
-        "relativeLimitRatio": 0.5,
-        "contexts": [
-            { "name": "optimized-chromium", "passed": true },
-            { "name": "full-decode-control", "passed": true },
-            { "name": "stable-chrome", "passed": true }
-        ]
-    },
     "stagingReceiptPathSha256": "3939393939393939393939393939393939393939393939393939393939393939",
     "stagingReceiptSha256": "3636363636363636363636363636363636363636363636363636363636363636",
     "startupApprovalPathSha256": "4040404040404040404040404040404040404040404040404040404040404040",
