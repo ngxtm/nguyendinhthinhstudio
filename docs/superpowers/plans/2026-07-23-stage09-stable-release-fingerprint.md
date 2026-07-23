@@ -17,7 +17,7 @@
 - Create: `scripts/image-upload-release-fingerprint.mjs`
 - Create: `scripts/image-upload-release-fingerprint.test.mjs`
 
-- [ ] **Step 1: Write failing algorithm and CLI tests**
+- [x] **Step 1: Write failing algorithm and CLI tests**
 
 Create `scripts/image-upload-release-fingerprint.test.mjs` with node:test coverage that:
 
@@ -60,7 +60,7 @@ test('CLI rejects missing or multiple arguments', () => {
 });
 ```
 
-- [ ] **Step 2: Run the tests and observe the expected RED state**
+- [x] **Step 2: Run the tests and observe the expected RED state**
 
 Run:
 
@@ -70,7 +70,7 @@ node --test scripts/image-upload-release-fingerprint.test.mjs
 
 Expected: FAIL because `scripts/image-upload-release-fingerprint.mjs` does not exist.
 
-- [ ] **Step 3: Implement the minimal canonical helper and CLI**
+- [x] **Step 3: Implement the minimal canonical helper and CLI**
 
 Create `scripts/image-upload-release-fingerprint.mjs`:
 
@@ -95,14 +95,16 @@ if (isMain) {
         try {
             process.stdout.write(`${createReleaseFingerprint(process.argv[2])}\n`);
         } catch (error) {
-            process.stderr.write(`${error instanceof Error ? error.message : 'release fingerprint failed'}\n`);
+            process.stderr.write(
+                `${error instanceof Error ? error.message : 'release fingerprint failed'}\n`,
+            );
             process.exitCode = 1;
         }
     }
 }
 ```
 
-- [ ] **Step 4: Run focused tests and observe GREEN**
+- [x] **Step 4: Run focused tests and observe GREEN**
 
 Run:
 
@@ -112,7 +114,7 @@ node --test scripts/image-upload-release-fingerprint.test.mjs
 
 Expected: all algorithm and CLI tests PASS.
 
-- [ ] **Step 5: Commit the helper**
+- [x] **Step 5: Commit the helper**
 
 ```powershell
 git add scripts/image-upload-release-fingerprint.mjs scripts/image-upload-release-fingerprint.test.mjs
@@ -179,10 +181,7 @@ import { createReleaseFingerprint } from './image-upload-release-fingerprint.mjs
 At the beginning of `assertSemanticGates(receipt)`, before policy binding, add:
 
 ```js
-if (
-    receipt.release.releaseFingerprint !==
-    createReleaseFingerprint(receipt.release.commitSha)
-) {
+if (receipt.release.releaseFingerprint !== createReleaseFingerprint(receipt.release.commitSha)) {
     fail('releaseFingerprintBinding', 'release commit/fingerprint binding differs');
 }
 ```
@@ -218,15 +217,15 @@ Extend `docker-runtime-contract.spec.ts` to require:
 
 ```ts
 expect(dockerfile).toContain(
-  'FROM node:24-alpine@sha256:a0b9bf06e4e6193cf7a0f58816cc935ff8c2a908f81e6f1a95432d679c54fbfd AS base',
+    'FROM node:24-alpine@sha256:a0b9bf06e4e6193cf7a0f58816cc935ff8c2a908f81e6f1a95432d679c54fbfd AS base',
 );
 expect(dockerfile).not.toContain('FROM node:24-alpine AS base');
 expect(workflow).toContain(`release_commit="$(git rev-parse HEAD)"`);
 expect(workflow).toContain(
-  `fingerprint="$(node scripts/image-upload-release-fingerprint.mjs "$release_commit")"`,
+    `fingerprint="$(node scripts/image-upload-release-fingerprint.mjs "$release_commit")"`,
 );
 expect(workflow).not.toContain(
-  `fingerprint="$(docker image inspect --format '{{.Id}}' "$BACKEND_IMAGE")"`,
+    `fingerprint="$(docker image inspect --format '{{.Id}}' "$BACKEND_IMAGE")"`,
 );
 ```
 
