@@ -153,8 +153,8 @@ if ($LASTEXITCODE -ne 0) { throw "production polling gates failed" }
 
 Starting the new roles requires the startup approval and a passing production-gate receipt.
 
-Before starting the roles, build or pull the exact release image and configure two
-distinct Dokploy variables for it:
+Before starting the roles, use a clean checkout of the exact merged `main` commit
+and configure two distinct Dokploy variables for the release:
 
 ```text
 BACKEND_IMAGE=<unique Docker image reference or release tag>
@@ -162,29 +162,29 @@ IMAGE_UPLOAD_BUILD_FINGERPRINT=sha256:<64 lowercase hexadecimal characters>
 ```
 
 `BACKEND_IMAGE` selects the image Docker runs. `IMAGE_UPLOAD_BUILD_FINGERPRINT` is
-the resolved immutable ID/digest of those exact built bytes and is recorded in the
-reconciler heartbeat; it must never contain the mutable image tag. Resolve it only
-after the image exists on the deployment host:
+the version-1 stable release identity recorded in the reconciler heartbeat. Compute
+it from the exact full commit with no trailing newline through the canonical helper:
 
 ```sh
-IMAGE_UPLOAD_BUILD_FINGERPRINT="$(docker image inspect \
-  --format '{{.Id}}' "$BACKEND_IMAGE")"
-case "$IMAGE_UPLOAD_BUILD_FINGERPRINT" in
-  sha256:????????????????????????????????????????????????????????????????) ;;
-  *) echo "invalid immutable backend image ID" >&2; exit 1 ;;
-esac
+RELEASE_COMMIT="$(git rev-parse HEAD)"
+IMAGE_UPLOAD_BUILD_FINGERPRINT="$(
+  node scripts/image-upload-release-fingerprint.mjs "$RELEASE_COMMIT"
+)"
+printf '%s\n' "RELEASE_COMMIT=$RELEASE_COMMIT"
 printf '%s\n' "IMAGE_UPLOAD_BUILD_FINGERPRINT=$IMAGE_UPLOAD_BUILD_FINGERPRINT"
 ```
 
-Copy that exact output value into Dokploy before starting the generation. Record the
-full commit ID, `BACKEND_IMAGE`, and resolved fingerprint with the release evidence.
-A corrected source revision gets a new image reference and a newly resolved
-fingerprint; all API, migration, and reconciler containers for one deployment use
-the same built image.
+Copy that fingerprint into Dokploy before starting the generation. After Dokploy
+builds, record `docker image inspect .Id` separately as `release.imageDigest`; do
+not copy it into the heartbeat fingerprint. Record the full commit ID,
+`BACKEND_IMAGE`, release fingerprint, and actual image ID with the release evidence.
+A corrected source revision gets a new image reference and release fingerprint.
+API, migration, and reconciler containers for one deployment must use the same
+actual image ID.
 
 1. Start the recorded new API image with role `api` and presign disabled.
 2. Start the same release with role `reconciler`, its dedicated PostgreSQL advisory-lock connection, and its separate R2 credential.
-3. Verify no old digest runs; all cutover credentials, including the temporary config-read pair, are unmounted; API has no reconciler/cutover secret; exactly one reconciler owns the lock; all five loop timestamps advance.
+3. Verify no old digest runs; the production receipt recomputes `release.releaseFingerprint` from `release.commitSha`; the reconciler environment and database heartbeat equal that fingerprint; API, migration, and reconciler share `release.imageDigest`; all cutover credentials, including the temporary config-read pair, are unmounted; API has no reconciler/cutover secret; exactly one reconciler owns the lock; all five loop timestamps advance.
 4. Run only read-only health, schema, route, production CORS, pre-existing R2 HEAD, signed imgproxy, serializer/redaction, replica, and heartbeat checks.
 5. Deploy/purge the current frontend while general upload ingress remains blocked.
 

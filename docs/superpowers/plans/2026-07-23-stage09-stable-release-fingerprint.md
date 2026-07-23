@@ -289,7 +289,7 @@ git commit -m "fix(images): stabilize reconciler release identity"
 - Modify: `docs/runbooks/image-upload-roll-forward.md`
 - Verify: `docs/superpowers/specs/2026-07-19-admin-web-image-optimization-roll-forward-design.md`
 
-- [ ] **Step 1: Replace Docker-output fingerprint instructions**
+- [x] **Step 1: Replace Docker-output fingerprint instructions**
 
 Document this exact release preparation flow in the runbook:
 
@@ -304,11 +304,11 @@ printf '%s\n' "IMAGE_UPLOAD_BUILD_FINGERPRINT=$IMAGE_UPLOAD_BUILD_FINGERPRINT"
 
 State explicitly that the resulting fingerprint is copied into Dokploy before deploy, while the post-build `docker image inspect .Id` is stored separately as `release.imageDigest` evidence.
 
-- [ ] **Step 2: Correct Stage 09 Task 5 and evidence wording**
+- [x] **Step 2: Correct Stage 09 Task 5 and evidence wording**
 
-Require the heartbeat to match `release.releaseFingerprint`, the API/migration/reconciler containers to share the actual `release.imageDigest`, and the receipt verifier to recompute `releaseFingerprint` from `commitSha`. In the Stage 09 closed-contract table, add `releaseFingerprint` immediately after `commitSha` in the `productionReceipt.release` tuple. Remove every instruction that makes `IMAGE_UPLOAD_BUILD_FINGERPRINT` equal Docker output identity.
+Require the heartbeat to match `release.releaseFingerprint`, the API/migration/reconciler containers to share the actual `release.imageDigest`, and the receipt verifier to recompute `releaseFingerprint` from `commitSha`. Add an immediate closed-contract amendment after the historical v1 table that defines the exact current v2 polling `release` object and supersedes the v1 tuple. Remove every instruction that makes `IMAGE_UPLOAD_BUILD_FINGERPRINT` equal Docker output identity.
 
-- [ ] **Step 3: Scan for contradictory fingerprint instructions**
+- [x] **Step 3: Scan for contradictory fingerprint instructions**
 
 Run:
 
@@ -319,7 +319,7 @@ git diff --check
 
 Expected: no Docker-output heartbeat instruction and no whitespace error.
 
-- [ ] **Step 4: Commit synchronized documentation**
+- [x] **Step 4: Commit synchronized documentation**
 
 ```powershell
 git add docs/runbooks/image-upload-roll-forward.md docs/superpowers/plans/2026-07-19-admin-web-image-optimization-roll-forward/09-production-cold-cutover-and-roll-forward.md docs/superpowers/specs/2026-07-19-admin-web-image-optimization-roll-forward-design.md docs/superpowers/plans/2026-07-23-stage09-stable-release-fingerprint.md
