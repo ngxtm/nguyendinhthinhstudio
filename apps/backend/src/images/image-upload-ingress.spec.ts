@@ -15,6 +15,7 @@ describe('image upload ingress', () => {
       {
         IMAGE_UPLOAD_PRESIGN_ENABLED: 'false',
         IMAGE_UPLOAD_INGRESS_MODE: 'disabled',
+        IMAGE_UPLOAD_OPERATOR_SMOKE_TOKEN: '',
       },
       'disabled',
     ],
@@ -30,6 +31,7 @@ describe('image upload ingress', () => {
       {
         IMAGE_UPLOAD_PRESIGN_ENABLED: 'true',
         IMAGE_UPLOAD_INGRESS_MODE: 'general',
+        IMAGE_UPLOAD_OPERATOR_SMOKE_TOKEN: '',
       },
       'general',
     ],

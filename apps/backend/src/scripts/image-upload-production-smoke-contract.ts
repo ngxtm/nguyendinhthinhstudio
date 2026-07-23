@@ -81,6 +81,8 @@ type Environment = Readonly<Record<string, string | undefined>>;
 export type ProductionSmokeEnvironment = Readonly<{
   apiBaseUrl: string;
   imgproxyBaseUrl: string;
+  browserOrigin: string;
+  albumId: string;
   r2Endpoint: string;
   r2Bucket: string;
   release: ReleaseTuple;
@@ -216,6 +218,18 @@ function commitSha(env: Environment, name: string): string {
   return value;
 }
 
+function uuid(env: Environment, name: string): string {
+  const value = required(env, name);
+  if (
+    !/^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(
+      value,
+    )
+  ) {
+    throw new TypeError(`${name} must be a UUID`);
+  }
+  return value;
+}
+
 function strongSecret(env: Environment, name: string): string {
   const value = required(env, name);
   const bytes = Buffer.byteLength(value, 'utf8');
@@ -261,6 +275,8 @@ export function parseProductionSmokeEnvironment(
     env,
     'NDT_PRODUCTION_SMOKE_IMGPROXY_BASE_URL',
   );
+  const browserOrigin = httpsOrigin(env, 'NDT_PRODUCTION_SMOKE_BROWSER_ORIGIN');
+  const albumId = uuid(env, 'NDT_PRODUCTION_SMOKE_ALBUM_ID');
   const r2Endpoint = httpsOrigin(env, 'IMAGE_UPLOAD_R2_ENDPOINT');
   const r2Bucket = required(env, 'IMAGE_UPLOAD_R2_BUCKET');
   const release = Object.freeze({
@@ -269,6 +285,17 @@ export function parseProductionSmokeEnvironment(
     commitSha: commitSha(env, 'IMAGE_UPLOAD_RELEASE_COMMIT'),
     releaseFingerprint: sha256Digest(env, 'IMAGE_UPLOAD_BUILD_FINGERPRINT'),
   });
+  const packagedCommit = commitSha(env, 'NDT_PRODUCTION_SMOKE_PACKAGED_COMMIT');
+  const packagedFingerprint = sha256Digest(
+    env,
+    'NDT_PRODUCTION_SMOKE_PACKAGED_FINGERPRINT',
+  );
+  if (
+    packagedCommit !== release.commitSha ||
+    packagedFingerprint !== release.releaseFingerprint
+  ) {
+    throw new TypeError('production smoke packaged release binding drifted');
+  }
   const paths = Object.freeze({
     phase1Receipt: absoluteOutsideRepository(
       env,
@@ -317,6 +344,8 @@ export function parseProductionSmokeEnvironment(
   return Object.freeze({
     apiBaseUrl,
     imgproxyBaseUrl,
+    browserOrigin,
+    albumId,
     r2Endpoint,
     r2Bucket,
     release,

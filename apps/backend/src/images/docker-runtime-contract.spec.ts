@@ -159,6 +159,40 @@ describe('backend Docker runner', () => {
   });
 });
 
+describe('operator smoke one-shot Docker runner', () => {
+  const dockerfile = readRepositoryFile(
+    'apps/backend/Dockerfile.operator-smoke',
+  );
+  const backendDockerfile = readRepositoryFile('apps/backend/Dockerfile');
+
+  it('uses pinned Debian Playwright Chromium without adding a browser to Alpine backend', () => {
+    expect(
+      dockerfile.match(
+        /FROM mcr\.microsoft\.com\/playwright:v1\.60\.0-noble@sha256:/g,
+      ),
+    ).toHaveLength(2);
+    expect(dockerfile).not.toContain('node:24-alpine');
+    expect(dockerfile).toContain('PLAYWRIGHT_BROWSERS_PATH=/ms-playwright');
+    expect(dockerfile).toContain('chromium.executablePath()');
+    expect(dockerfile).not.toMatch(/chrome-stable|google-chrome/i);
+    expect(backendDockerfile).not.toMatch(/playwright|chromium|chrome/i);
+  });
+
+  it('labels the release and packages the production smoke CLI', () => {
+    expect(dockerfile).toContain('ARG IMAGE_UPLOAD_RELEASE_COMMIT');
+    expect(dockerfile).toContain('ARG IMAGE_UPLOAD_BUILD_FINGERPRINT');
+    expect(dockerfile).toContain(
+      'LABEL studio.nguyendinhthinh.image-upload.release-commit=$IMAGE_UPLOAD_RELEASE_COMMIT',
+    );
+    expect(dockerfile).toContain(
+      'LABEL studio.nguyendinhthinh.image-upload.release-fingerprint=$IMAGE_UPLOAD_BUILD_FINGERPRINT',
+    );
+    expect(dockerfile).toContain(
+      '/app/dist/scripts/run-image-upload-production-smoke.js',
+    );
+  });
+});
+
 describe('backend production module resolution', () => {
   it.each([
     `import value from 'src/example'`,
@@ -210,6 +244,10 @@ describe('Compose image-upload process roles', () => {
     compose.match(
       /\r?\n {2}images-upload-reconciler:\r?\n([\s\S]*?)(?=\r?\n {2}[\w-]+:\r?\n|\r?\nnetworks:)/,
     )?.[1] ?? '';
+  const migration =
+    compose.match(
+      /\r?\n {2}backend-migrate:\r?\n([\s\S]*?)(?=\r?\n {2}[\w-]+:\r?\n|\r?\nnetworks:)/,
+    )?.[1] ?? '';
 
   it('keeps reconciler R2, cutover, and operator secrets out of the API', () => {
     expect(backend).toContain('IMAGE_UPLOAD_PROCESS_ROLE=api');
@@ -222,6 +260,15 @@ describe('Compose image-upload process roles', () => {
     ]) {
       expect(backend).not.toContain(secret);
     }
+  });
+
+  it('binds ingress mode everywhere but exposes the smoke token only to API', () => {
+    expect(backend).toContain('IMAGE_UPLOAD_INGRESS_MODE=');
+    expect(reconciler).toContain('IMAGE_UPLOAD_INGRESS_MODE=disabled');
+    expect(migration).toContain('IMAGE_UPLOAD_INGRESS_MODE=disabled');
+    expect(backend).toContain('IMAGE_UPLOAD_OPERATOR_SMOKE_TOKEN=');
+    expect(reconciler).not.toContain('IMAGE_UPLOAD_OPERATOR_SMOKE_TOKEN');
+    expect(migration).not.toContain('IMAGE_UPLOAD_OPERATOR_SMOKE_TOKEN');
   });
 
   it('runs exactly one reconciler with only its role-specific credentials', () => {

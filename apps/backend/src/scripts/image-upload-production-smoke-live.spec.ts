@@ -153,6 +153,70 @@ describe('production smoke live adapter', () => {
     ]);
   });
 
+  it('journals a created upload before confirm and exposes only owner-scoped API operations', async () => {
+    const requests: Array<{ method?: string; url?: string; body?: unknown }> =
+      [];
+    const api = await listen((request, response) => {
+      request.setEncoding('utf8');
+      let body = '';
+      request.on('data', (part) => (body += part));
+      request.on('end', () => {
+        requests.push({
+          method: request.method,
+          url: request.url,
+          body: body ? JSON.parse(body) : undefined,
+        });
+        response.setHeader('content-type', 'application/json');
+        if (request.url === '/images/upload-url') {
+          response.end(
+            JSON.stringify({
+              outcome: 'ready',
+              uploadId: 'upload-2',
+              uploadUrl: `${api.origin}/uploads/upload-2/smoke.webp`,
+              expiresAt: '2026-07-23T12:00:00.000Z',
+            }),
+          );
+        } else if (request.url === '/images/confirm-upload') {
+          response.end(
+            JSON.stringify({ outcome: 'finalizing', uploadId: 'upload-2' }),
+          );
+        } else {
+          response.end(JSON.stringify({ message: 'deleted' }));
+        }
+      });
+    });
+    servers.push(api.server);
+    const { adapter, resources } = harness({ apiBaseUrl: api.origin });
+    const input = {
+      clientRequestId: '00000000-0000-4000-8000-000000000002',
+      albumId: '00000000-0000-4000-8000-000000000010',
+      filename: 'smoke.webp',
+      contentType: 'image/webp',
+      fileSize: 24,
+      processedSha256: 'a'.repeat(64),
+      policyVersion: 'web-v1-hash',
+    } as const;
+
+    const upload = await adapter.createUpload(input, SIGNAL);
+    await expect(
+      adapter.confirmUpload(upload.uploadId, SIGNAL),
+    ).resolves.toMatchObject({
+      outcome: 'finalizing',
+    });
+    await adapter.deleteImage('image-2', SIGNAL);
+
+    expect(resources).toHaveLength(2);
+    expect(requests).toEqual([
+      { method: 'POST', url: '/images/upload-url', body: input },
+      {
+        method: 'POST',
+        url: '/images/confirm-upload',
+        body: { uploadId: 'upload-2' },
+      },
+      { method: 'DELETE', url: '/images/image-2', body: undefined },
+    ]);
+  });
+
   it('requires browser success plus present HEAD for allowed CORS and browser rejection plus absent HEAD for denied CORS', async () => {
     const browserPut = jest
       .fn()

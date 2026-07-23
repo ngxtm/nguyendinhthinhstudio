@@ -11,6 +11,34 @@ export type ProductionSmokePgBinding = Readonly<{
   runStartedAt: string;
 }>;
 
+export type ProductionSmokePendingUpload = Readonly<{
+  uploadId: string;
+  adminId: string;
+  clientRequestId: string;
+  albumId: string;
+  sourceObjectKey: string;
+  destinationObjectKey: string;
+  contentType: string;
+  fileSize: number;
+  processedSha256: string;
+  policyVersion: string;
+  createdAt: Date;
+}>;
+
+export type ProductionSmokePromotionFacts = Readonly<{
+  sourceEtag: string;
+  inspectedSha256: string;
+  inspectedByteSize: number;
+  canonicalMime: string;
+  inspectedWidth: number;
+  inspectedHeight: number;
+  accountId: string;
+  bucket: string;
+  leaseToken: string;
+  dispatchedAt: string;
+  nextReconcileAt: string;
+}>;
+
 export type ProductionSmokePgQueryResult = Readonly<{
   rows: readonly Record<string, unknown>[];
   rowCount: number | null;
@@ -138,6 +166,191 @@ export class ProductionSmokePgAdapter {
     }
   }
 
+  private async withOwnedUpload(
+    binding: ProductionSmokePgBinding,
+    mutate: (
+      client: ProductionSmokePgClient,
+      row: Record<string, unknown>,
+    ) => Promise<void>,
+  ): Promise<void> {
+    this.assertRelease(binding);
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const selected = await client.query(
+        `SELECT
+           "id" AS "uploadId",
+           "createdByAdminId" AS "adminId",
+           "clientRequestId" AS "clientRequestId",
+           "uploadObjectKey" AS "sourceObjectKey",
+           "finalObjectKey" AS "destinationObjectKey",
+           ("createdAt" >= $2::timestamp) AS "createdInRun"
+         FROM "ImageUpload"
+         WHERE "id" = $1
+         FOR UPDATE`,
+        [binding.uploadId, binding.runStartedAt],
+      );
+      const row = selected.rows[0];
+      const mismatch =
+        !row ||
+        row.uploadId !== binding.uploadId ||
+        row.adminId !== binding.adminId ||
+        row.clientRequestId !== binding.clientRequestId ||
+        row.sourceObjectKey !== binding.sourceObjectKey ||
+        row.destinationObjectKey !== binding.destinationObjectKey ||
+        row.createdInRun !== true;
+      if (mismatch) {
+        throw new Error(
+          'production smoke PostgreSQL ownership precondition failed: upload',
+        );
+      }
+      await mutate(client, row);
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => undefined);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async inspectOwnedPendingUpload(options: {
+    uploadId: string;
+    adminId: string;
+    clientRequestId: string;
+    runStartedAt: string;
+    releaseFingerprint: string;
+  }): Promise<ProductionSmokePendingUpload> {
+    if (options.releaseFingerprint !== this.releaseFingerprint) {
+      throw new Error('production smoke release fingerprint drift');
+    }
+    const client = await this.pool.connect();
+    try {
+      const result = await client.query(
+        `SELECT
+           "id" AS "uploadId",
+           "createdByAdminId" AS "adminId",
+           "clientRequestId" AS "clientRequestId",
+           "albumId" AS "albumId",
+           "uploadObjectKey" AS "sourceObjectKey",
+           "finalObjectKey" AS "destinationObjectKey",
+           "contentType" AS "contentType",
+           "fileSize" AS "fileSize",
+           "processedSha256" AS "processedSha256",
+           "policyVersion" AS "policyVersion",
+           "createdAt" AS "createdAt"
+         FROM "ImageUpload"
+         WHERE "id" = $1
+           AND "createdByAdminId" = $2
+           AND "clientRequestId" = $3
+           AND "status" = 'pending'
+           AND "createdAt" >= $4::timestamp`,
+        [
+          options.uploadId,
+          options.adminId,
+          options.clientRequestId,
+          options.runStartedAt,
+        ],
+      );
+      const row = result.rows[0];
+      if (
+        !row ||
+        typeof row.albumId !== 'string' ||
+        typeof row.sourceObjectKey !== 'string' ||
+        typeof row.destinationObjectKey !== 'string' ||
+        typeof row.contentType !== 'string' ||
+        typeof row.fileSize !== 'number' ||
+        typeof row.processedSha256 !== 'string' ||
+        typeof row.policyVersion !== 'string' ||
+        !(row.createdAt instanceof Date)
+      ) {
+        throw new Error('production smoke pending upload binding is invalid');
+      }
+      return row as ProductionSmokePendingUpload;
+    } finally {
+      client.release();
+    }
+  }
+
+  async hasClientRequestId(clientRequestId: string): Promise<boolean> {
+    assertClosedId(clientRequestId, 'client request id');
+    const client = await this.pool.connect();
+    try {
+      const result = await client.query(
+        `SELECT count(*)::int AS "count"
+         FROM "ImageUploadIdempotency"
+         WHERE "clientRequestId" = $1`,
+        [clientRequestId],
+      );
+      return Number(result.rows[0]?.count) !== 0;
+    } finally {
+      client.release();
+    }
+  }
+
+  async prepareDispatchedPromotion(
+    binding: ProductionSmokePgBinding,
+    facts: ProductionSmokePromotionFacts,
+  ): Promise<void> {
+    await this.withOwnedUpload(binding, async (client) => {
+      const claimed = await client.query(
+        `UPDATE "ImageUpload"
+         SET "status" = 'finalizing',
+             "sourceEtag" = $3,
+             "finalizationStartedAt" = $4::timestamp,
+             "finalizationLeaseToken" = $5
+         WHERE "id" = $1 AND "createdByAdminId" = $2 AND "status" = 'pending'`,
+        [
+          binding.uploadId,
+          binding.adminId,
+          facts.sourceEtag,
+          facts.dispatchedAt,
+          facts.leaseToken,
+        ],
+      );
+      if (claimed.rowCount !== 1) {
+        throw new Error('production smoke promotion claim lost race');
+      }
+      const inserted = await client.query(
+        `INSERT INTO "ImageUploadPromotion" (
+           "id", "uploadId", "origin", "albumId", "finalizationLeaseToken",
+           "accountId", "bucket", "sourceObjectKey", "sourceEtag",
+           "destinationObjectKey", "inspectedSha256", "inspectedByteSize",
+           "canonicalMime", "inspectedWidth", "inspectedHeight", "policyVersion",
+           "copyState", "disposition", "copyDispatchedAt", "dispatchAttempts",
+           "lastDispatchAttemptAt", "nextReconcileAt", "createdAt", "updatedAt"
+         )
+         SELECT
+           $1, upload."id", 'current', upload."albumId", $2,
+           $3, $4, upload."uploadObjectKey", $5,
+           upload."finalObjectKey", $6, $7, $8, $9, $10, upload."policyVersion",
+           'dispatched', 'pending', $11::timestamp, 1,
+           $11::timestamp, $12::timestamp, $11::timestamp, $11::timestamp
+         FROM "ImageUpload" AS upload
+         WHERE upload."id" = $13 AND upload."createdByAdminId" = $14`,
+        [
+          binding.promotionId,
+          facts.leaseToken,
+          facts.accountId,
+          facts.bucket,
+          facts.sourceEtag,
+          facts.inspectedSha256,
+          facts.inspectedByteSize,
+          facts.canonicalMime,
+          facts.inspectedWidth,
+          facts.inspectedHeight,
+          facts.dispatchedAt,
+          facts.nextReconcileAt,
+          binding.uploadId,
+          binding.adminId,
+        ],
+      );
+      if (inserted.rowCount !== 1) {
+        throw new Error('production smoke promotion insert failed');
+      }
+    });
+  }
+
   async prepareResponseLoss(binding: ProductionSmokePgBinding): Promise<void> {
     await this.withOwnedPromotion(binding, async (client) => {
       const result = await client.query(
@@ -176,7 +389,7 @@ export class ProductionSmokePgAdapter {
   }
 
   async makeFailedCleanupDue(binding: ProductionSmokePgBinding): Promise<void> {
-    await this.withOwnedPromotion(binding, async (client) => {
+    await this.withOwnedUpload(binding, async (client) => {
       const result = await client.query(
         `UPDATE "ImageUpload"
          SET "status" = 'failed',
@@ -193,7 +406,7 @@ export class ProductionSmokePgAdapter {
   }
 
   async makeExpiredPastSkew(binding: ProductionSmokePgBinding): Promise<void> {
-    await this.withOwnedPromotion(binding, async (client) => {
+    await this.withOwnedUpload(binding, async (client) => {
       const result = await client.query(
         `UPDATE "ImageUpload"
          SET "presignExpiresAt" = CURRENT_TIMESTAMP - INTERVAL '10 minutes',
@@ -215,6 +428,7 @@ export class ProductionSmokePgAdapter {
     try {
       const result = await client.query(
         `SELECT "id", "uploadId", "copyState", "disposition",
+                "copyDispatchedAt",
                 "destinationHeadEtag", "destinationHeadBytes",
                 "destinationHeadMime", "destinationHeadMetadataSha256"
          FROM "ImageUploadPromotion"
@@ -225,6 +439,61 @@ export class ProductionSmokePgAdapter {
         throw new Error('production smoke promotion observation is absent');
       }
       return { ...result.rows[0] };
+    } finally {
+      client.release();
+    }
+  }
+
+  async observeUpload(
+    uploadId: string,
+    adminId: string,
+  ): Promise<Record<string, unknown> | null> {
+    assertClosedId(uploadId, 'upload id');
+    assertClosedId(adminId, 'admin id');
+    const client = await this.pool.connect();
+    try {
+      const result = await client.query(
+        `SELECT "id", "status", "failureCode", "resultImageId",
+                "temporaryCleanupState", "temporaryCleanupVerifiedAt"
+         FROM "ImageUpload"
+         WHERE "id" = $1 AND "createdByAdminId" = $2`,
+        [uploadId, adminId],
+      );
+      return result.rows[0] ? { ...result.rows[0] } : null;
+    } finally {
+      client.release();
+    }
+  }
+
+  async observeConflictByPromotion(
+    promotionId: string,
+  ): Promise<Record<string, unknown> | null> {
+    assertClosedId(promotionId, 'promotion id');
+    const client = await this.pool.connect();
+    try {
+      const result = await client.query(
+        `SELECT * FROM "ImageUploadPromotionConflict"
+         WHERE "promotionId" = $1`,
+        [promotionId],
+      );
+      return result.rows[0] ? { ...result.rows[0] } : null;
+    } finally {
+      client.release();
+    }
+  }
+
+  async observeDeletionByImage(
+    imageId: string,
+  ): Promise<Record<string, unknown> | null> {
+    assertClosedId(imageId, 'image id');
+    const client = await this.pool.connect();
+    try {
+      const result = await client.query(
+        `SELECT * FROM "ImageObjectDeletion"
+         WHERE "imageId" = $1 AND "provider" = 'r2'`,
+        [imageId],
+      );
+      return result.rows[0] ? { ...result.rows[0] } : null;
     } finally {
       client.release();
     }

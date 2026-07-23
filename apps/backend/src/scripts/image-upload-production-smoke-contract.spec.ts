@@ -50,6 +50,8 @@ describe('production smoke evidence contract', () => {
     return {
       NDT_PRODUCTION_SMOKE_API_BASE_URL: 'https://api.ndtstudio.site',
       NDT_PRODUCTION_SMOKE_IMGPROXY_BASE_URL: 'https://img.ndtstudio.site',
+      NDT_PRODUCTION_SMOKE_BROWSER_ORIGIN: 'https://www.ndtstudio.site',
+      NDT_PRODUCTION_SMOKE_ALBUM_ID: '00000000-0000-4000-8000-000000000010',
       NDT_PRODUCTION_SMOKE_ADMIN_BEARER_TOKEN: 'admin-bearer-secret',
       NDT_PRODUCTION_SMOKE_TOKEN: 'operator-smoke-token-with-at-least-32-bytes',
       NDT_PRODUCTION_SMOKE_OPERATOR_TOKEN: 'cutover-operator-secret',
@@ -62,6 +64,8 @@ describe('production smoke evidence contract', () => {
       IMAGE_UPLOAD_BUILD_FINGERPRINT: release.releaseFingerprint,
       NDT_PRODUCTION_SMOKE_IMAGE_REFERENCE: release.imageReference,
       NDT_PRODUCTION_SMOKE_IMAGE_DIGEST: release.imageDigest,
+      NDT_PRODUCTION_SMOKE_PACKAGED_COMMIT: release.commitSha,
+      NDT_PRODUCTION_SMOKE_PACKAGED_FINGERPRINT: release.releaseFingerprint,
       NDT_PRODUCTION_SMOKE_PHASE1_RECEIPT: evidencePath('phase1.json'),
       NDT_PRODUCTION_SMOKE_PHASE1_APPROVAL: evidencePath(
         'phase1-approval.json',
@@ -93,6 +97,8 @@ describe('production smoke evidence contract', () => {
     );
 
     expect(parsed.release).toEqual(release);
+    expect(parsed.browserOrigin).toBe('https://www.ndtstudio.site');
+    expect(parsed.albumId).toBe('00000000-0000-4000-8000-000000000010');
     expect(parsed.paths).toEqual({
       phase1Receipt: env.NDT_PRODUCTION_SMOKE_PHASE1_RECEIPT,
       phase1Approval: env.NDT_PRODUCTION_SMOKE_PHASE1_APPROVAL,
@@ -109,8 +115,11 @@ describe('production smoke evidence contract', () => {
     ['NDT_PRODUCTION_SMOKE_TOKEN', ''],
     ['NDT_PRODUCTION_SMOKE_TOKEN', 'short'],
     ['NDT_PRODUCTION_SMOKE_API_BASE_URL', 'http://api.ndtstudio.site'],
+    ['NDT_PRODUCTION_SMOKE_BROWSER_ORIGIN', 'http://www.ndtstudio.site'],
+    ['NDT_PRODUCTION_SMOKE_ALBUM_ID', 'not-a-uuid'],
     ['IMAGE_UPLOAD_RELEASE_COMMIT', 'not-a-commit'],
     ['NDT_PRODUCTION_SMOKE_IMAGE_DIGEST', `sha256:${'A'.repeat(64)}`],
+    ['NDT_PRODUCTION_SMOKE_PACKAGED_COMMIT', 'not-a-commit'],
     ['NDT_PRODUCTION_SMOKE_JOURNAL', 'relative/journal.json'],
   ])('rejects invalid environment %s', (key, value) => {
     expect(() =>

@@ -1,0 +1,52 @@
+# syntax=docker/dockerfile:1
+FROM mcr.microsoft.com/playwright:v1.60.0-noble@sha256:83192064c7510f7ee73dd63dc5f22a5e01a92c81a2e6a9c715d9e3fe55471fd9 AS builder
+WORKDIR /app
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+
+COPY package.json package-lock.json ./
+COPY apps/backend/package.json ./apps/backend/
+COPY apps/frontend/package.json ./apps/frontend/
+COPY packages/eslint-config/package.json ./packages/eslint-config/
+COPY packages/image-upload-policy/package.json ./packages/image-upload-policy/
+COPY packages/types/package.json ./packages/types/
+COPY packages/typescript-config/package.json ./packages/typescript-config/
+COPY packages/ui/package.json ./packages/ui/
+COPY packages/utils/package.json ./packages/utils/
+COPY apps/backend/prisma ./apps/backend/prisma/
+RUN npm ci
+COPY . .
+RUN npm run build --workspace=@ndt/image-upload-policy && npm run build --workspace=backend
+WORKDIR /app/apps/backend
+RUN npx --no-install tsc-alias -p tsconfig.build.json && \
+    mkdir -p runtime-dist/scripts && \
+    cp -R dist/. runtime-dist/ && \
+    test -f runtime-dist/scripts/run-image-upload-production-smoke.js
+
+FROM mcr.microsoft.com/playwright:v1.60.0-noble@sha256:83192064c7510f7ee73dd63dc5f22a5e01a92c81a2e6a9c715d9e3fe55471fd9 AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+ARG IMAGE_UPLOAD_RELEASE_COMMIT
+ARG IMAGE_UPLOAD_BUILD_FINGERPRINT
+RUN test "${#IMAGE_UPLOAD_RELEASE_COMMIT}" -eq 40 && \
+    case "$IMAGE_UPLOAD_RELEASE_COMMIT" in *[!a-f0-9]*) exit 1 ;; *) exit 0 ;; esac && \
+    test "${#IMAGE_UPLOAD_BUILD_FINGERPRINT}" -eq 71 && \
+    case "$IMAGE_UPLOAD_BUILD_FINGERPRINT" in sha256:*) ;; *) exit 1 ;; esac && \
+    fingerprint="${IMAGE_UPLOAD_BUILD_FINGERPRINT#sha256:}" && \
+    case "$fingerprint" in *[!a-f0-9]*) exit 1 ;; *) exit 0 ;; esac
+LABEL studio.nguyendinhthinh.image-upload.release-commit=$IMAGE_UPLOAD_RELEASE_COMMIT
+LABEL studio.nguyendinhthinh.image-upload.release-fingerprint=$IMAGE_UPLOAD_BUILD_FINGERPRINT
+ENV NDT_PRODUCTION_SMOKE_PACKAGED_COMMIT=$IMAGE_UPLOAD_RELEASE_COMMIT
+ENV NDT_PRODUCTION_SMOKE_PACKAGED_FINGERPRINT=$IMAGE_UPLOAD_BUILD_FINGERPRINT
+
+COPY --from=builder --chown=pwuser:pwuser /app/apps/backend/runtime-dist ./dist
+COPY --from=builder --chown=pwuser:pwuser /app/apps/backend/package.json ./apps/backend/package.json
+COPY --from=builder --chown=pwuser:pwuser /app/packages/image-upload-policy/package.json ./packages/image-upload-policy/package.json
+COPY --from=builder --chown=pwuser:pwuser /app/packages/image-upload-policy/dist ./packages/image-upload-policy/dist
+COPY --from=builder --chown=pwuser:pwuser /app/node_modules ./node_modules
+
+RUN test -f /app/dist/scripts/run-image-upload-production-smoke.js && \
+    node -e "const { chromium } = require('playwright'); const path = chromium.executablePath(); if (!path.startsWith('/ms-playwright/')) process.exit(1); require('fs').accessSync(path)"
+
+USER pwuser
+ENTRYPOINT ["node", "/app/dist/scripts/run-image-upload-production-smoke.js"]

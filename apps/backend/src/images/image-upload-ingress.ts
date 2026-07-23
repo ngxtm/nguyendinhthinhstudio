@@ -1,9 +1,6 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
 
-export type ImageUploadIngressMode =
-  | 'disabled'
-  | 'operator-smoke'
-  | 'general';
+export type ImageUploadIngressMode = 'disabled' | 'operator-smoke' | 'general';
 
 export type ImageUploadIngressRole = 'api' | 'reconciler' | 'cutover';
 
@@ -80,7 +77,8 @@ export function parseImageUploadIngress(
 ): ImageUploadIngressRuntime {
   const presignEnabled = strictPresignEnabled(env);
   const configuredMode = ingressMode(env);
-  const token = env.IMAGE_UPLOAD_OPERATOR_SMOKE_TOKEN;
+  const configuredToken = env.IMAGE_UPLOAD_OPERATOR_SMOKE_TOKEN;
+  const token = configuredToken === '' ? undefined : configuredToken;
 
   if (role !== 'api') {
     if (token !== undefined) {

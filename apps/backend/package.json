@@ -36,6 +36,8 @@
     "images:uploads:reconcile": "node /app/dist/scripts/reconcile-image-uploads.js",
     "images:uploads:resolve-conflict": "node /app/dist/scripts/resolve-image-upload-promotion-conflict.js",
     "images:uploads:cutover": "node /app/dist/scripts/image-upload-cutover.js",
+    "images:uploads:production-smoke": "node /app/dist/scripts/run-image-upload-production-smoke.js run",
+    "images:uploads:production-smoke:cleanup": "node /app/dist/scripts/run-image-upload-production-smoke.js cleanup",
     "images:deletions:process": "tsx scripts/process-image-deletions.ts",
     "images:uploads:cleanup": "tsx scripts/cleanup-expired-image-uploads.ts",
     "images:migrate:dry-run": "tsx scripts/migrate-cloudflare-images-to-r2.ts --dry-run",
@@ -63,6 +65,7 @@
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "pg": "^8.22.0",
+    "playwright": "1.60.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "swagger-ui-express": "^5.0.1"

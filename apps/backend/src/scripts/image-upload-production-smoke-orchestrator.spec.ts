@@ -35,6 +35,8 @@ describe('production smoke orchestrator', () => {
     environment = parseProductionSmokeEnvironment(
       {
         NDT_PRODUCTION_SMOKE_API_BASE_URL: 'https://api.ndtstudio.site',
+        NDT_PRODUCTION_SMOKE_BROWSER_ORIGIN: 'https://www.ndtstudio.site',
+        NDT_PRODUCTION_SMOKE_ALBUM_ID: '00000000-0000-4000-8000-000000000010',
         NDT_PRODUCTION_SMOKE_IMGPROXY_BASE_URL: 'https://img.ndtstudio.site',
         NDT_PRODUCTION_SMOKE_ADMIN_BEARER_TOKEN: 'admin-bearer-secret',
         NDT_PRODUCTION_SMOKE_TOKEN:
@@ -49,6 +51,8 @@ describe('production smoke orchestrator', () => {
         IMAGE_UPLOAD_BUILD_FINGERPRINT: release.releaseFingerprint,
         NDT_PRODUCTION_SMOKE_IMAGE_REFERENCE: release.imageReference,
         NDT_PRODUCTION_SMOKE_IMAGE_DIGEST: release.imageDigest,
+        NDT_PRODUCTION_SMOKE_PACKAGED_COMMIT: release.commitSha,
+        NDT_PRODUCTION_SMOKE_PACKAGED_FINGERPRINT: release.releaseFingerprint,
         NDT_PRODUCTION_SMOKE_PHASE1_RECEIPT: path('phase1.json'),
         NDT_PRODUCTION_SMOKE_PHASE1_APPROVAL: path('phase1-approval.json'),
         NDT_PRODUCTION_SMOKE_AUTHORIZATION: path('authorization.json'),

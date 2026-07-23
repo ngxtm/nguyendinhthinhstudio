@@ -192,11 +192,42 @@ export function createProductionSmokeLiveAdapter(
     };
   }
 
+  async function recordUpload(upload: ProductionSmokeUpload): Promise<void> {
+    await dependencies.recordResource({ kind: 'upload', id: upload.uploadId });
+    await dependencies.recordResource({
+      kind: 'object',
+      id: `${upload.uploadId}:source`,
+      objectKey: upload.objectKey,
+    });
+  }
+
   return Object.freeze({
     resolveApiUrl,
 
     getUploadPolicy(signal: AbortSignal): Promise<ApiJson> {
       return apiJson('/images/upload-policy', signal);
+    },
+
+    async createUpload(
+      input: ProductionSmokeUploadInput,
+      signal: AbortSignal,
+    ): Promise<ProductionSmokeUpload> {
+      const upload = await requestUpload(input, signal);
+      await recordUpload(upload);
+      return upload;
+    },
+
+    confirmUpload(uploadId: string, signal: AbortSignal): Promise<ApiJson> {
+      return apiJson('/images/confirm-upload', signal, {
+        method: 'POST',
+        body: JSON.stringify({ uploadId }),
+      });
+    },
+
+    deleteImage(imageId: string, signal: AbortSignal): Promise<ApiJson> {
+      return apiJson(`/images/${encodeURIComponent(imageId)}`, signal, {
+        method: 'DELETE',
+      });
     },
 
     async proveAbsoluteExpiryRetry(
@@ -212,12 +243,7 @@ export function createProductionSmokeLiveAdapter(
       ) {
         throw new Error('production smoke absolute expiry retry changed');
       }
-      await dependencies.recordResource({ kind: 'upload', id: first.uploadId });
-      await dependencies.recordResource({
-        kind: 'object',
-        id: `${first.uploadId}:source`,
-        objectKey: first.objectKey,
-      });
+      await recordUpload(first);
       return first;
     },
 
