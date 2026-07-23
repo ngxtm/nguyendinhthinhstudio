@@ -55,7 +55,7 @@ The same new release produces two separately configured processes:
 
 - runs as one logical singleton using a dedicated PostgreSQL connection that owns the session advisory lock;
 - stops all mutation work immediately if the lock connection is lost;
-- publishes a database heartbeat with owner and build fingerprints;
+- publishes a database heartbeat with owner and immutable release fingerprints;
 - resumes stale finalization and create-only CopyObject dispatch from durable inspected facts;
 - runs five bounded loops for pending-session expiry CAS, promotion reconciliation, expired temporary-session cleanup, applicable R2 `ImageObjectDeletion`, and rate-limit event cleanup; the pending-expiry and rate-limit loops have no API/cron owner outside this singleton;
 - deletes canonical objects only through explicit promotion-cleanup or user-deletion authority;
@@ -138,7 +138,13 @@ All persisted ETags use one canonical unquoted opaque representation. R2 HEAD an
 
 ### `ImageUploadReconcilerHeartbeat`
 
-Stores the singleton owner ID, immutable build fingerprint, lock-acquired time, last heartbeat time, and five last-completed loop times: `pendingSessionExpiryCompletedAt`, `promotionRecoveryCompletedAt`, `temporaryCleanupCompletedAt`, `imageDeletionCompletedAt`, and `rateLimitCleanupCompletedAt`. The reconciler updates it through the same dedicated PostgreSQL connection that owns the session advisory lock. Loss of that connection aborts all in-flight loop controllers before the process reconnects or exits. A healthy heartbeat is newer than two one-minute loop cadences and corresponds to exactly one advisory-lock owner.
+Stores the singleton owner ID, immutable release fingerprint, lock-acquired time, last heartbeat time, and five last-completed loop times: `pendingSessionExpiryCompletedAt`, `promotionRecoveryCompletedAt`, `temporaryCleanupCompletedAt`, `imageDeletionCompletedAt`, and `rateLimitCleanupCompletedAt`. The reconciler updates it through the same dedicated PostgreSQL connection that owns the session advisory lock. Loss of that connection aborts all in-flight loop controllers before the process reconnects or exits. A healthy heartbeat is newer than two one-minute loop cadences and corresponds to exactly one advisory-lock owner.
+
+`IMAGE_UPLOAD_BUILD_FINGERPRINT` uses the version-1 release-fingerprint contract: lowercase SHA-256 of the exact lowercase 40-character Git commit ID encoded as UTF-8 with no trailing newline. The input is the deployed `main` commit after merge, not a branch name, short commit, Docker tag, Docker manifest digest, or Docker configuration ID. Before the production build, the operator proves the checkout is on branch `main`, has no tracked or untracked changes, and has `HEAD == origin/main`. The production Dockerfile pins its base image by digest, `package-lock.json` remains committed, and the production build uses that exact checkout, so the release commit identifies the reviewed source, dependency lock, Dockerfile, and pinned base. Runtime validation accepts only `sha256:<64 lowercase hex>`.
+
+The exact merged commit is passed to the production build as `IMAGE_UPLOAD_RELEASE_COMMIT`. The final backend image validates that value as one lowercase 40-character commit and stores it in the immutable OCI label `studio.nguyendinhthinh.image-upload.release-commit`. Production acceptance reads the label from the actual running image and requires it to equal the receipt's `release.imageCommitSha` and `release.commitSha`.
+
+The actual Docker image ID/digest is separate deployment evidence. Dokploy may produce different layer or image IDs when it rebuilds identical file content because generated layer metadata and timestamps differ; that output identity therefore does not replace the stable release fingerprint. Production evidence records the selected image reference, actual image ID, image commit label, release commit, and release fingerprint as separate values bound to the same deployment generation. The observed API, migration, and reconciler image IDs must each equal `release.imageDigest`. The reconciler environment fingerprint and database heartbeat `buildFingerprint` must each equal the release fingerprint recomputed from `release.commitSha`.
 
 ## 6. Polling settlement state matrix
 
@@ -208,7 +214,7 @@ For this initial cutover, the operator-approved `maintenance_route_absent` excep
 
 The ordered cutover is:
 
-1. Build, test, and record the immutable new image digest.
+1. Record the exact merged release commit and its version-1 release fingerprint, build and test from a clean checkout with the digest-pinned base image, then separately record the actual produced image ID/digest. The heartbeat fingerprint and Docker output identity are distinct evidence fields bound to the same generation.
 2. Optionally create an early encrypted preparation backup for rehearsal evidence; it is not the migration backup and cannot authorize audit, migration, or apply.
 3. Provision and read back the production R2 buckets, exact R2 CORS policy, and role-separated secrets.
 4. Establish the no-new-upload boundary by either (a) disabling new presign at ingress and verifying HTTP 503 `upload_presign_disabled`, or (b) satisfying the protected `maintenance_route_absent` exception above without provisioning a new ingress Worker/rule. While the old backend finishes already-started confirms, derive the drain deadline from the existing legacy `expiresAt` only when tests prove it equals the signed PUT expiry; otherwise conservatively use `presignDisabledAt + maximum legacy PUT lifetime`. Record the later deadline.
@@ -275,6 +281,8 @@ The shared policy package emits and the Docker smoke checks the actual files:
 - `dist/cjs/index.js`;
 - `dist/index.d.ts`;
 - `dist/cjs/package.json`.
+
+The backend Dockerfile pins the Node base image by immutable digest, requires `IMAGE_UPLOAD_RELEASE_COMMIT` as a build argument, validates it, and writes it to the final image's `studio.nguyendinhthinh.image-upload.release-commit` label. Packaging CI computes `IMAGE_UPLOAD_BUILD_FINGERPRINT` from the exact checked-out full Git commit using the version-1 no-newline algorithm before Compose interpolation and passes that same commit as the Docker build argument. Tests reject a missing, short, uppercase, or otherwise noncanonical commit, branch/tag value, prefixed image reference, uppercase/noncanonical digest, mutable base-image tag, mismatched image-label provenance, or any attempt to derive the heartbeat fingerprint from Docker output identity. Docker smoke still records its actual image ID independently.
 
 Both production images test package resolution through public exports. The backend image also contains the compiled reconciler and cutover entrypoints.
 
@@ -652,5 +660,8 @@ The design is complete when:
 - staging exercises real R2 CopyObject, response-loss polling recovery, and cleanup behavior;
 - backend, packaging, and bundled-Chromium browser coverage are required checks; pinned stable Chrome and the deterministic memory benchmark are manual release gates;
 - Docker smoke tests use real build artifacts;
+- production startup is authorized only by a distinct protected pre-deploy approval bound to the exact clean merged commit, release fingerprint, completed backup/cutover/migration gates, and `IMAGE_UPLOAD_PRESIGN_ENABLED=false`;
+- the complete production acceptance receipt is created only after API, migration, and reconciler startup, and it binds the distinct protected startup-approval path/digest, exactly two distinct pre-deploy polling snapshot digests, image reference, actual per-role image IDs, image commit label, reconciler environment fingerprint, database heartbeat fingerprint, and advancing five-loop evidence; production verification receives the startup approval as a third distinct protected absolute input, recomputes its path and byte digests, validates its closed canonical contract, and cross-binds its release/backups/audit/pre-deploy-snapshot/presign-disabled fields; the acceptance receipt does not contain the later operator-smoke receipt that it is intended to authorize;
+- `imageCommitSha == commitSha`, all three observed role image IDs equal `release.imageDigest`, and both runtime fingerprints equal the recomputed `release.releaseFingerprint`;
 - general upload ingress opens only after operator-only acceptance passes;
 - production cutover and incident recovery are roll-forward only.

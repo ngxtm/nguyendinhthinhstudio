@@ -1,7 +1,0 @@
-{
-    "base": "../pass.json",
-    "expectedGate": "acceptanceReceiptBinding",
-    "set": {
-        "operatorSmokeReceiptPathSha256": "3939393939393939393939393939393939393939393939393939393939393939"
-    }
-}

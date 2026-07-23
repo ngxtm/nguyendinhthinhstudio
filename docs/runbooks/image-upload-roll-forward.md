@@ -12,7 +12,7 @@ This runbook implements the polling-only production cutover in the canonical ima
 
 ## 1. Preparation before maintenance
 
-Record the immutable application image digest, commit, migration checksum, current policy hash, successful CI contexts, staging receipt, deterministic memory-fixture digest, manual browser-memory results, production bucket/CORS readback, exact polling readback (`reconcileGraceMs=30000`, `reconcileCadenceMs=5000`), four distinct bucket-scoped R2 data-plane credential fingerprints, and the distinct temporary production R2 Admin Read Only config-credential fingerprint.
+Record the planned immutable image reference, exact merged commit, migration checksum, current policy hash, successful CI contexts, staging receipt, deterministic memory-fixture digest, manual browser-memory results, production bucket/CORS readback, exact polling readback (`reconcileGraceMs=30000`, `reconcileCadenceMs=5000`), four distinct bucket-scoped R2 data-plane credential fingerprints, and the distinct temporary production R2 Admin Read Only config-credential fingerprint. The actual Docker image ID and image commit label are post-build evidence collected after startup.
 
 Require these exact CI contexts:
 
@@ -123,11 +123,11 @@ Apply must preflight the migrated schema before any R2 mutation. It terminalizes
 
 Rerun apply with the same evidence until all retained temporary sources are absent. Never change or replace an approved receipt to force progress.
 
-## 6. Post-bridge backup and two polling snapshots
+## 6. Post-bridge backup, pre-deploy snapshots, and startup approval
 
 Create and restore-verify a second encrypted full backup after bridge completion. It must differ from the pre-migration backup and prove the migrated tables, constraints, bridge rows, deterministic lease tokens, idempotency evidence, and migration history.
 
-Build a sanitized production-gate receipt matching `scripts/schemas/image-upload-production-evidence.schema.json`. Record two complete snapshots at least 30 seconds apart. Both must be zero for:
+Record two complete pre-deploy polling snapshots at least 30 seconds apart. Both must be zero for:
 
 - active and unterminalized expired uploads;
 - unresolved promotions and invalid response/HEAD settlement;
@@ -138,63 +138,87 @@ Build a sanitized production-gate receipt matching `scripts/schemas/image-upload
 - legacy terminal and pre-dispatch temporary sources;
 - production CORS mismatch.
 
-Also require backup/disposition mismatches zero, one advisory-lock owner, a five-loop heartbeat no older than two one-minute cadences, actual API process count equal to configuration, and actual process count multiplied by decode permits no greater than two.
+Also require backup/disposition mismatches zero. Runtime image, advisory-lock, heartbeat, loop, and replica evidence does not exist yet and must not be invented in this phase.
 
-Verify the protected receipt and distinct approval:
+Create a distinct owner-only startup approval with schema version `image-upload-production-startup-approval/v1`. Bind it to the exact merged commit, recomputed release fingerprint, image reference, migration checksum, zero-ambiguity audit approval, pre/post-backup receipts and approvals, both pre-deploy snapshot digests, operator fingerprint, approval time, `decision=approved`, and `IMAGE_UPLOAD_PRESIGN_ENABLED=false`. This approval authorizes only starting the new generation with presign disabled; it does not authorize a PUT/COPY/DELETE smoke, presign enablement, or ingress opening.
+
+Do not create or verify the complete production-gate receipt yet. Its runtime observations are collected only after startup.
+
+## 7. Start only the new generation and create post-start acceptance
+
+Starting the new roles requires the protected startup approval and all pre-deploy gates above. A complete production-gate receipt is necessarily post-start evidence and is not a startup prerequisite.
+
+Before starting the roles, fetch `origin/main`, prove the checkout is exactly clean merged `main`, and only then derive the release identity:
+
+```sh
+git fetch origin main
+test "$(git branch --show-current)" = main
+test -z "$(git status --porcelain --untracked-files=all)"
+test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
+RELEASE_COMMIT="$(git rev-parse HEAD)"
+IMAGE_UPLOAD_BUILD_FINGERPRINT="$(
+  node scripts/image-upload-release-fingerprint.mjs "$RELEASE_COMMIT"
+)"
+test "$IMAGE_UPLOAD_BUILD_FINGERPRINT" = "$(
+  node scripts/image-upload-release-fingerprint.mjs "$(git rev-parse origin/main)"
+)"
+```
+
+Configure three distinct Dokploy variables for the release:
+
+```text
+BACKEND_IMAGE=<unique Docker image reference or release tag>
+IMAGE_UPLOAD_RELEASE_COMMIT=<exact lowercase 40-character merged commit>
+IMAGE_UPLOAD_BUILD_FINGERPRINT=sha256:<64 lowercase hexadecimal characters>
+```
+
+`BACKEND_IMAGE` selects the image Docker runs. `IMAGE_UPLOAD_RELEASE_COMMIT` is
+the required Docker build argument stored in the final image label.
+`IMAGE_UPLOAD_BUILD_FINGERPRINT` is
+the version-1 stable release identity recorded in the reconciler heartbeat. Compute
+it from the exact full commit with no trailing newline through the canonical helper:
+
+```sh
+printf '%s\n' "RELEASE_COMMIT=$RELEASE_COMMIT"
+printf '%s\n' "IMAGE_UPLOAD_RELEASE_COMMIT=$RELEASE_COMMIT"
+printf '%s\n' "IMAGE_UPLOAD_BUILD_FINGERPRINT=$IMAGE_UPLOAD_BUILD_FINGERPRINT"
+```
+
+Copy the commit build argument and fingerprint into Dokploy before starting the generation. After Dokploy
+builds, record `docker image inspect .Id` separately as `release.imageDigest`; do
+not copy it into the heartbeat fingerprint. Read the label
+`studio.nguyendinhthinh.image-upload.release-commit` from the actual running image.
+Record the full commit ID, `BACKEND_IMAGE`, release fingerprint, image label, and
+actual image ID with the release evidence.
+A corrected source revision gets a new image reference and release fingerprint.
+API, migration, and reconciler containers for one deployment must use the same
+actual image ID.
+
+1. Start the recorded new API image with role `api` and presign disabled.
+2. Start the same release with role `reconciler`, its dedicated PostgreSQL advisory-lock connection, and its separate R2 credential.
+3. Verify no old digest runs; the image label equals the exact merged commit; the reconciler environment and database heartbeat equal the recomputed fingerprint; API, migration, and reconciler share one actual image ID; all cutover credentials, including the temporary config-read pair, are unmounted; API has no reconciler/cutover secret; exactly one reconciler owns the lock; all five loop timestamps advance.
+4. Run only read-only health, schema, route, production CORS, pre-existing R2 HEAD, signed imgproxy, serializer/redaction, replica, and heartbeat checks.
+5. Deploy/purge the current frontend while general upload ingress remains blocked.
+
+Now build the sanitized post-start production-gate receipt matching `scripts/schemas/image-upload-production-evidence.schema.json`. Its closed `release` evidence contains the image reference, actual image ID, image commit label, release commit, and release fingerprint. Its `roles` evidence contains each observed API/migration/reconciler image ID plus the reconciler environment and heartbeat fingerprints. Its top-level `preDeployPollingSnapshotSha256` contains exactly the two distinct snapshot digests approved before deploy. It binds those digests plus the protected startup-approval path/bytes and deliberately contains no later operator-smoke receipt.
+
+Verify the protected post-start receipt and its distinct approval:
 
 ```powershell
 node scripts/verify-image-upload-production-gates.mjs `
   --receipt $env:IMAGE_UPLOAD_PRODUCTION_GATE_RECEIPT `
-  --approval $env:IMAGE_UPLOAD_PRODUCTION_GATE_APPROVAL
+  --approval $env:IMAGE_UPLOAD_PRODUCTION_GATE_APPROVAL `
+  --startup-approval $env:IMAGE_UPLOAD_PRODUCTION_STARTUP_APPROVAL
 if ($LASTEXITCODE -ne 0) { throw "production polling gates failed" }
 ```
 
-## 7. Start only the new generation
-
-Starting the new roles requires the startup approval and a passing production-gate receipt.
-
-Before starting the roles, build or pull the exact release image and configure two
-distinct Dokploy variables for it:
-
-```text
-BACKEND_IMAGE=<unique Docker image reference or release tag>
-IMAGE_UPLOAD_BUILD_FINGERPRINT=sha256:<64 lowercase hexadecimal characters>
-```
-
-`BACKEND_IMAGE` selects the image Docker runs. `IMAGE_UPLOAD_BUILD_FINGERPRINT` is
-the resolved immutable ID/digest of those exact built bytes and is recorded in the
-reconciler heartbeat; it must never contain the mutable image tag. Resolve it only
-after the image exists on the deployment host:
-
-```sh
-IMAGE_UPLOAD_BUILD_FINGERPRINT="$(docker image inspect \
-  --format '{{.Id}}' "$BACKEND_IMAGE")"
-case "$IMAGE_UPLOAD_BUILD_FINGERPRINT" in
-  sha256:????????????????????????????????????????????????????????????????) ;;
-  *) echo "invalid immutable backend image ID" >&2; exit 1 ;;
-esac
-printf '%s\n' "IMAGE_UPLOAD_BUILD_FINGERPRINT=$IMAGE_UPLOAD_BUILD_FINGERPRINT"
-```
-
-Copy that exact output value into Dokploy before starting the generation. Record the
-full commit ID, `BACKEND_IMAGE`, and resolved fingerprint with the release evidence.
-A corrected source revision gets a new image reference and a newly resolved
-fingerprint; all API, migration, and reconciler containers for one deployment use
-the same built image.
-
-1. Start the recorded new API image with role `api` and presign disabled.
-2. Start the same release with role `reconciler`, its dedicated PostgreSQL advisory-lock connection, and its separate R2 credential.
-3. Verify no old digest runs; all cutover credentials, including the temporary config-read pair, are unmounted; API has no reconciler/cutover secret; exactly one reconciler owns the lock; all five loop timestamps advance.
-4. Run only read-only health, schema, route, production CORS, pre-existing R2 HEAD, signed imgproxy, serializer/redaction, replica, and heartbeat checks.
-5. Deploy/purge the current frontend while general upload ingress remains blocked.
-
 ## 8. Operator-only mutating acceptance
 
-Presign enablement is a production mutation and requires the operator-smoke approval. Keep general ingress blocked and allowlist only the authenticated operator smoke identity/path.
+Presign enablement is a production mutation and requires both the passing protected post-start production receipt/approval and a separate operator-smoke approval. Keep general ingress blocked and allowlist only the authenticated operator smoke identity/path.
 
 Exercise representative browser uploads, fixed absolute presign-expiry retries, allowed and denied browser CORS, response-first settlement, deliberate CopyObject response loss followed by exact destination HEAD settlement in 30–35 seconds, unchanged destination on retry, conflict fail-closed behavior, committed-result deletion, failed-promotion cleanup, temporary cleanup after expiry plus skew, and imgproxy rendering.
 
-Regenerate both zero polling snapshots after smoke. General ingress may open only when the protected production receipt, operator-smoke receipt, exact CI contexts, manual stable-Chrome result, deterministic memory evidence, and roll-forward drill all pass.
+Create the separate operator-smoke receipt, then regenerate both zero polling snapshots after smoke. General ingress may open only when the protected post-start production receipt, operator-smoke receipt, exact CI contexts, manual stable-Chrome result, deterministic memory evidence, and roll-forward drill all pass.
 
 ## 9. Open general ingress
 

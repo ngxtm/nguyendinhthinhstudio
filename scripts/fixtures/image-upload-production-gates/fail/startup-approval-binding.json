@@ -1,0 +1,7 @@
+{
+    "base": "../pass.json",
+    "expectedGate": "startupApprovalBinding",
+    "set": {
+        "startupApprovalPathSha256": "1111111111111111111111111111111111111111111111111111111111111111"
+    }
+}

@@ -5,6 +5,7 @@ import { dirname, isAbsolute, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
+import { createReleaseFingerprint } from './image-upload-release-fingerprint.mjs';
 
 const scriptDirectory = dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = resolve(scriptDirectory, '..');
@@ -109,7 +110,7 @@ function parseArguments(argv) {
         if (!key.startsWith('--') || !value || value.startsWith('--')) {
             fail('arguments', 'options require --name value or --name=value');
         }
-        if (!['--fixture', '--receipt', '--approval'].includes(key)) {
+        if (!['--fixture', '--receipt', '--approval', '--startup-approval'].includes(key)) {
             fail('arguments', `unknown option ${key}`);
         }
         if (values.has(key)) fail('arguments', `duplicate option ${key}`);
@@ -118,6 +119,7 @@ function parseArguments(argv) {
     const fixture = values.get('--fixture');
     const receipt = values.get('--receipt');
     const approval = values.get('--approval');
+    const startupApproval = values.get('--startup-approval');
     if (fixture) {
         if (process.env.NODE_ENV !== 'test') {
             fail('arguments', '--fixture is available only when NODE_ENV=test');
@@ -127,15 +129,16 @@ function parseArguments(argv) {
         ensureInside(fixtureRoot, absolute, 'arguments');
         return { mode: 'fixture', fixture: absolute };
     }
-    if (!receipt || !approval || values.size !== 2) {
-        fail('arguments', 'production mode requires one receipt and one approval');
+    if (!receipt || !approval || !startupApproval || values.size !== 3) {
+        fail('arguments', 'production mode requires receipt, approval, and startup approval');
     }
     const receiptPath = assertProtectedAbsolutePath(receipt, 'receiptPath');
     const approvalPath = assertProtectedAbsolutePath(approval, 'approvalPath');
-    if (receiptPath === approvalPath) {
-        fail('arguments', 'receipt and approval paths must be distinct');
+    const startupApprovalPath = assertProtectedAbsolutePath(startupApproval, 'startupApprovalPath');
+    if (new Set([receiptPath, approvalPath, startupApprovalPath]).size !== 3) {
+        fail('arguments', 'receipt, approval, and startup approval paths must be distinct');
     }
-    return { mode: 'production', receiptPath, approvalPath };
+    return { mode: 'production', receiptPath, approvalPath, startupApprovalPath };
 }
 
 function setPath(target, dottedPath, value) {
@@ -235,6 +238,31 @@ function assertTimestampAtMost(reference, value, gate, maxAgeMs = null) {
 function assertSemanticGates(receipt) {
     assertNoSensitiveMaterial(receipt);
     const createdAt = receipt.createdAt;
+    if (receipt.startupApprovalPathSha256 === receipt.receiptPathSha256) {
+        fail('startupApprovalBinding', 'startup approval and acceptance receipt must differ');
+    }
+    const expectedReleaseFingerprint = createReleaseFingerprint(receipt.release.commitSha);
+    if (receipt.release.releaseFingerprint !== expectedReleaseFingerprint) {
+        fail('releaseFingerprintBinding', 'release commit/fingerprint binding differs');
+    }
+    if (receipt.release.imageCommitSha !== receipt.release.commitSha) {
+        fail('imageCommitBinding', 'image commit label/release commit binding differs');
+    }
+    if (
+        [
+            receipt.roles.apiImageDigest,
+            receipt.roles.migrationImageDigest,
+            receipt.roles.reconcilerImageDigest,
+        ].some((imageDigest) => imageDigest !== receipt.release.imageDigest)
+    ) {
+        fail('runtimeImageBinding', 'runtime role image binding differs');
+    }
+    if (
+        receipt.roles.reconcilerEnvironmentBuildFingerprint !== expectedReleaseFingerprint ||
+        receipt.roles.heartbeatBuildFingerprint !== expectedReleaseFingerprint
+    ) {
+        fail('runtimeFingerprintBinding', 'runtime environment/heartbeat binding differs');
+    }
     if (receipt.release.policyVersion !== `web-v1-${receipt.release.policyHash}`) {
         fail('policyBinding', 'policy version/hash binding differs');
     }
@@ -346,12 +374,6 @@ function assertSemanticGates(receipt) {
     if (receipt.rollForwardDrillDecision !== 'pass') {
         fail('rollForwardDrillDecision', 'roll-forward drill has not passed');
     }
-    if (
-        receipt.stagingReceiptPathSha256 === receipt.operatorSmokeReceiptPathSha256 ||
-        receipt.stagingReceiptSha256 === receipt.operatorSmokeReceiptSha256
-    ) {
-        fail('acceptanceReceiptBinding', 'staging and operator-smoke evidence must differ');
-    }
 }
 
 function assertProductionBinding(receipt, receiptBytes, receiptPath, approvalPath) {
@@ -392,6 +414,66 @@ function assertProductionBinding(receipt, receiptBytes, receiptPath, approvalPat
     }
 }
 
+function assertStartupApprovalBinding(receipt, startupApprovalBytes, startupApprovalPath) {
+    if (
+        receipt.startupApprovalPathSha256 !== sha256(resolve(startupApprovalPath)) ||
+        receipt.startupApprovalSha256 !== sha256(startupApprovalBytes)
+    ) {
+        fail('startupApprovalBinding', 'startup approval path/bytes binding differs');
+    }
+    const startupApproval = readJson(startupApprovalPath);
+    const requiredKeys = [
+        'schemaVersion',
+        'releaseCommitSha',
+        'releaseFingerprint',
+        'imageReference',
+        'migrationChecksumSha256',
+        'preMigrationBackupReceiptSha256',
+        'preMigrationBackupApprovalSha256',
+        'postBridgeBackupReceiptSha256',
+        'postBridgeBackupApprovalSha256',
+        'auditReceiptSha256',
+        'preDeployPollingSnapshotSha256',
+        'imageUploadPresignEnabled',
+        'operatorFingerprintSha256',
+        'approvedAt',
+        'decision',
+        'canonicalSha256',
+    ];
+    const expectedSnapshotHashes = receipt.preDeployPollingSnapshotSha256;
+    if (
+        !startupApproval ||
+        typeof startupApproval !== 'object' ||
+        Object.keys(startupApproval).sort().join('\0') !== requiredKeys.sort().join('\0') ||
+        startupApproval.schemaVersion !== 'image-upload-production-startup-approval/v1' ||
+        startupApproval.releaseCommitSha !== receipt.release.commitSha ||
+        startupApproval.releaseFingerprint !== receipt.release.releaseFingerprint ||
+        startupApproval.imageReference !== receipt.release.imageReference ||
+        startupApproval.migrationChecksumSha256 !== receipt.release.migrationChecksumSha256 ||
+        startupApproval.preMigrationBackupReceiptSha256 !==
+            receipt.backups.preMigration.receiptSha256 ||
+        startupApproval.preMigrationBackupApprovalSha256 !==
+            receipt.backups.preMigration.approvalSha256 ||
+        startupApproval.postBridgeBackupReceiptSha256 !==
+            receipt.backups.postBridge.receiptSha256 ||
+        startupApproval.postBridgeBackupApprovalSha256 !==
+            receipt.backups.postBridge.approvalSha256 ||
+        startupApproval.auditReceiptSha256 !== receipt.cutover.auditReceiptSha256 ||
+        JSON.stringify(startupApproval.preDeployPollingSnapshotSha256) !==
+            JSON.stringify(expectedSnapshotHashes) ||
+        startupApproval.imageUploadPresignEnabled !== false ||
+        !SHA256.test(startupApproval.operatorFingerprintSha256) ||
+        startupApproval.decision !== 'approved' ||
+        startupApproval.canonicalSha256 !== canonicalSha256(startupApproval)
+    ) {
+        fail('startupApprovalBinding', 'startup approval closed contract differs');
+    }
+    assertTimestampAtMost(receipt.createdAt, startupApproval.approvedAt, 'startupApprovalTime');
+    if (Date.parse(startupApproval.approvedAt) > Date.now()) {
+        fail('startupApprovalTime', 'startup approval is from the future');
+    }
+}
+
 function verifyReceipt(receipt) {
     assertSchema(receipt);
     assertSemanticGates(receipt);
@@ -421,8 +503,10 @@ function main() {
     }
 
     const receiptBytes = readFileSync(input.receiptPath);
+    const startupApprovalBytes = readFileSync(input.startupApprovalPath);
     const receipt = readJson(input.receiptPath);
     verifyReceipt(receipt);
+    assertStartupApprovalBinding(receipt, startupApprovalBytes, input.startupApprovalPath);
     assertProductionBinding(receipt, receiptBytes, input.receiptPath, input.approvalPath);
     console.log('image-upload-production-gates: pass');
 }

@@ -4,8 +4,11 @@
     "receiptPathSha256": "1111111111111111111111111111111111111111111111111111111111111111",
     "createdAt": "2026-07-21T00:10:00.000Z",
     "release": {
+        "imageReference": "ndt-studio-backend:bbbbbbbbbbbb",
         "imageDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "imageCommitSha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "commitSha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "releaseFingerprint": "sha256:e26d2da3ab585c9840b157a4a9b5639fda905c2ad33d04d2c598be8883b51236",
         "migrationChecksumSha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
         "policyVersion": "web-v1-18da64f64a7d4a645b549c56ebc5dce84ed830f69defdf8b6d7f2b8d9659baef",
         "policyReadbackSha256": "3838383838383838383838383838383838383838383838383838383838383838",
@@ -33,6 +36,11 @@
         "apiFingerprintSha256": "2222222222222222222222222222222222222222222222222222222222222222",
         "reconcilerFingerprintSha256": "2323232323232323232323232323232323232323232323232323232323232323",
         "cutoverFingerprintSha256": "2424242424242424242424242424242424242424242424242424242424242424",
+        "apiImageDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "migrationImageDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "reconcilerImageDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "reconcilerEnvironmentBuildFingerprint": "sha256:e26d2da3ab585c9840b157a4a9b5639fda905c2ad33d04d2c598be8883b51236",
+        "heartbeatBuildFingerprint": "sha256:e26d2da3ab585c9840b157a4a9b5639fda905c2ad33d04d2c598be8883b51236",
         "readyApiProcesses": 1,
         "configuredApiProcesses": 1,
         "permitsPerProcess": 2,
@@ -66,6 +74,10 @@
         "backupBindingMismatchCount": 0,
         "dispositionInvalidCount": 0
     },
+    "preDeployPollingSnapshotSha256": [
+        "4242424242424242424242424242424242424242424242424242424242424242",
+        "4343434343434343434343434343434343434343434343434343434343434343"
+    ],
     "pollingSnapshots": [
         {
             "observedAt": "2026-07-21T00:09:00.000Z",
@@ -130,8 +142,8 @@
     },
     "stagingReceiptPathSha256": "3939393939393939393939393939393939393939393939393939393939393939",
     "stagingReceiptSha256": "3636363636363636363636363636363636363636363636363636363636363636",
-    "operatorSmokeReceiptPathSha256": "4040404040404040404040404040404040404040404040404040404040404040",
-    "operatorSmokeReceiptSha256": "3737373737373737373737373737373737373737373737373737373737373737",
+    "startupApprovalPathSha256": "4040404040404040404040404040404040404040404040404040404040404040",
+    "startupApprovalSha256": "3737373737373737373737373737373737373737373737373737373737373737",
     "rollForwardDrillDecision": "pass",
     "canonicalSha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
 }

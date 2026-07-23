@@ -1,0 +1,7 @@
+{
+    "base": "../pass.json",
+    "expectedGate": "runtimeFingerprintBinding",
+    "set": {
+        "roles.heartbeatBuildFingerprint": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    }
+}

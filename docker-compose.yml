@@ -1,6 +1,8 @@
 x-backend-build: &backend-build
   context: .
   dockerfile: apps/backend/Dockerfile
+  args:
+    IMAGE_UPLOAD_RELEASE_COMMIT: ${IMAGE_UPLOAD_RELEASE_COMMIT:?IMAGE_UPLOAD_RELEASE_COMMIT is required}
 
 services:
   frontend:

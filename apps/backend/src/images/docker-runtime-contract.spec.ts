@@ -111,6 +111,27 @@ describe('frontend Docker dependency boundary', () => {
 
 describe('backend Docker runner', () => {
   const dockerfile = readRepositoryFile('apps/backend/Dockerfile');
+
+  it('pins the Node base image by immutable digest', () => {
+    expect(dockerfile).toContain(
+      'FROM node:24-alpine@sha256:a0b9bf06e4e6193cf7a0f58816cc935ff8c2a908f81e6f1a95432d679c54fbfd AS base',
+    );
+    expect(dockerfile).not.toContain('FROM node:24-alpine AS base');
+  });
+
+  it('validates and labels the exact release commit in the final image', () => {
+    expect(dockerfile).toContain('ARG IMAGE_UPLOAD_RELEASE_COMMIT');
+    expect(dockerfile).toContain(
+      'RUN test "${#IMAGE_UPLOAD_RELEASE_COMMIT}" -eq 40',
+    );
+    expect(dockerfile).toContain(
+      'case "$IMAGE_UPLOAD_RELEASE_COMMIT" in *[!a-f0-9]*) exit 1 ;; *) exit 0 ;; esac',
+    );
+    expect(dockerfile).not.toContain("grep -Eq '^[a-f0-9]{40}$'");
+    expect(dockerfile).toContain(
+      'LABEL studio.nguyendinhthinh.image-upload.release-commit=$IMAGE_UPLOAD_RELEASE_COMMIT',
+    );
+  });
   const backendPackage = JSON.parse(
     readRepositoryFile('apps/backend/package.json'),
   ) as { devDependencies?: Record<string, string> };
@@ -253,11 +274,29 @@ describe('Compose image-upload process roles', () => {
   });
 
   it('provides a canonical build fingerprint to the Compose packaging check', () => {
+    expect(workflow).toContain(`release_commit="$(git rev-parse HEAD)"`);
     expect(workflow).toContain(
-      `fingerprint="$(docker image inspect --format '{{.Id}}' "$BACKEND_IMAGE")"`,
+      `fingerprint="$(node scripts/image-upload-release-fingerprint.mjs "$release_commit")"`,
     );
     expect(workflow).toContain(
       `echo "IMAGE_UPLOAD_BUILD_FINGERPRINT=$fingerprint" >> "$GITHUB_ENV"`,
+    );
+    expect(workflow).toContain(
+      `echo "IMAGE_UPLOAD_RELEASE_COMMIT=$release_commit" >> "$GITHUB_ENV"`,
+    );
+    expectBefore(
+      workflow,
+      'name: Bind Compose heartbeat fingerprint to checked-out release',
+      'docker build --build-arg "IMAGE_UPLOAD_RELEASE_COMMIT=$IMAGE_UPLOAD_RELEASE_COMMIT"',
+    );
+    expect(workflow).toContain(
+      'docker build --build-arg "IMAGE_UPLOAD_RELEASE_COMMIT=$IMAGE_UPLOAD_RELEASE_COMMIT" -f apps/backend/Dockerfile -t ndt-backend:image-upload-ci .',
+    );
+    expect(compose).toContain(
+      'IMAGE_UPLOAD_RELEASE_COMMIT: ${IMAGE_UPLOAD_RELEASE_COMMIT:?IMAGE_UPLOAD_RELEASE_COMMIT is required}',
+    );
+    expect(workflow).not.toContain(
+      `fingerprint="$(docker image inspect --format '{{.Id}}' "$BACKEND_IMAGE")"`,
     );
   });
 });

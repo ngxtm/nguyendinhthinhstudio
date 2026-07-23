@@ -1,0 +1,7 @@
+{
+    "base": "../pass.json",
+    "expectedGate": "runtimeImageBinding",
+    "set": {
+        "roles.reconcilerImageDigest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    }
+}

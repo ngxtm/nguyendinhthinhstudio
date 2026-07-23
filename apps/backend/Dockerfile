@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM node:24-alpine AS base
+FROM node:24-alpine@sha256:a0b9bf06e4e6193cf7a0f58816cc935ff8c2a908f81e6f1a95432d679c54fbfd AS base
 
 # Stage 1: Dependencies & Build
 FROM base AS builder
@@ -48,6 +48,12 @@ RUN mkdir -p runtime-dist/src runtime-dist/scripts && \
 FROM base AS runner
 WORKDIR /app
 ENV NODE_ENV=production
+ARG IMAGE_UPLOAD_RELEASE_COMMIT
+
+# Bind the packaged runtime to the exact reviewed release commit.
+RUN test "${#IMAGE_UPLOAD_RELEASE_COMMIT}" -eq 40 && \
+    case "$IMAGE_UPLOAD_RELEASE_COMMIT" in *[!a-f0-9]*) exit 1 ;; *) exit 0 ;; esac
+LABEL studio.nguyendinhthinh.image-upload.release-commit=$IMAGE_UPLOAD_RELEASE_COMMIT
 
 # Create non-root user for security
 RUN addgroup --system --gid 1001 nodejs && \
