@@ -12,7 +12,7 @@ The change adds a Cloudflare-compatible application gate and a packaged, bounded
 - Allow one authenticated administrator possessing a separate temporary smoke secret to exercise the production upload workflow through Cloudflare.
 - Execute all twelve checks required by `image-upload-operator-smoke-receipt/v1-polling` and derive each boolean from observed behavior.
 - Isolate every mutation to runner-owned database rows and R2 keys and make cleanup resumable after interruption.
-- Package the runner in the same immutable backend image as the API and reconciler.
+- Package the runner in a temporary one-shot smoke image built from the same release commit as the immutable backend image.
 - Preserve the existing separation between the cutover operator token and API/reconciler runtime secrets.
 - Leave a protected, canonical receipt only after all checks and cleanup pass.
 
@@ -43,15 +43,15 @@ This is the selected approach. Cloudflare forwards the request to the existing A
 
 Add `IMAGE_UPLOAD_INGRESS_MODE` with the closed values `disabled`, `operator-smoke`, and `general`. `IMAGE_UPLOAD_PRESIGN_ENABLED` remains the independent hard kill.
 
-| Presign | Ingress mode | Smoke token | Result |
-| --- | --- | --- | --- |
-| `false` | omitted or `disabled` | absent | API boots; upload creation is disabled |
-| `false` | `operator-smoke` or `general` | any | startup fails |
-| `true` | omitted or `disabled` | any | startup fails |
-| `true` | `operator-smoke` | present and high entropy | only operator-smoke requests are admitted |
-| `true` | `general` | absent | general authenticated-admin ingress is admitted |
-| `true` | `operator-smoke` | absent/weak | startup fails |
-| `true` | `general` | present | startup fails |
+| Presign | Ingress mode                  | Smoke token              | Result                                          |
+| ------- | ----------------------------- | ------------------------ | ----------------------------------------------- |
+| `false` | omitted or `disabled`         | absent                   | API boots; upload creation is disabled          |
+| `false` | `operator-smoke` or `general` | any                      | startup fails                                   |
+| `true`  | omitted or `disabled`         | any                      | startup fails                                   |
+| `true`  | `operator-smoke`              | present and high entropy | only operator-smoke requests are admitted       |
+| `true`  | `general`                     | absent                   | general authenticated-admin ingress is admitted |
+| `true`  | `operator-smoke`              | absent/weak              | startup fails                                   |
+| `true`  | `general`                     | present                  | startup fails                                   |
 
 Omitting `IMAGE_UPLOAD_INGRESS_MODE` is backward-compatible only while presign is false; it resolves to `disabled`. There is no backward-compatible path from `presign=true` to general ingress. General ingress therefore always requires an explicit Phase 2 deployment choice.
 
@@ -79,18 +79,20 @@ The parsed API runtime exposes only:
 
 The raw token is not exposed through runtime observation, Swagger, health endpoints, receipts, or logs. Runtime fingerprints include the ingress mode and the smoke-token fingerprint, not secret bytes, so a redeploy with a different token is detectable.
 
-`docker-compose.yml` mounts the smoke token only into the backend service. The migration and reconciler services do not receive it. The Docker runtime contract proves the role boundary and proves that the runner artifact is packaged.
+`docker-compose.yml` mounts the smoke token only into the backend service. The migration and reconciler services do not receive it. The Docker runtime contract proves the long-lived role boundary. The one-shot smoke image separately proves its release commit/fingerprint binding before it may contact production.
 
-## Packaged production smoke runner
+## One-shot production smoke runner image
 
-Add `dist/scripts/run-image-upload-production-smoke.js` to the backend image with commands:
+Add `dist/scripts/run-image-upload-production-smoke.js` to a dedicated image built with `apps/backend/Dockerfile.operator-smoke`, with commands:
 
 ```text
 run-image-upload-production-smoke.js run
 run-image-upload-production-smoke.js cleanup
 ```
 
-The runner is a one-shot CLI and never boots Nest HTTP routes. It has a dedicated strict input parser rather than relaxing the long-lived API/reconciler role parser. Secrets are accepted only through environment variables or a mode-600 environment file, never command-line arguments.
+The production backend remains based on Node Alpine and does not contain a browser. The smoke image uses a pinned Node 24 Debian/Playwright-compatible base and installs the matching Playwright Chromium browser. It does not download or depend on stable Chrome. This avoids unsupported Chromium-on-musl behavior and keeps browser binaries out of the long-lived API/reconciler image.
+
+The runner image is temporary and one-shot: it never boots Nest HTTP routes, is not part of the Dokploy service topology, and must be removed from the VPS after Phase 2 acceptance. It has a dedicated strict input parser rather than relaxing the long-lived API/reconciler role parser. Secrets are accepted only through environment variables or a mode-600 environment file, never command-line arguments. Its image labels and runtime inputs bind it to the exact release commit, release fingerprint, backend image reference, and observed backend image digest.
 
 Required inputs include:
 
@@ -186,7 +188,7 @@ Development follows test-first cycles.
 - CORS contract tests prove the smoke header name is admitted without exposing its value.
 - Runner unit tests use dependency injection to prove the exact twelve-check order, one-time cleanup, abort handling, receipt suppression on every failure, `wx` persistence, canonical hashing, and secret redaction.
 - Integration tests use disposable PostgreSQL and fake/local provider adapters to prove closed ownership queries, conflict/response-loss state preparation, condition polling, cleanup resumption, and refusal to touch foreign rows or keys.
-- Packaging tests require the compiled runner and its cleanup command in the immutable backend image.
+- Packaging tests require the compiled runner, matching Playwright Chromium, cleanup command, and release labels in the dedicated one-shot image; they also prove the long-lived backend image does not acquire the browser layer.
 - Verifier tests prove the official receipt produced by the runner passes unchanged and that a hand-edited or incomplete receipt fails.
 - The existing image-upload unit, integration, e2e, workflow-contract, production-gate, final-ingress, policy-build, backend-build, and Docker runtime-contract suites remain green.
 
@@ -198,11 +200,11 @@ No automated test receives production credentials. The live production run remai
 2. Re-run Phase 1 evidence for the new immutable release; earlier release evidence remains protected.
 3. Create and approve a new smoke authorization bound to that release.
 4. Configure the API service only with ingress mode `operator-smoke`, presign true, and the temporary smoke token; redeploy and prove unauthenticated, ordinary-admin, and missing-token requests fail closed.
-5. Run the packaged CLI with protected one-shot inputs and retain its journal and official receipt.
+5. Build the one-shot smoke image from the same release commit, verify its labels/runtime binding, run it with protected inputs, and retain its journal and official receipt.
 6. Set presign false and ingress mode `disabled` before the roll-forward drill required by the existing runbook.
 7. Complete drill evidence, final zero snapshots, Phase 2 receipt, approval, and official final-ingress verification.
 8. Only after Phase 2 passes, redeploy with presign true and ingress mode `general`, with the smoke token absent.
-9. Verify general ingress, then revoke/remove the temporary smoke secret and perform only the separately authorized evidence cleanup.
+9. Verify general ingress, then revoke/remove the temporary smoke secret, remove the stopped smoke container and one-shot smoke image, and perform only the separately authorized evidence cleanup.
 
 At no point does Phase 1 approval or a smoke receipt alone authorize general ingress.
 

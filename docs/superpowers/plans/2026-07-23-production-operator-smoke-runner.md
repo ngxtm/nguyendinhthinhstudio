@@ -4,7 +4,7 @@
 
 **Goal:** Add a fail-closed operator-only upload ingress mode and a packaged production runner that executes, cleans up, and receipts all twelve Stage 09 smoke checks.
 
-**Architecture:** The API keeps `IMAGE_UPLOAD_PRESIGN_ENABLED` as a hard kill and adds an explicit `disabled | operator-smoke | general` ingress state. A one-shot CLI in the immutable backend image validates protected Phase 1/authorization evidence, journals exact runner-owned IDs and keys, drives real API/browser/provider checks, uses closed PostgreSQL/R2 adapters for otherwise-unreachable fault states, cleans up idempotently, and writes the existing official receipt only after all checks and cleanup pass.
+**Architecture:** The API keeps `IMAGE_UPLOAD_PRESIGN_ENABLED` as a hard kill and adds an explicit `disabled | operator-smoke | general` ingress state. A temporary one-shot Debian image built from the same release commit supplies Node 24 and matching Playwright Chromium while the long-lived Alpine backend stays lean. Its CLI validates protected Phase 1/authorization evidence, binds itself to the release fingerprint and observed backend image digest, journals exact runner-owned IDs and keys, drives real API/browser/provider checks, uses closed PostgreSQL/R2 adapters for otherwise-unreachable fault states, cleans up idempotently, and writes the existing official receipt only after all checks and cleanup pass.
 
 **Tech Stack:** TypeScript 5.8, NestJS 11, Jest 30, Prisma/PostgreSQL, AWS SDK v3 for R2, Playwright Chromium, Node.js 24, JSON Schema evidence contracts, Docker Compose.
 
@@ -32,13 +32,14 @@
 - Create `apps/backend/src/scripts/run-image-upload-production-smoke.ts`: `run`/`cleanup` CLI and live dependency assembly.
 - Create `apps/backend/src/scripts/run-image-upload-production-smoke.spec.ts`: CLI mode and secret-output contract tests.
 - Create `scripts/schemas/image-upload-operator-smoke-journal.schema.json`: closed sanitized resumable journal schema.
-- Modify `apps/backend/package.json`, `apps/backend/Dockerfile`, `docker-compose.yml`, and `apps/backend/src/images/docker-runtime-contract.spec.ts`: package the runner and bind the smoke secret only to API.
+- Create `apps/backend/Dockerfile.operator-smoke` and modify `apps/backend/package.json`, `docker-compose.yml`, and `apps/backend/src/images/docker-runtime-contract.spec.ts`: package the runner with pinned Playwright Chromium in a temporary image while binding the smoke secret only to API.
 - Modify `scripts/verify-image-upload-final-ingress-gates.test.mjs`: accept a runner-generated canonical receipt and reject changed bytes/checks.
 - Modify `scripts/verify-image-upload-workflow.mjs`, `docs/runbooks/image-upload-roll-forward.md`, and the canonical Stage 09 plan/spec: document and enforce the executable operator-smoke path.
 
 ### Task 1: Implement the closed ingress state machine
 
 **Files:**
+
 - Create: `apps/backend/src/images/image-upload-ingress.ts`
 - Create: `apps/backend/src/images/image-upload-ingress.spec.ts`
 - Modify: `apps/backend/src/images/image-upload-runtime-config.ts`
@@ -49,54 +50,63 @@
 Define the wished-for API in the test:
 
 ```ts
-import {
-  parseImageUploadIngress,
-  smokeTokenFingerprint,
-} from './image-upload-ingress';
+import { parseImageUploadIngress, smokeTokenFingerprint } from './image-upload-ingress';
 
 const token = 'operator-smoke-token-with-at-least-32-bytes';
 
 it.each([
-  [{ IMAGE_UPLOAD_PRESIGN_ENABLED: 'false' }, 'disabled'],
-  [{
-    IMAGE_UPLOAD_PRESIGN_ENABLED: 'false',
-    IMAGE_UPLOAD_INGRESS_MODE: 'disabled',
-  }, 'disabled'],
-  [{
-    IMAGE_UPLOAD_PRESIGN_ENABLED: 'true',
-    IMAGE_UPLOAD_INGRESS_MODE: 'operator-smoke',
-    IMAGE_UPLOAD_OPERATOR_SMOKE_TOKEN: token,
-  }, 'operator-smoke'],
-  [{
-    IMAGE_UPLOAD_PRESIGN_ENABLED: 'true',
-    IMAGE_UPLOAD_INGRESS_MODE: 'general',
-  }, 'general'],
+    [{ IMAGE_UPLOAD_PRESIGN_ENABLED: 'false' }, 'disabled'],
+    [
+        {
+            IMAGE_UPLOAD_PRESIGN_ENABLED: 'false',
+            IMAGE_UPLOAD_INGRESS_MODE: 'disabled',
+        },
+        'disabled',
+    ],
+    [
+        {
+            IMAGE_UPLOAD_PRESIGN_ENABLED: 'true',
+            IMAGE_UPLOAD_INGRESS_MODE: 'operator-smoke',
+            IMAGE_UPLOAD_OPERATOR_SMOKE_TOKEN: token,
+        },
+        'operator-smoke',
+    ],
+    [
+        {
+            IMAGE_UPLOAD_PRESIGN_ENABLED: 'true',
+            IMAGE_UPLOAD_INGRESS_MODE: 'general',
+        },
+        'general',
+    ],
 ])('accepts valid ingress state %#', (env, mode) => {
-  expect(parseImageUploadIngress(env, 'api').mode).toBe(mode);
+    expect(parseImageUploadIngress(env, 'api').mode).toBe(mode);
 });
 
 it.each([
-  { IMAGE_UPLOAD_PRESIGN_ENABLED: 'true' },
-  { IMAGE_UPLOAD_PRESIGN_ENABLED: 'true', IMAGE_UPLOAD_INGRESS_MODE: 'disabled' },
-  { IMAGE_UPLOAD_PRESIGN_ENABLED: 'false', IMAGE_UPLOAD_INGRESS_MODE: 'general' },
-  { IMAGE_UPLOAD_PRESIGN_ENABLED: 'true', IMAGE_UPLOAD_INGRESS_MODE: 'operator-smoke' },
-  {
-    IMAGE_UPLOAD_PRESIGN_ENABLED: 'true',
-    IMAGE_UPLOAD_INGRESS_MODE: 'general',
-    IMAGE_UPLOAD_OPERATOR_SMOKE_TOKEN: token,
-  },
+    { IMAGE_UPLOAD_PRESIGN_ENABLED: 'true' },
+    { IMAGE_UPLOAD_PRESIGN_ENABLED: 'true', IMAGE_UPLOAD_INGRESS_MODE: 'disabled' },
+    { IMAGE_UPLOAD_PRESIGN_ENABLED: 'false', IMAGE_UPLOAD_INGRESS_MODE: 'general' },
+    { IMAGE_UPLOAD_PRESIGN_ENABLED: 'true', IMAGE_UPLOAD_INGRESS_MODE: 'operator-smoke' },
+    {
+        IMAGE_UPLOAD_PRESIGN_ENABLED: 'true',
+        IMAGE_UPLOAD_INGRESS_MODE: 'general',
+        IMAGE_UPLOAD_OPERATOR_SMOKE_TOKEN: token,
+    },
 ])('rejects unsafe ingress state %#', (env) => {
-  expect(() => parseImageUploadIngress(env, 'api')).toThrow();
+    expect(() => parseImageUploadIngress(env, 'api')).toThrow();
 });
 
 it('stores only a token fingerprint', () => {
-  const parsed = parseImageUploadIngress({
-    IMAGE_UPLOAD_PRESIGN_ENABLED: 'true',
-    IMAGE_UPLOAD_INGRESS_MODE: 'operator-smoke',
-    IMAGE_UPLOAD_OPERATOR_SMOKE_TOKEN: token,
-  }, 'api');
-  expect(parsed.smokeTokenSha256).toBe(smokeTokenFingerprint(token));
-  expect(JSON.stringify(parsed)).not.toContain(token);
+    const parsed = parseImageUploadIngress(
+        {
+            IMAGE_UPLOAD_PRESIGN_ENABLED: 'true',
+            IMAGE_UPLOAD_INGRESS_MODE: 'operator-smoke',
+            IMAGE_UPLOAD_OPERATOR_SMOKE_TOKEN: token,
+        },
+        'api',
+    );
+    expect(parsed.smokeTokenSha256).toBe(smokeTokenFingerprint(token));
+    expect(JSON.stringify(parsed)).not.toContain(token);
 });
 ```
 
@@ -117,20 +127,19 @@ Implement these exports:
 ```ts
 export type ImageUploadIngressMode = 'disabled' | 'operator-smoke' | 'general';
 export type ImageUploadIngressRuntime = Readonly<{
-  presignEnabled: boolean;
-  mode: ImageUploadIngressMode;
-  smokeTokenSha256?: string;
+    presignEnabled: boolean;
+    mode: ImageUploadIngressMode;
+    smokeTokenSha256?: string;
 }>;
-export const IMAGE_UPLOAD_OPERATOR_SMOKE_HEADER =
-  'x-image-upload-smoke-token' as const;
+export const IMAGE_UPLOAD_OPERATOR_SMOKE_HEADER = 'x-image-upload-smoke-token' as const;
 export function smokeTokenFingerprint(token: string): string;
 export function parseImageUploadIngress(
-  env: Readonly<Record<string, string | undefined>>,
-  role: 'api' | 'reconciler' | 'cutover',
+    env: Readonly<Record<string, string | undefined>>,
+    role: 'api' | 'reconciler' | 'cutover',
 ): ImageUploadIngressRuntime;
 export function matchesOperatorSmokeToken(
-  runtime: ImageUploadIngressRuntime,
-  header: string | string[] | undefined,
+    runtime: ImageUploadIngressRuntime,
+    header: string | string[] | undefined,
 ): boolean;
 ```
 
@@ -160,6 +169,7 @@ git commit -m "feat(images): add fail-closed upload ingress modes"
 ### Task 2: Enforce operator admission in API and CORS
 
 **Files:**
+
 - Modify: `apps/backend/src/images/images.module.ts`
 - Modify: `apps/backend/src/images/images.controller.ts`
 - Modify: `apps/backend/src/images/images.controller.spec.ts`
@@ -173,40 +183,40 @@ Extend the controller test runtime factory with `mode` and `smokeTokenSha256`. A
 ```ts
 const smokeToken = 'operator-smoke-token-with-at-least-32-bytes';
 const validBody = {
-  clientRequestId: '00000000-0000-4000-8000-000000000010',
-  albumId: '00000000-0000-4000-8000-000000000020',
-  filename: 'smoke.webp',
-  contentType: 'image/webp',
-  fileSize: 1024,
-  processedSha256: 'a'.repeat(64),
-  policyVersion: 'policy-v1',
+    clientRequestId: '00000000-0000-4000-8000-000000000010',
+    albumId: '00000000-0000-4000-8000-000000000020',
+    filename: 'smoke.webp',
+    contentType: 'image/webp',
+    fileSize: 1024,
+    processedSha256: 'a'.repeat(64),
+    policyVersion: 'policy-v1',
 };
 const adminRequestWithoutSmokeHeader = {
-  user: { sub: 'admin-1', role: 'admin' },
-  headers: {},
+    user: { sub: 'admin-1', role: 'admin' },
+    headers: {},
 };
 const adminRequestWithSmokeHeader = {
-  user: { sub: 'admin-1', role: 'admin' },
-  headers: { 'x-image-upload-smoke-token': smokeToken },
+    user: { sub: 'admin-1', role: 'admin' },
+    headers: { 'x-image-upload-smoke-token': smokeToken },
 };
 
 await expect(
-  operatorController().getUploadUrl(validBody, adminRequestWithoutSmokeHeader),
+    operatorController().getUploadUrl(validBody, adminRequestWithoutSmokeHeader),
 ).rejects.toMatchObject({
-  response: { statusCode: 403, code: 'upload_operator_smoke_required' },
+    response: { statusCode: 403, code: 'upload_operator_smoke_required' },
 });
 expect(rateLimit.admit).not.toHaveBeenCalled();
 expect(images.getUploadUrl).not.toHaveBeenCalled();
 
 await expect(
-  operatorController().getUploadUrl(validBody, adminRequestWithSmokeHeader),
+    operatorController().getUploadUrl(validBody, adminRequestWithSmokeHeader),
 ).resolves.toEqual({ uploadId: 'upload-1' });
 
 await expect(
-  disabledController().getUploadStatus(
-    { uploadId: '00000000-0000-4000-8000-000000000030' },
-    adminRequest,
-  ),
+    disabledController().getUploadStatus(
+        { uploadId: '00000000-0000-4000-8000-000000000030' },
+        adminRequest,
+    ),
 ).resolves.toBeDefined();
 ```
 
@@ -283,6 +293,7 @@ git commit -m "feat(images): enforce operator-only smoke admission"
 ### Task 3: Add protected smoke contract, journal, and receipt writer
 
 **Files:**
+
 - Create: `scripts/schemas/image-upload-operator-smoke-journal.schema.json`
 - Create: `apps/backend/src/scripts/image-upload-production-smoke-contract.ts`
 - Create: `apps/backend/src/scripts/image-upload-production-smoke-contract.spec.ts`
@@ -293,16 +304,22 @@ Define tests for `parseProductionSmokeEnvironment`, `readProtectedEvidence`, `cr
 
 ```ts
 expect(() => parseProductionSmokeEnvironment(validEnv)).not.toThrow();
-expect(() => parseProductionSmokeEnvironment(Object.assign({}, validEnv, {
-  NDT_PRODUCTION_SMOKE_TOKEN: '',
-}))).toThrow('NDT_PRODUCTION_SMOKE_TOKEN is required');
+expect(() =>
+    parseProductionSmokeEnvironment(
+        Object.assign({}, validEnv, {
+            NDT_PRODUCTION_SMOKE_TOKEN: '',
+        }),
+    ),
+).toThrow('NDT_PRODUCTION_SMOKE_TOKEN is required');
 await expect(createSmokeJournal(path, draft)).resolves.toMatchObject({
-  schemaVersion: 'image-upload-operator-smoke-journal/v1',
-  lifecycle: 'authorized',
-  cleanupStatus: 'pending',
+    schemaVersion: 'image-upload-operator-smoke-journal/v1',
+    lifecycle: 'authorized',
+    cleanupStatus: 'pending',
 });
 await expect(createSmokeJournal(path, draft)).rejects.toThrow(/exist/i);
-expect(JSON.stringify(await readFile(path, 'utf8'))).not.toContain(validEnv.NDT_PRODUCTION_SMOKE_TOKEN);
+expect(JSON.stringify(await readFile(path, 'utf8'))).not.toContain(
+    validEnv.NDT_PRODUCTION_SMOKE_TOKEN,
+);
 ```
 
 Test broad POSIX mode, relative paths, aliased evidence paths, changed canonical authorization, release drift, false checks, incomplete cleanup, and existing receipt output.
@@ -321,36 +338,36 @@ Use these core types:
 
 ```ts
 export const PRODUCTION_SMOKE_CHECKS = [
-  'browserUpload',
-  'absoluteExpiryRetry',
-  'allowedCorsPut',
-  'deniedCorsPut',
-  'responseFirstSettlement',
-  'copyResponseLossHeadSettlement',
-  'unchangedDestinationRetry',
-  'conflictFailClosed',
-  'committedDeletion',
-  'failedPromotionCleanup',
-  'temporaryCleanupAfterExpiry',
-  'imgproxyRendering',
+    'browserUpload',
+    'absoluteExpiryRetry',
+    'allowedCorsPut',
+    'deniedCorsPut',
+    'responseFirstSettlement',
+    'copyResponseLossHeadSettlement',
+    'unchangedDestinationRetry',
+    'conflictFailClosed',
+    'committedDeletion',
+    'failedPromotionCleanup',
+    'temporaryCleanupAfterExpiry',
+    'imgproxyRendering',
 ] as const;
 export type ProductionSmokeCheck = (typeof PRODUCTION_SMOKE_CHECKS)[number];
 export type SmokeOwnedResource = Readonly<{
-  kind: 'upload' | 'promotion' | 'conflict' | 'image' | 'deletion' | 'object';
-  id: string;
-  objectKeySha256?: string;
+    kind: 'upload' | 'promotion' | 'conflict' | 'image' | 'deletion' | 'object';
+    id: string;
+    objectKeySha256?: string;
 }>;
 export type ProductionSmokeJournal = Readonly<{
-  schemaVersion: 'image-upload-operator-smoke-journal/v1';
-  runId: string;
-  release: ReleaseTuple;
-  adminIdSha256: string;
-  lifecycle: 'authorized' | 'running' | 'checks-passed' | 'cleaning' | 'complete' | 'failed';
-  completedChecks: readonly ProductionSmokeCheck[];
-  resources: readonly SmokeOwnedResource[];
-  cleanupStatus: 'pending' | 'running' | 'complete' | 'failed';
-  updatedAt: string;
-  canonicalSha256: string;
+    schemaVersion: 'image-upload-operator-smoke-journal/v1';
+    runId: string;
+    release: ReleaseTuple;
+    adminIdSha256: string;
+    lifecycle: 'authorized' | 'running' | 'checks-passed' | 'cleaning' | 'complete' | 'failed';
+    completedChecks: readonly ProductionSmokeCheck[];
+    resources: readonly SmokeOwnedResource[];
+    cleanupStatus: 'pending' | 'running' | 'complete' | 'failed';
+    updatedAt: string;
+    canonicalSha256: string;
 }>;
 ```
 
@@ -375,6 +392,7 @@ git commit -m "feat(images): add protected production smoke evidence contract"
 ### Task 4: Implement the fail-closed orchestrator
 
 **Files:**
+
 - Create: `apps/backend/src/scripts/image-upload-production-smoke-orchestrator.ts`
 - Create: `apps/backend/src/scripts/image-upload-production-smoke-orchestrator.spec.ts`
 
@@ -384,22 +402,22 @@ Define a dependency interface with `preflight`, one method for each check, `clea
 
 ```ts
 expect(events).toEqual([
-  'preflight',
-  'browserUpload',
-  'absoluteExpiryRetry',
-  'allowedCorsPut',
-  'deniedCorsPut',
-  'responseFirstSettlement',
-  'copyResponseLossHeadSettlement',
-  'unchangedDestinationRetry',
-  'conflictFailClosed',
-  'committedDeletion',
-  'failedPromotionCleanup',
-  'temporaryCleanupAfterExpiry',
-  'imgproxyRendering',
-  'cleanup',
-  'verifyCleanup',
-  'receipt',
+    'preflight',
+    'browserUpload',
+    'absoluteExpiryRetry',
+    'allowedCorsPut',
+    'deniedCorsPut',
+    'responseFirstSettlement',
+    'copyResponseLossHeadSettlement',
+    'unchangedDestinationRetry',
+    'conflictFailClosed',
+    'committedDeletion',
+    'failedPromotionCleanup',
+    'temporaryCleanupAfterExpiry',
+    'imgproxyRendering',
+    'cleanup',
+    'verifyCleanup',
+    'receipt',
 ]);
 ```
 
@@ -419,23 +437,27 @@ Export:
 
 ```ts
 export type ProductionSmokeDependencies = Readonly<{
-  preflight: (context: SmokeRunContext, signal: AbortSignal) => Promise<void>;
-  runCheck: (
-    check: ProductionSmokeCheck,
-    context: SmokeRunContext,
-    signal: AbortSignal,
-  ) => Promise<void>;
-  cleanup: (context: SmokeRunContext, signal: AbortSignal) => Promise<void>;
-  verifyCleanup: (context: SmokeRunContext, signal: AbortSignal) => Promise<void>;
+    preflight: (context: SmokeRunContext, signal: AbortSignal) => Promise<void>;
+    runCheck: (
+        check: ProductionSmokeCheck,
+        context: SmokeRunContext,
+        signal: AbortSignal,
+    ) => Promise<void>;
+    cleanup: (context: SmokeRunContext, signal: AbortSignal) => Promise<void>;
+    verifyCleanup: (context: SmokeRunContext, signal: AbortSignal) => Promise<void>;
 }>;
-export async function runProductionSmoke(options: RunProductionSmokeOptions): Promise<OperatorSmokeReceipt>;
-export async function resumeProductionSmokeCleanup(options: CleanupProductionSmokeOptions): Promise<void>;
+export async function runProductionSmoke(
+    options: RunProductionSmokeOptions,
+): Promise<OperatorSmokeReceipt>;
+export async function resumeProductionSmokeCleanup(
+    options: CleanupProductionSmokeOptions,
+): Promise<void>;
 export async function pollUntil<T>(options: {
-  observe: () => Promise<T>;
-  accept: (value: T) => boolean;
-  deadline: number;
-  intervalMs: number;
-  signal: AbortSignal;
+    observe: () => Promise<T>;
+    accept: (value: T) => boolean;
+    deadline: number;
+    intervalMs: number;
+    signal: AbortSignal;
 }): Promise<T>;
 ```
 
@@ -459,6 +481,7 @@ git commit -m "feat(images): orchestrate resumable production smoke checks"
 ### Task 5: Implement real API, browser, provider, and imgproxy checks
 
 **Files:**
+
 - Create: `apps/backend/src/scripts/image-upload-production-smoke-live.ts`
 - Create: `apps/backend/src/scripts/image-upload-production-smoke-live.spec.ts`
 
@@ -508,6 +531,7 @@ git commit -m "feat(images): add live production smoke adapters"
 ### Task 6: Implement closed PostgreSQL fault preparation and cleanup
 
 **Files:**
+
 - Create: `apps/backend/src/scripts/image-upload-production-smoke-pg.ts`
 - Create: `apps/backend/src/scripts/image-upload-production-smoke-pg.spec.ts`
 - Create: `apps/backend/test/image-upload-production-smoke.integration-spec.ts`
@@ -578,16 +602,17 @@ git commit -m "feat(images): add bounded production smoke fault adapter"
 ### Task 7: Assemble and package the CLI with role boundaries
 
 **Files:**
+
 - Create: `apps/backend/src/scripts/run-image-upload-production-smoke.ts`
 - Create: `apps/backend/src/scripts/run-image-upload-production-smoke.spec.ts`
+- Create: `apps/backend/Dockerfile.operator-smoke`
 - Modify: `apps/backend/package.json`
-- Modify: `apps/backend/Dockerfile`
 - Modify: `docker-compose.yml`
 - Modify: `apps/backend/src/images/docker-runtime-contract.spec.ts`
 
 - [ ] **Step 1: Write failing CLI and packaging tests**
 
-Test `run` and `cleanup` only, reject unknown arguments, refuse ambient output inside the repository, handle SIGINT/SIGTERM through one AbortController, and emit only sanitized progress. Extend Docker contract expectations with:
+Test `run` and `cleanup` only, reject unknown arguments, refuse ambient output inside the repository, handle SIGINT/SIGTERM through one AbortController, and emit only sanitized progress. Extend Docker contract expectations to prove the dedicated Dockerfile uses a pinned Debian/Playwright-compatible base, installs matching Playwright Chromium without stable Chrome, labels the image with the release commit, contains the compiled CLI, and leaves the long-lived backend Dockerfile browser-free. Preserve the service secret boundary with:
 
 ```ts
 expect(dockerfile).toContain('/app/dist/scripts/run-image-upload-production-smoke.js');
@@ -610,12 +635,12 @@ Wire strict environment parsing to the contract, PG, live, and orchestrator modu
 
 ```json
 {
-  "images:uploads:production-smoke": "node /app/dist/scripts/run-image-upload-production-smoke.js run",
-  "images:uploads:production-smoke:cleanup": "node /app/dist/scripts/run-image-upload-production-smoke.js cleanup"
+    "images:uploads:production-smoke": "node /app/dist/scripts/run-image-upload-production-smoke.js run",
+    "images:uploads:production-smoke:cleanup": "node /app/dist/scripts/run-image-upload-production-smoke.js cleanup"
 }
 ```
 
-Add Dockerfile `RUN test -f` coverage for the compiled CLI. In Compose, pass `IMAGE_UPLOAD_INGRESS_MODE` to API/reconciler/migration as non-secret state, but pass `IMAGE_UPLOAD_OPERATOR_SMOKE_TOKEN` only to API.
+Add `Dockerfile.operator-smoke` coverage for the compiled CLI and matching Playwright Chromium executable. The image is run manually as a one-shot container and is not added as a long-lived Compose service. In Compose, pass `IMAGE_UPLOAD_INGRESS_MODE` to API/reconciler/migration as non-secret state, but pass `IMAGE_UPLOAD_OPERATOR_SMOKE_TOKEN` only to API. Require the CLI preflight to compare the smoke-image commit label, release fingerprint, backend image reference, and observed backend digest before mutation.
 
 - [ ] **Step 4: Run packaging-focused tests and build**
 
@@ -623,20 +648,23 @@ Add Dockerfile `RUN test -f` coverage for the compiled CLI. In Compose, pass `IM
 npm test --workspace=backend -- --runInBand --runTestsByPath src/scripts/run-image-upload-production-smoke.spec.ts src/images/docker-runtime-contract.spec.ts
 npm run build --workspace=backend
 Test-Path apps/backend/dist/scripts/run-image-upload-production-smoke.js
+docker build -f apps/backend/Dockerfile.operator-smoke --build-arg IMAGE_UPLOAD_RELEASE_COMMIT=operator-smoke-test -t ndt-studio-operator-smoke:test .
+docker run --rm --entrypoint node ndt-studio-operator-smoke:test -e "require('playwright').chromium.executablePath(); require('/app/dist/scripts/run-image-upload-production-smoke.js'); console.log('operator smoke packaged: pass')"
 ```
 
-Expected: tests/build pass and `Test-Path` returns `True`.
+Expected: tests/build pass, `Test-Path` returns `True`, and the one-shot image contains both the CLI and matching Playwright Chromium without modifying the backend image.
 
 - [ ] **Step 5: Commit**
 
 ```powershell
-git add apps/backend/src/scripts/run-image-upload-production-smoke.ts apps/backend/src/scripts/run-image-upload-production-smoke.spec.ts apps/backend/package.json apps/backend/Dockerfile docker-compose.yml apps/backend/src/images/docker-runtime-contract.spec.ts
+git add apps/backend/src/scripts/run-image-upload-production-smoke.ts apps/backend/src/scripts/run-image-upload-production-smoke.spec.ts apps/backend/Dockerfile.operator-smoke apps/backend/package.json docker-compose.yml apps/backend/src/images/docker-runtime-contract.spec.ts
 git commit -m "feat(images): package operator production smoke runner"
 ```
 
 ### Task 8: Bind runner output to admission verification and runbooks
 
 **Files:**
+
 - Modify: `scripts/verify-image-upload-final-ingress-gates.test.mjs`
 - Modify: `scripts/verify-image-upload-workflow.mjs`
 - Modify: `scripts/verify-image-upload-workflow.test.mjs`
@@ -681,6 +709,7 @@ git commit -m "docs(images): operationalize operator production smoke"
 ### Task 9: Full verification and PR preparation
 
 **Files:**
+
 - Verify all files changed by Tasks 1–8.
 
 - [ ] **Step 1: Run formatting and diff checks**
@@ -713,10 +742,11 @@ Expected: every command exits 0; no production credential is required.
 npm run build --workspace=backend
 npm run build --workspace=frontend
 docker build -f apps/backend/Dockerfile -t ndt-studio-backend:operator-smoke-test .
-docker run --rm --entrypoint node ndt-studio-backend:operator-smoke-test -e "require('/app/dist/scripts/run-image-upload-production-smoke.js'); console.log('production smoke packaged: pass')"
+docker build -f apps/backend/Dockerfile.operator-smoke --build-arg IMAGE_UPLOAD_RELEASE_COMMIT=operator-smoke-test -t ndt-studio-operator-smoke:test .
+docker run --rm --entrypoint node ndt-studio-operator-smoke:test -e "require('playwright').chromium.executablePath(); require('/app/dist/scripts/run-image-upload-production-smoke.js'); console.log('operator smoke packaged: pass')"
 ```
 
-Expected: both builds and Docker build pass; packaged module prints `production smoke packaged: pass` without starting a smoke run.
+Expected: both application builds and both Docker builds pass; the backend image remains browser-free, while the temporary image prints `operator smoke packaged: pass` without starting a smoke run.
 
 - [ ] **Step 4: Audit secrets and requirements**
 
