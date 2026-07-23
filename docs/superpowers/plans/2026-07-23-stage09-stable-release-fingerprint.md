@@ -211,7 +211,7 @@ git commit -m "feat(images): bind release evidence fingerprint"
 - Modify: `.github/workflows/image-upload.yml`
 - Test: `apps/backend/src/images/docker-runtime-contract.spec.ts`
 
-- [ ] **Step 1: Write failing Docker and workflow contract tests**
+- [x] **Step 1: Write failing Docker and workflow contract tests**
 
 Extend `docker-runtime-contract.spec.ts` to require:
 
@@ -231,7 +231,7 @@ expect(workflow).not.toContain(
 
 Retain the existing assertions that `BACKEND_IMAGE` and `IMAGE_UPLOAD_BUILD_FINGERPRINT` are separate Compose inputs.
 
-- [ ] **Step 2: Run the focused test and observe RED**
+- [x] **Step 2: Run the focused test and observe RED**
 
 Run:
 
@@ -241,7 +241,7 @@ npm test --workspace=backend -- --runInBand --runTestsByPath src/images/docker-r
 
 Expected: FAIL on the mutable base reference and Docker-output workflow derivation.
 
-- [ ] **Step 3: Pin the base image and update packaging CI**
+- [x] **Step 3: Pin the base image and update packaging CI**
 
 Change the backend Dockerfile base line to:
 
@@ -262,7 +262,7 @@ Replace the packaging workflow fingerprint step with:
   run: docker image inspect --format 'IMAGE_ID={{.Id}}' "$BACKEND_IMAGE"
 ```
 
-- [ ] **Step 4: Run focused tests and Docker packaging**
+- [x] **Step 4: Run focused tests and Docker packaging**
 
 Run:
 
@@ -274,7 +274,7 @@ docker build -f apps/backend/Dockerfile -t ndt-stable-release-fingerprint:test .
 
 Expected: contract tests PASS, the pinned base resolves, runtime alias guards pass, and the image builds successfully.
 
-- [ ] **Step 5: Commit packaging changes**
+- [x] **Step 5: Commit packaging changes**
 
 ```powershell
 git add apps/backend/Dockerfile .github/workflows/image-upload.yml apps/backend/src/images/docker-runtime-contract.spec.ts

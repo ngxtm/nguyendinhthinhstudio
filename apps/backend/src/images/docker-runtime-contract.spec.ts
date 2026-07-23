@@ -111,6 +111,13 @@ describe('frontend Docker dependency boundary', () => {
 
 describe('backend Docker runner', () => {
   const dockerfile = readRepositoryFile('apps/backend/Dockerfile');
+
+  it('pins the Node base image by immutable digest', () => {
+    expect(dockerfile).toContain(
+      'FROM node:24-alpine@sha256:a0b9bf06e4e6193cf7a0f58816cc935ff8c2a908f81e6f1a95432d679c54fbfd AS base',
+    );
+    expect(dockerfile).not.toContain('FROM node:24-alpine AS base');
+  });
   const backendPackage = JSON.parse(
     readRepositoryFile('apps/backend/package.json'),
   ) as { devDependencies?: Record<string, string> };
@@ -253,11 +260,15 @@ describe('Compose image-upload process roles', () => {
   });
 
   it('provides a canonical build fingerprint to the Compose packaging check', () => {
+    expect(workflow).toContain(`release_commit="$(git rev-parse HEAD)"`);
     expect(workflow).toContain(
-      `fingerprint="$(docker image inspect --format '{{.Id}}' "$BACKEND_IMAGE")"`,
+      `fingerprint="$(node scripts/image-upload-release-fingerprint.mjs "$release_commit")"`,
     );
     expect(workflow).toContain(
       `echo "IMAGE_UPLOAD_BUILD_FINGERPRINT=$fingerprint" >> "$GITHUB_ENV"`,
+    );
+    expect(workflow).not.toContain(
+      `fingerprint="$(docker image inspect --format '{{.Id}}' "$BACKEND_IMAGE")"`,
     );
   });
 });
