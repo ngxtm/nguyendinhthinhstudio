@@ -26,8 +26,7 @@ The existing production-gate receipt remains the authorization boundary for enab
 - startup approval and its two pre-deploy snapshots;
 - two distinct post-start polling snapshots at least 30 seconds apart with all closed gates zero;
 - exact CI ruleset contexts;
-- retained successful staging qualification evidence; and
-- deterministic manual memory and stable-Chrome evidence.
+- retained successful staging qualification evidence.
 
 It must not contain operator-smoke or roll-forward-drill decisions because those operations occur only after this phase authorizes operator-only mutation.
 
@@ -54,15 +53,19 @@ After the staging cleanup step, the workflow uploads the sanitized receipt with 
 
 The workflow contract test requires the receipt path to be shared by qualification, cleanup, and artifact upload. It also requires artifact upload to occur after cleanup and rejects missing-file tolerance.
 
-## Manual Memory Evidence
+## Optional Memory Diagnostic
 
-Pinned stable Chrome and the deterministic memory benchmark remain manual gates to avoid recurring CI cost. Their sanitized output is retained outside the repository with owner-only permissions and then bound into the Phase 1 receipt. The fixed fixture digest remains:
+The deterministic fixture, pinned stable Chrome, and memory thresholds remain an optional memory diagnostic. They are not CI, Phase 1, Phase 2, smoke, drill, or ingress gates. When an operator chooses to run it, sanitized output may be retained outside the repository with owner-only permissions. The fixed fixture digest remains:
 
 ```text
 1ac11dd1c64d39e79bdd3682bb11871ee2619b07a86fb923ba8412ab6dc3d581
 ```
 
-Every optimized/control pair must pass the 512 MiB absolute limit and the 0.50 control ratio. Missing, rejected, non-finite, negative, or reused-process measurements fail closed.
+The diagnostic reports the 512 MiB absolute limit and the 0.50 control ratio. Missing diagnostic output never blocks admission and the production smoke runner neither downloads stable Chrome nor runs this benchmark.
+
+## Operator Smoke Execution
+
+Phase 1 permits only the explicit `operator-smoke` ingress state. A dedicated temporary Debian image built from the same commit contains the journal-backed twelve-check CLI and matching Playwright Chromium; the long-lived Alpine backend remains browser-free. The image labels and baked environment bind its release commit and fingerprint, while protected inputs bind the active backend image reference and digest. The runner derives every receipt boolean from an observed check, cleans only journal-owned IDs/keys, and writes no official receipt on failure or incomplete cleanup. Phase 2 must pass before ingress changes to `general`; the stopped smoke container and temporary image are then removed without touching protected evidence or encrypted backups.
 
 ## Cleanup Lifecycle
 

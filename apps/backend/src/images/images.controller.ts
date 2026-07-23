@@ -41,6 +41,11 @@ import {
   ImageUploadRateLimitService,
   type ImageUploadRouteScope,
 } from './image-upload-rate-limit.service';
+import {
+  IMAGE_UPLOAD_OPERATOR_SMOKE_HEADER,
+  type ImageUploadIngressRuntime,
+  matchesOperatorSmokeToken,
+} from './image-upload-ingress';
 import { ImageUploadPolicyService } from './image-upload-policy.service';
 import { ImagesService } from './images.service';
 
@@ -91,8 +96,9 @@ export class ImagesController {
     private readonly rateLimit: ImageUploadRateLimitService,
     @Optional()
     @Inject(IMAGE_UPLOAD_CONTROLLER_RUNTIME)
-    private readonly runtime: { presignEnabled: boolean } = {
+    private readonly runtime: ImageUploadIngressRuntime = {
       presignEnabled: true,
+      mode: 'general',
     },
   ) {}
 
@@ -128,6 +134,37 @@ export class ImagesController {
     const adminId = this.adminId(request);
     await this.rateLimit.admit(adminId, routeScope);
     return adminId;
+  }
+
+  private assertUploadIngress(
+    request: AdminRequest,
+    options: { creation: boolean },
+  ): void {
+    const presignEnabled =
+      process.env.IMAGE_UPLOAD_PRESIGN_ENABLED === 'false'
+        ? false
+        : this.runtime.presignEnabled;
+    if (!presignEnabled || this.runtime.mode === 'disabled') {
+      if (!options.creation) return;
+      throw ImagesController.uploadError(
+        503,
+        'upload_presign_disabled',
+        'New upload URLs are temporarily disabled',
+      );
+    }
+    if (
+      this.runtime.mode === 'operator-smoke' &&
+      !matchesOperatorSmokeToken(
+        this.runtime,
+        request.headers?.[IMAGE_UPLOAD_OPERATOR_SMOKE_HEADER],
+      )
+    ) {
+      throw ImagesController.uploadError(
+        403,
+        'upload_operator_smoke_required',
+        'Operator smoke authorization is required',
+      );
+    }
   }
 
   private async invokeBusiness<T>(
@@ -211,18 +248,7 @@ export class ImagesController {
   @Roles('admin')
   @ApiOperation({ summary: 'Get a current-policy upload URL (Admin only)' })
   async getUploadUrl(@Body() body: unknown, @Req() request: AdminRequest) {
-    const presignEnabled =
-      process.env.IMAGE_UPLOAD_PRESIGN_ENABLED === 'false'
-        ? false
-        : this.runtime.presignEnabled;
-    if (!presignEnabled) {
-      throw ImagesController.uploadError(
-        503,
-        'upload_presign_disabled',
-        'New upload URLs are temporarily disabled',
-      );
-    }
-
+    this.assertUploadIngress(request, { creation: true });
     const adminId = await this.admit(request, 'upload_url');
 
     const record =
@@ -266,6 +292,7 @@ export class ImagesController {
   @HttpCode(200)
   @Roles('admin')
   async confirmUpload(@Body() body: unknown, @Req() request: AdminRequest) {
+    this.assertUploadIngress(request, { creation: false });
     const adminId = await this.admit(request, 'confirm_upload');
     const confirm = this.validateDto(body, UploadConfirmDto);
     return this.invokeBusiness(
@@ -281,6 +308,7 @@ export class ImagesController {
     @Param('uploadId') uploadId: string,
     @Req() request: AdminRequest,
   ) {
+    this.assertUploadIngress(request, { creation: false });
     const adminId = await this.admit(request, 'upload_status');
     const routeUploadId =
       typeof uploadId === 'string'
@@ -309,6 +337,7 @@ export class ImagesController {
     @Param('uploadId') uploadId: string,
     @Req() request: AdminRequest,
   ) {
+    this.assertUploadIngress(request, { creation: false });
     const adminId = await this.admit(request, 'abandon_upload');
     const routeUploadId =
       typeof uploadId === 'string'

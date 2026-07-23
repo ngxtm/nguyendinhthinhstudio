@@ -177,7 +177,7 @@ export type UploadErrorResponse =
     }
   | {
       statusCode: 403;
-      code: 'upload_admin_required';
+      code: 'upload_admin_required' | 'upload_operator_smoke_required';
       message: string;
     }
   | {

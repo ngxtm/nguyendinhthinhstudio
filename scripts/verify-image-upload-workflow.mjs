@@ -159,10 +159,20 @@ for (const name of [
     'test:image-upload:unit',
     'test:image-upload:integration',
     'test:image-upload:ci',
+    'images:uploads:production-smoke',
+    'images:uploads:production-smoke:cleanup',
 ]) {
     if (typeof backendScripts[name] !== 'string') {
         fail(`backend package is missing ${name}`);
     }
+}
+if (
+    backendScripts['images:uploads:production-smoke'] !==
+        'node /app/dist/scripts/run-image-upload-production-smoke.js run' ||
+    backendScripts['images:uploads:production-smoke:cleanup'] !==
+        'node /app/dist/scripts/run-image-upload-production-smoke.js cleanup'
+) {
+    fail('backend production smoke commands must use the packaged one-shot CLI');
 }
 if (
     !backendScripts['test:image-upload:ci'].includes('npm run test:image-upload:unit') ||
@@ -177,6 +187,18 @@ for (const name of ['test:image-upload:unit', 'test:image-upload:integration']) 
         !command.includes('--runTestsByPath')
     ) {
         fail(`${name} must contain an explicit committed test-path list`);
+    }
+}
+for (const path of [
+    'src/images/image-upload-ingress.spec.ts',
+    'src/scripts/image-upload-production-smoke-contract.spec.ts',
+    'src/scripts/image-upload-production-smoke-live.spec.ts',
+    'src/scripts/image-upload-production-smoke-orchestrator.spec.ts',
+    'src/scripts/image-upload-production-smoke-pg.spec.ts',
+    'src/scripts/run-image-upload-production-smoke.spec.ts',
+]) {
+    if (!backendScripts['test:image-upload:unit'].includes(path)) {
+        fail(`test:image-upload:unit must include ${path}`);
     }
 }
 
@@ -211,6 +233,35 @@ if (/name:\s*['"]chromium['"][\s\S]{0,200}channel\s*:/m.test(playwright)) {
 const benchmark = read('apps/frontend/test/benchmark/image-upload-memory.benchmark.ts');
 for (const label of ['optimizedDeltaBytes', 'controlDeltaBytes', 'ratio']) {
     if (!benchmark.includes(label)) fail(`memory benchmark must emit ${label}`);
+}
+
+const smokeDockerfile = read('apps/backend/Dockerfile.operator-smoke');
+for (const fragment of [
+    'mcr.microsoft.com/playwright:v1.60.0-noble@sha256:',
+    'NDT_PRODUCTION_SMOKE_PACKAGED_COMMIT',
+    'NDT_PRODUCTION_SMOKE_PACKAGED_FINGERPRINT',
+    '/app/dist/scripts/run-image-upload-production-smoke.js',
+]) {
+    if (!smokeDockerfile.includes(fragment)) {
+        fail(`operator smoke image must contain ${fragment}`);
+    }
+}
+if (/chrome-stable|google-chrome/i.test(smokeDockerfile)) {
+    fail('operator smoke image must use bundled Playwright Chromium only');
+}
+
+const runbook = read('docs/runbooks/image-upload-roll-forward.md');
+for (const fragment of [
+    'IMAGE_UPLOAD_INGRESS_MODE=operator-smoke',
+    'apps/backend/Dockerfile.operator-smoke',
+    'run-image-upload-production-smoke.js run',
+    'run-image-upload-production-smoke.js cleanup',
+    'docker image rm',
+    'IMAGE_UPLOAD_INGRESS_MODE=general',
+]) {
+    if (!runbook.includes(fragment)) {
+        fail(`roll-forward runbook must contain ${fragment}`);
+    }
 }
 
 assert.equal(required.length, 3);

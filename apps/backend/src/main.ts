@@ -5,6 +5,7 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
 import * as bodyParser from 'body-parser';
 import { parseImageUploadRuntimeConfig } from './images/image-upload-runtime-config';
+import { IMAGE_UPLOAD_OPERATOR_SMOKE_HEADER_NAME } from './images/image-upload-ingress';
 
 async function bootstrap() {
   const imageUploadRuntime = parseImageUploadRuntimeConfig(process.env, 'api');
@@ -67,7 +68,11 @@ async function bootstrap() {
   app.enableCors({
     origin: allowedOrigins,
     methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Authorization', 'Content-Type'],
+    allowedHeaders: [
+      'Authorization',
+      'Content-Type',
+      IMAGE_UPLOAD_OPERATOR_SMOKE_HEADER_NAME,
+    ],
     credentials: false,
   });
 

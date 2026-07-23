@@ -3,6 +3,11 @@ import {
   INITIAL_IMAGE_UPLOAD_POLICY_HASH,
   INITIAL_IMAGE_UPLOAD_POLICY_VERSION,
 } from '@ndt/image-upload-policy';
+import {
+  type ImageUploadIngressMode,
+  type ImageUploadIngressRuntime,
+  parseImageUploadIngress,
+} from './image-upload-ingress';
 
 export type ImageUploadProcessRole = 'api' | 'reconciler' | 'cutover';
 
@@ -17,6 +22,8 @@ type RuntimeFingerprint = Readonly<{
   r2ControlTimeoutSeconds: number;
   r2ReadTimeoutSeconds: number;
   presignEnabled: boolean;
+  ingressMode: ImageUploadIngressMode;
+  operatorSmokeTokenSha256?: string;
   presignClockSkewSeconds: number;
   rateLimitCleanupBatch: number;
   reconcileGraceMs?: number;
@@ -34,6 +41,7 @@ export type ImageUploadRuntimeConfig = Readonly<{
   r2ControlTimeoutSeconds: number;
   r2ReadTimeoutSeconds: number;
   presignEnabled: boolean;
+  ingress: ImageUploadIngressRuntime;
   presignClockSkewSeconds: number;
   rateLimitCleanupBatch: number;
   reconcileGraceMs: number;
@@ -131,6 +139,7 @@ const roleForbidden = {
     'IMAGE_UPLOAD_CUTOVER_R2_SECRET_ACCESS_KEY',
     'IMAGE_UPLOAD_CUTOVER_R2_CONFIG_READ_ACCESS_KEY_ID',
     'IMAGE_UPLOAD_CUTOVER_R2_CONFIG_READ_SECRET_ACCESS_KEY',
+    'IMAGE_UPLOAD_OPERATOR_SMOKE_TOKEN',
     ...parentOnlyVariables,
   ],
   cutover: [
@@ -142,6 +151,7 @@ const roleForbidden = {
     'IMGPROXY_SALT',
     'IMAGE_UPLOAD_RECONCILER_R2_ACCESS_KEY_ID',
     'IMAGE_UPLOAD_RECONCILER_R2_SECRET_ACCESS_KEY',
+    'IMAGE_UPLOAD_OPERATOR_SMOKE_TOKEN',
     ...parentOnlyVariables,
   ],
 } as const satisfies Record<ImageUploadProcessRole, readonly string[]>;
@@ -169,14 +179,6 @@ function integer(
     throw new TypeError(`${key} must be between ${minimum} and ${maximum}`);
   }
   return value;
-}
-
-function strictBoolean(env: Environment, key: string): boolean {
-  const raw = required(env, key);
-  if (raw !== 'true' && raw !== 'false') {
-    throw new TypeError(`${key} must be exactly true or false`);
-  }
-  return raw === 'true';
 }
 
 function rejectPlaceholders(key: string, value: string): void {
@@ -299,7 +301,8 @@ export function parseImageUploadRuntimeConfig(
     1,
     120,
   );
-  const presignEnabled = strictBoolean(env, 'IMAGE_UPLOAD_PRESIGN_ENABLED');
+  const ingress = parseImageUploadIngress(env, role);
+  const presignEnabled = ingress.presignEnabled;
   const presignClockSkewSeconds = integer(
     env,
     'IMAGE_UPLOAD_PRESIGN_CLOCK_SKEW_SECONDS',
@@ -358,11 +361,13 @@ export function parseImageUploadRuntimeConfig(
     r2ControlTimeoutSeconds,
     r2ReadTimeoutSeconds,
     presignEnabled,
+    ingressMode: ingress.mode,
+    ...(ingress.smokeTokenSha256
+      ? { operatorSmokeTokenSha256: ingress.smokeTokenSha256 }
+      : {}),
     presignClockSkewSeconds,
     rateLimitCleanupBatch,
-    ...(role === 'reconciler'
-      ? { reconcileGraceMs, reconcileCadenceMs }
-      : {}),
+    ...(role === 'reconciler' ? { reconcileGraceMs, reconcileCadenceMs } : {}),
     r2Bucket: values.IMAGE_UPLOAD_R2_BUCKET,
     canonicalPrefix,
     ...(role === 'api' ? { trustedProxyCount: proxies.length } : {}),
@@ -376,6 +381,7 @@ export function parseImageUploadRuntimeConfig(
     r2ControlTimeoutSeconds,
     r2ReadTimeoutSeconds,
     presignEnabled,
+    ingress,
     presignClockSkewSeconds,
     rateLimitCleanupBatch,
     reconcileGraceMs,

@@ -17,6 +17,7 @@ import { ImageUploadRateLimitCleanupService } from './image-upload-rate-limit-cl
 import { ImageUploadReconcilerService } from './image-upload-reconciler.service';
 import { ImageUploadPromotionRecoveryService } from './image-upload-promotion-recovery.service';
 import { IMAGE_UPLOAD_CONTROLLER_RUNTIME } from './images.controller';
+import { parseImageUploadIngress } from './image-upload-ingress';
 import { PrismaModule } from '../prisma/prisma.module';
 import { AuthModule } from '../auth/auth.module';
 
@@ -41,9 +42,7 @@ import { AuthModule } from '../auth/auth.module';
     ImageUploadPromotionRecoveryService,
     {
       provide: IMAGE_UPLOAD_CONTROLLER_RUNTIME,
-      useFactory: () => ({
-        presignEnabled: process.env.IMAGE_UPLOAD_PRESIGN_ENABLED !== 'false',
-      }),
+      useFactory: () => parseImageUploadIngress(process.env, 'api'),
     },
   ],
   exports: [
