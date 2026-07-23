@@ -17,11 +17,15 @@ import {
 const root = resolve(__dirname, '../../..');
 
 export type StagingReceipt = {
+  schemaVersion: 'image-upload-staging-receipt/v1-polling';
   runId: string;
+  releaseCommitSha: string;
+  workflowRunId: string;
+  workflowRunAttempt: number;
   sourcePrefix: string;
   destinationPrefix: string;
   databaseIdentity: string | null;
-  consumedEventIds: string[];
+  qualificationStatus: 'pending' | 'passed' | 'failed';
   cleanupStatus: 'pending' | 'complete' | 'failed';
   updatedAt: string;
 };
@@ -61,6 +65,9 @@ export type StagingQualificationOptions = {
   runId?: string;
   receiptPath?: string;
   signal?: AbortSignal;
+  releaseCommitSha?: string;
+  workflowRunId?: string;
+  workflowRunAttempt?: number;
 };
 
 function abortError(): Error {
@@ -77,6 +84,30 @@ function assertRunId(runId: string): void {
   ) {
     throw new TypeError('staging run ID must be a UUIDv4');
   }
+}
+
+function releaseCommitSha(value: string | undefined): string {
+  const normalized = value?.trim();
+  if (!normalized || !/^[a-f0-9]{40}$/.test(normalized)) {
+    throw new Error('GITHUB_SHA must be a canonical lowercase 40-hex commit');
+  }
+  return normalized;
+}
+
+function workflowRunId(value: string | undefined): string {
+  const normalized = value?.trim();
+  if (!normalized || !/^[1-9][0-9]*$/.test(normalized)) {
+    throw new Error('GITHUB_RUN_ID must be a positive decimal integer');
+  }
+  return normalized;
+}
+
+function workflowRunAttempt(value: number | string | undefined): number {
+  const parsed = typeof value === 'number' ? value : Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed < 1) {
+    throw new Error('GITHUB_RUN_ATTEMPT must be a positive safe integer');
+  }
+  return parsed;
 }
 
 function defaultReceiptPath(runId: string): string {
@@ -133,11 +164,21 @@ export async function runStagingQualification(
     process.env.NDT_STAGING_RECEIPT_PATH ??
     defaultReceiptPath(runId);
   const receipt: StagingReceipt = {
+    schemaVersion: 'image-upload-staging-receipt/v1-polling',
     runId,
+    releaseCommitSha: releaseCommitSha(
+      options.releaseCommitSha ?? process.env.GITHUB_SHA,
+    ),
+    workflowRunId: workflowRunId(
+      options.workflowRunId ?? process.env.GITHUB_RUN_ID,
+    ),
+    workflowRunAttempt: workflowRunAttempt(
+      options.workflowRunAttempt ?? process.env.GITHUB_RUN_ATTEMPT,
+    ),
     sourcePrefix,
     destinationPrefix,
     databaseIdentity: null,
-    consumedEventIds: [],
+    qualificationStatus: 'pending',
     cleanupStatus: 'pending',
     updatedAt: new Date().toISOString(),
   };
@@ -195,7 +236,15 @@ export async function runStagingQualification(
     );
     throwIfAborted(signal);
     await options.dependencies.verify(receipt, signal);
+    receipt.qualificationStatus = 'passed';
+    receipt.updatedAt = new Date().toISOString();
+    await persistReceipt(receiptPath, receipt);
     return receipt;
+  } catch (error) {
+    receipt.qualificationStatus = 'failed';
+    receipt.updatedAt = new Date().toISOString();
+    await persistReceipt(receiptPath, receipt);
+    throw error;
   } finally {
     await cleanupOnce();
     if (options.signal)
@@ -301,19 +350,13 @@ export function parseStagingDatabaseEnvironment(
   if (stagingRef === productionRef) {
     throw new Error('staging Supabase project ref must differ from production');
   }
-  const databaseUrl = requiredDatabaseValue(
-    input,
-    'NDT_STAGING_DATABASE_URL',
-  );
+  const databaseUrl = requiredDatabaseValue(input, 'NDT_STAGING_DATABASE_URL');
   const directUrl = requiredDatabaseValue(input, 'NDT_STAGING_DIRECT_URL');
   const parsedDatabaseUrl = parsePostgresUrl(
     databaseUrl,
     'NDT_STAGING_DATABASE_URL',
   );
-  const parsedDirectUrl = parsePostgresUrl(
-    directUrl,
-    'NDT_STAGING_DIRECT_URL',
-  );
+  const parsedDirectUrl = parsePostgresUrl(directUrl, 'NDT_STAGING_DIRECT_URL');
   if (!targetsSupabaseRef(parsedDatabaseUrl, stagingRef)) {
     throw new Error(
       'NDT_STAGING_DATABASE_URL must target the staging Supabase ref',
@@ -325,9 +368,7 @@ export function parseStagingDatabaseEnvironment(
     );
   }
   if (!isSessionCapableSupabaseUrl(parsedDatabaseUrl)) {
-    throw new Error(
-      'NDT_STAGING_DATABASE_URL must use a session-capable port',
-    );
+    throw new Error('NDT_STAGING_DATABASE_URL must use a session-capable port');
   }
   if (!isSessionCapableSupabaseUrl(parsedDirectUrl)) {
     throw new Error('NDT_STAGING_DIRECT_URL must use a session-capable port');

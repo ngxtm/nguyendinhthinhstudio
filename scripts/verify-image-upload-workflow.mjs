@@ -74,8 +74,49 @@ for (const fragment of [
     'AWS_ACCESS_KEY_ID: ${{ secrets.NDT_STAGING_IMGPROXY_ACCESS_KEY_ID }}',
     'AWS_SECRET_ACCESS_KEY: ${{ secrets.NDT_STAGING_IMGPROXY_SECRET_ACCESS_KEY }}',
     'IMGPROXY_S3_ENDPOINT: ${{ vars.NDT_STAGING_R2_ENDPOINT }}',
+    '- name: Upload sanitized staging receipt',
+    'uses: actions/upload-artifact@v4',
+    'name: image-upload-staging-receipt-${{ github.run_id }}-${{ github.run_attempt }}',
+    'path: ${{ runner.temp }}/ndt-image-upload-staging-receipt.json',
+    'if-no-files-found: error',
+    'retention-days: 30',
 ]) {
     if (!staging.includes(fragment)) fail(`image-upload-staging must contain ${fragment}`);
+}
+
+const stagingStepsIndex = staging.indexOf('\n        steps:');
+const stagingJobConfiguration = staging.slice(0, stagingStepsIndex);
+const receiptPathExpression = '${{ runner.temp }}/ndt-image-upload-staging-receipt.json';
+if (stagingStepsIndex < 0 || stagingJobConfiguration.includes('${{ runner.temp }}')) {
+    fail('image-upload-staging must not use runner context in job-level configuration');
+}
+for (const [name, pattern] of [
+    [
+        'qualification',
+        /- name: Run staging qualification\s+env:\s+NDT_STAGING_RECEIPT_PATH: \$\{\{ runner\.temp \}\}\/ndt-image-upload-staging-receipt\.json\s+run:/,
+    ],
+    [
+        'cleanup',
+        /- name: Cleanup staging run\s+if: always\(\)\s+env:\s+NDT_STAGING_RECEIPT_PATH: \$\{\{ runner\.temp \}\}\/ndt-image-upload-staging-receipt\.json\s+run:/,
+    ],
+]) {
+    if (!pattern.test(staging)) {
+        fail(`image-upload-staging ${name} step must receive runner-scoped receipt path`);
+    }
+}
+if (staging.split(receiptPathExpression).length - 1 !== 3) {
+    fail('image-upload-staging must use one exact runner-scoped receipt path in three steps');
+}
+
+const stagingCleanupIndex = staging.indexOf('- name: Cleanup staging run');
+const stagingUploadIndex = staging.indexOf('- name: Upload sanitized staging receipt');
+if (
+    stagingCleanupIndex < 0 ||
+    stagingUploadIndex < 0 ||
+    stagingUploadIndex <= stagingCleanupIndex ||
+    !/- name: Upload sanitized staging receipt[\s\S]*?\n\s+if:\s*always\(\)/.test(staging)
+) {
+    fail('image-upload-staging must upload sanitized receipt after cleanup');
 }
 
 for (const id of required) {

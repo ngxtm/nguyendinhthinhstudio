@@ -1,0 +1,57 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "https://nguyendinhthinh.studio/schemas/image-upload-roll-forward-drill-receipt/v1-polling",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "schemaVersion",
+        "receiptId",
+        "receiptPathSha256",
+        "createdAt",
+        "fromRelease",
+        "toRelease",
+        "postStartReceiptSha256",
+        "postStartApprovalSha256",
+        "operatorSmokeReceiptSha256",
+        "presignDisabledAtStart",
+        "generalIngressBlockedAtStart",
+        "forwardOnlyMigrations",
+        "decision",
+        "canonicalSha256"
+    ],
+    "properties": {
+        "schemaVersion": {
+            "const": "image-upload-roll-forward-drill-receipt/v1-polling"
+        },
+        "receiptId": { "type": "string", "format": "uuid" },
+        "receiptPathSha256": { "$ref": "#/$defs/sha256" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "fromRelease": { "$ref": "#/$defs/release" },
+        "toRelease": { "$ref": "#/$defs/release" },
+        "postStartReceiptSha256": { "$ref": "#/$defs/sha256" },
+        "postStartApprovalSha256": { "$ref": "#/$defs/sha256" },
+        "operatorSmokeReceiptSha256": { "$ref": "#/$defs/sha256" },
+        "presignDisabledAtStart": { "const": true },
+        "generalIngressBlockedAtStart": { "const": true },
+        "forwardOnlyMigrations": { "const": true },
+        "decision": { "const": "pass" },
+        "canonicalSha256": { "$ref": "#/$defs/sha256" }
+    },
+    "$defs": {
+        "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "release": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["imageReference", "imageDigest", "commitSha", "releaseFingerprint"],
+            "properties": {
+                "imageReference": { "type": "string", "minLength": 1, "maxLength": 255 },
+                "imageDigest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+                "commitSha": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+                "releaseFingerprint": {
+                    "type": "string",
+                    "pattern": "^sha256:[a-f0-9]{64}$"
+                }
+            }
+        }
+    }
+}

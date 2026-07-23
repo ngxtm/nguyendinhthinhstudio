@@ -21,11 +21,12 @@
         "stagingReceiptSha256",
         "startupApprovalPathSha256",
         "startupApprovalSha256",
-        "rollForwardDrillDecision",
         "canonicalSha256"
     ],
     "properties": {
-        "schemaVersion": { "const": "image-upload-production-gate-receipt/v2-polling" },
+        "schemaVersion": {
+            "const": "image-upload-production-gate-receipt/v3-post-start-polling"
+        },
         "receiptId": { "type": "string", "format": "uuid" },
         "receiptPathSha256": { "$ref": "#/$defs/sha256" },
         "createdAt": { "$ref": "#/$defs/timestamp" },
@@ -255,7 +256,6 @@
         "stagingReceiptSha256": { "$ref": "#/$defs/sha256" },
         "startupApprovalPathSha256": { "$ref": "#/$defs/sha256" },
         "startupApprovalSha256": { "$ref": "#/$defs/sha256" },
-        "rollForwardDrillDecision": { "enum": ["pass", "fail"] },
         "canonicalSha256": { "$ref": "#/$defs/sha256" }
     },
     "$defs": {

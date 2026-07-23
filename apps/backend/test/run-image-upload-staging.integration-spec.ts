@@ -7,6 +7,12 @@ import {
   type StagingOrchestratorDependencies,
 } from './run-image-upload-staging';
 
+const releaseIdentity = {
+  releaseCommitSha: 'a'.repeat(40),
+  workflowRunId: '29847372686',
+  workflowRunAttempt: 1,
+};
+
 function dependencies(events: string[]): StagingOrchestratorDependencies {
   return {
     preflight: async () => {
@@ -18,7 +24,7 @@ function dependencies(events: string[]): StagingOrchestratorDependencies {
       return {
         databaseUrl: 'postgresql://disposable/staging',
         directUrl: 'postgresql://disposable/staging',
-        identity: 'container-staging-001',
+        identity: `supabase:${'b'.repeat(64)}`,
       };
     },
     migrate: async () => events.push('migrate'),
@@ -51,9 +57,7 @@ describe('staging orchestrator', () => {
         'postgresql://postgres.abcdefghijklmnopqrst:secret@aws-0-region.pooler.supabase.com:5432/postgres',
     });
     expect(result.databaseUrl).toContain('pooler.supabase.com');
-    expect(result.directUrl).toContain(
-      'pooler.supabase.com:5432',
-    );
+    expect(result.directUrl).toContain('pooler.supabase.com:5432');
     expect(result.identity).toMatch(/^supabase:[0-9a-f]{64}$/);
     expect(result.identity).not.toContain('abcdefghijklmnopqrst');
   });
@@ -125,6 +129,7 @@ describe('staging orchestrator', () => {
       dependencies: dependencies(events),
       runId: '4b4f14fd-c0e4-4cc4-89b8-65aacd3f25e1',
       receiptPath: receipt,
+      ...releaseIdentity,
     });
     expect(events).toEqual([
       'preflight',
@@ -137,6 +142,15 @@ describe('staging orchestrator', () => {
       'cleanup',
     ]);
     expect(result.cleanupStatus).toBe('complete');
+    expect(result).toMatchObject({
+      schemaVersion: 'image-upload-staging-receipt/v1-polling',
+      releaseCommitSha: releaseIdentity.releaseCommitSha,
+      workflowRunId: releaseIdentity.workflowRunId,
+      workflowRunAttempt: releaseIdentity.workflowRunAttempt,
+      databaseIdentity: `supabase:${'b'.repeat(64)}`,
+      qualificationStatus: 'passed',
+    });
+    expect(result).not.toHaveProperty('consumedEventIds');
     expect(result.sourcePrefix).toBe(
       'uploads/staging/4b4f14fd-c0e4-4cc4-89b8-65aacd3f25e1/',
     );
@@ -172,14 +186,23 @@ describe('staging orchestrator', () => {
       );
       throw new Error(`${failure}-failed`);
     };
+    const receiptPath = join(directory, `${failure}.json`);
     await expect(
       runStagingQualification({
         dependencies: deps,
         runId: '4b4f14fd-c0e4-4cc4-89b8-65aacd3f25e1',
-        receiptPath: join(directory, `${failure}.json`),
+        receiptPath,
+        ...releaseIdentity,
       }),
     ).rejects.toThrow(`${failure}-failed`);
     expect(events.filter((event) => event === 'cleanup')).toHaveLength(1);
+    const receipt = JSON.parse(await readFile(receiptPath, 'utf8'));
+    expect(receipt).toMatchObject({
+      schemaVersion: 'image-upload-staging-receipt/v1-polling',
+      qualificationStatus: 'failed',
+      cleanupStatus: 'complete',
+    });
+    expect(receipt).not.toHaveProperty('consumedEventIds');
   });
 
   it('cleans up once when interrupted before work starts', async () => {
@@ -191,6 +214,7 @@ describe('staging orchestrator', () => {
         dependencies: dependencies(events),
         signal: controller.signal,
         receiptPath: join(directory, 'aborted.json'),
+        ...releaseIdentity,
       }),
     ).rejects.toMatchObject({ name: 'AbortError' });
     expect(events).toEqual(['cleanup']);

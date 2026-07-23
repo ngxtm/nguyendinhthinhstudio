@@ -162,7 +162,19 @@ jobs:
             - run: npx --no-install playwright install --with-deps chromium
               working-directory: apps/frontend
             - name: Run staging qualification
-              run: NDT_STAGING_RECEIPT_PATH="$RUNNER_TEMP/ndt-image-upload-staging-receipt.json" npm run test:staging:run --workspace=backend
+              env:
+                  NDT_STAGING_RECEIPT_PATH: ${{ runner.temp }}/ndt-image-upload-staging-receipt.json
+              run: npm run test:staging:run --workspace=backend
             - name: Cleanup staging run
               if: always()
-              run: NDT_STAGING_RECEIPT_PATH="$RUNNER_TEMP/ndt-image-upload-staging-receipt.json" npm run test:staging:cleanup --workspace=backend
+              env:
+                  NDT_STAGING_RECEIPT_PATH: ${{ runner.temp }}/ndt-image-upload-staging-receipt.json
+              run: npm run test:staging:cleanup --workspace=backend
+            - name: Upload sanitized staging receipt
+              if: always()
+              uses: actions/upload-artifact@v4
+              with:
+                  name: image-upload-staging-receipt-${{ github.run_id }}-${{ github.run_attempt }}
+                  path: ${{ runner.temp }}/ndt-image-upload-staging-receipt.json
+                  if-no-files-found: error
+                  retention-days: 30

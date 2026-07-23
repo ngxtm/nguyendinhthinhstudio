@@ -123,7 +123,15 @@ test('post-start acceptance binds startup approval without circular smoke eviden
     }
     assert.equal(required.has('preDeployPollingSnapshotSha256'), true);
     assert.equal(properties.has('preDeployPollingSnapshotSha256'), true);
-    for (const field of ['operatorSmokeReceiptPathSha256', 'operatorSmokeReceiptSha256']) {
+    assert.equal(
+        schema.properties.schemaVersion.const,
+        'image-upload-production-gate-receipt/v3-post-start-polling',
+    );
+    for (const field of [
+        'operatorSmokeReceiptPathSha256',
+        'operatorSmokeReceiptSha256',
+        'rollForwardDrillDecision',
+    ]) {
         assert.equal(required.has(field), false, `${field} creates circular startup ordering`);
         assert.equal(properties.has(field), false, `${field} must be later smoke evidence`);
     }
@@ -173,6 +181,7 @@ test('argument parsing fails closed for implicit, multiple, mixed, or relative i
         ['--receipt', 'receipt.json'],
         ['--approval', 'approval.json'],
         ['--startup-approval', 'startup-approval.json'],
+        ['--staging-receipt', 'staging-receipt.json'],
         ['--fixture', passFixture, '--approval', 'approval.json'],
         ['--fixture', passFixture, '--fixture', passFixture],
     ];
@@ -196,6 +205,8 @@ test('argument parsing fails closed for implicit, multiple, mixed, or relative i
             'approval.json',
             '--startup-approval',
             'startup-approval.json',
+            '--staging-receipt',
+            'staging-receipt.json',
         ],
         { cwd: repositoryRoot, encoding: 'utf8' },
     );
@@ -216,8 +227,27 @@ test('production mode binds protected receipt and approval paths and bytes', () 
     const receiptPath = join(directory, 'receipt.json');
     const approvalPath = join(directory, 'approval.json');
     const startupApprovalPath = join(directory, 'startup-approval.json');
+    const stagingReceiptPath = join(directory, 'staging-receipt.json');
     const relocatedApprovalPath = join(directory, 'relocated-approval.json');
     const receipt = JSON.parse(readFileSync(passFixture, 'utf8'));
+    const stagingRunId = '4b4f14fd-c0e4-4cc4-89b8-65aacd3f25e1';
+    const stagingReceipt = {
+        schemaVersion: 'image-upload-staging-receipt/v1-polling',
+        runId: stagingRunId,
+        releaseCommitSha: receipt.release.commitSha,
+        workflowRunId: '29847372686',
+        workflowRunAttempt: 1,
+        sourcePrefix: `uploads/staging/${stagingRunId}/`,
+        destinationPrefix: `albums/staging/${stagingRunId}/`,
+        databaseIdentity: `supabase:${'b'.repeat(64)}`,
+        qualificationStatus: 'passed',
+        cleanupStatus: 'complete',
+        updatedAt: '2026-07-21T00:07:00.000Z',
+    };
+    writeFileSync(stagingReceiptPath, JSON.stringify(stagingReceipt), { mode: 0o600 });
+    const stagingReceiptBytes = readFileSync(stagingReceiptPath);
+    receipt.stagingReceiptPathSha256 = sha256(resolve(stagingReceiptPath));
+    receipt.stagingReceiptSha256 = sha256(stagingReceiptBytes);
     const startupApprovalDraft = {
         schemaVersion: 'image-upload-production-startup-approval/v1',
         releaseCommitSha: receipt.release.commitSha,
@@ -249,7 +279,7 @@ test('production mode binds protected receipt and approval paths and bytes', () 
     writeFileSync(receiptPath, JSON.stringify(receipt), { mode: 0o600 });
     const receiptBytes = readFileSync(receiptPath);
     const approvalDraft = {
-        schemaVersion: 'image-upload-production-gate-approval/v2-polling',
+        schemaVersion: 'image-upload-production-gate-approval/v3-post-start-polling',
         receiptPathSha256: sha256(resolve(receiptPath)),
         receiptSha256: sha256(receiptBytes),
         approvalPathSha256: sha256(resolve(approvalPath)),
@@ -263,10 +293,12 @@ test('production mode binds protected receipt and approval paths and bytes', () 
         canonicalSha256: canonicalSha256(approvalDraft),
     };
     writeFileSync(approvalPath, JSON.stringify(approval), { mode: 0o600 });
+    const approvalBytes = readFileSync(approvalPath);
     const runProduction = (
         selectedReceiptPath = receiptPath,
         selectedApprovalPath = approvalPath,
         selectedStartupApprovalPath = startupApprovalPath,
+        selectedStagingReceiptPath = stagingReceiptPath,
     ) =>
         spawnSync(
             process.execPath,
@@ -278,6 +310,8 @@ test('production mode binds protected receipt and approval paths and bytes', () 
                 selectedApprovalPath,
                 '--startup-approval',
                 selectedStartupApprovalPath,
+                '--staging-receipt',
+                selectedStagingReceiptPath,
             ],
             { cwd: repositoryRoot, encoding: 'utf8' },
         );
@@ -325,4 +359,10 @@ test('production mode binds protected receipt and approval paths and bytes', () 
     const changedCanonicalApproval = runProduction();
     assert.notEqual(changedCanonicalApproval.status, 0);
     assert.match(changedCanonicalApproval.stderr, /gate=approvalBinding/);
+
+    writeFileSync(approvalPath, approvalBytes, { mode: 0o600 });
+    writeFileSync(stagingReceiptPath, Buffer.concat([stagingReceiptBytes, Buffer.from('\n')]));
+    const changedStagingReceipt = runProduction();
+    assert.notEqual(changedStagingReceipt.status, 0);
+    assert.match(changedStagingReceipt.stderr, /gate=stagingReceiptBinding/);
 });

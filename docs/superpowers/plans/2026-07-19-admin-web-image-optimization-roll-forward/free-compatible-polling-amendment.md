@@ -340,6 +340,8 @@ Before ingress, require zero unresolved promotions, invalid response/HEAD settle
 
 Require release, authoritative pre/post backup bindings, API/reconciler/cutover role fingerprints, actual replica/permit/singleton-heartbeat evidence, bucket/CORS/role-separated R2 readback, exact `reconcileGraceMs=30000` and `reconcileCadenceMs=5000` readback, protected cutover audit/disposition bindings, two polling snapshots at least 30 seconds apart, exact CI contexts, deterministic manual-memory evidence, staging receipt, operator-smoke receipt, and roll-forward decision. Every object rejects unknown fields. No Queue, DLQ, consumer, event-rule, provider-event, ACK, replay, or Queue-token field is allowed.
 
+The evidence is verified in two phases: Phase 1 binds the retained successful staging receipt and authorizes only operator-only smoke; Phase 2 binds that Phase 1 result, smoke authorization/receipt, the roll-forward drill, and two final zero snapshots before general ingress.
+
 - [x] **Step 2: Add one independent fail fixture per polling gate**
 
 Cover expired pending uploads, unresolved promotion, invalid response/HEAD settlement, invalid committed/cleanup authority, incomplete conflict evidence, open conflict, due/unverified temporary cleanup, unresolved/invalid R2 image deletion, invalid non-R2 disposition, legacy temporary source, backup/disposition/path drift, stale five-loop heartbeat, replica budget, CORS mismatch, snapshot barrier, missing CI context, and forbidden secret/object-key/ETag/URL material.
