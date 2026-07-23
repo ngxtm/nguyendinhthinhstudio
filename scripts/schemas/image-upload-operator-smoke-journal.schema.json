@@ -1,0 +1,125 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "https://nguyendinhthinh.studio/schemas/image-upload-operator-smoke-journal/v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "schemaVersion",
+        "runId",
+        "release",
+        "adminIdSha256",
+        "lifecycle",
+        "completedChecks",
+        "resources",
+        "cleanupStatus",
+        "updatedAt",
+        "canonicalSha256"
+    ],
+    "properties": {
+        "schemaVersion": {
+            "const": "image-upload-operator-smoke-journal/v1"
+        },
+        "runId": {
+            "type": "string",
+            "format": "uuid"
+        },
+        "release": {
+            "$ref": "#/$defs/release"
+        },
+        "adminIdSha256": {
+            "$ref": "#/$defs/sha256"
+        },
+        "lifecycle": {
+            "enum": ["authorized", "running", "checks-passed", "cleaning", "complete", "failed"]
+        },
+        "completedChecks": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+                "enum": [
+                    "browserUpload",
+                    "absoluteExpiryRetry",
+                    "allowedCorsPut",
+                    "deniedCorsPut",
+                    "responseFirstSettlement",
+                    "copyResponseLossHeadSettlement",
+                    "unchangedDestinationRetry",
+                    "conflictFailClosed",
+                    "committedDeletion",
+                    "failedPromotionCleanup",
+                    "temporaryCleanupAfterExpiry",
+                    "imgproxyRendering"
+                ]
+            }
+        },
+        "resources": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/resource"
+            }
+        },
+        "cleanupStatus": {
+            "enum": ["pending", "running", "complete", "failed"]
+        },
+        "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+        },
+        "canonicalSha256": {
+            "$ref": "#/$defs/sha256"
+        }
+    },
+    "$defs": {
+        "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+        },
+        "release": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["imageReference", "imageDigest", "commitSha", "releaseFingerprint"],
+            "properties": {
+                "imageReference": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 255
+                },
+                "imageDigest": {
+                    "type": "string",
+                    "pattern": "^sha256:[a-f0-9]{64}$"
+                },
+                "commitSha": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{40}$"
+                },
+                "releaseFingerprint": {
+                    "type": "string",
+                    "pattern": "^sha256:[a-f0-9]{64}$"
+                }
+            }
+        },
+        "resource": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["kind", "id"],
+            "properties": {
+                "kind": {
+                    "enum": ["upload", "promotion", "conflict", "image", "deletion", "object"]
+                },
+                "id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 255
+                },
+                "objectKey": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1024
+                },
+                "objectKeySha256": {
+                    "$ref": "#/$defs/sha256"
+                }
+            }
+        }
+    }
+}
