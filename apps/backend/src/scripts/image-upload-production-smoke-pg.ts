@@ -288,6 +288,53 @@ export class ProductionSmokePgAdapter {
     }
   }
 
+  async assertRateLimitCapacity(
+    adminId: string,
+    required: Readonly<{
+      upload_url: number;
+      confirm_upload: number;
+      upload_status: number;
+    }>,
+  ): Promise<void> {
+    assertClosedId(adminId, 'admin id');
+    const limits = {
+      upload_url: 20,
+      confirm_upload: 60,
+      upload_status: 120,
+    } as const;
+    const client = await this.pool.connect();
+    try {
+      const result = await client.query(
+        `SELECT scope."routeScope", count(event."id")::int AS "count"
+         FROM (VALUES
+           ('upload_url', INTERVAL '10 minutes'),
+           ('confirm_upload', INTERVAL '10 minutes'),
+           ('upload_status', INTERVAL '1 minute')
+         ) AS scope("routeScope", "window")
+         LEFT JOIN "ImageUploadRateLimitEvent" AS event
+           ON event."createdByAdminId" = $1
+          AND event."routeScope" = scope."routeScope"
+          AND event."occurredAt" > CURRENT_TIMESTAMP - scope."window"
+         GROUP BY scope."routeScope"`,
+        [adminId],
+      );
+      const observed = new Map(
+        result.rows.map((row) => [String(row.routeScope), Number(row.count)]),
+      );
+      for (const route of Object.keys(required) as Array<
+        keyof typeof required
+      >) {
+        if ((observed.get(route) ?? 0) + required[route] > limits[route]) {
+          throw new Error(
+            'production smoke rate-limit capacity is insufficient',
+          );
+        }
+      }
+    } finally {
+      client.release();
+    }
+  }
+
   async prepareDispatchedPromotion(
     binding: ProductionSmokePgBinding,
     facts: ProductionSmokePromotionFacts,

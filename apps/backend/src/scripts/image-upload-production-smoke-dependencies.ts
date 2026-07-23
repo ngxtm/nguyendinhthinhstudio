@@ -9,6 +9,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
+import { resolve } from 'node:path';
 import { Pool } from 'pg';
 import { chromium, type Browser } from 'playwright';
 import sharp from 'sharp';
@@ -98,6 +99,10 @@ async function verifyProtectedAdmission(
     approval.schemaVersion !==
       'image-upload-production-gate-approval/v3-post-start-polling' ||
     approval.decision !== 'approved' ||
+    receipt.receiptPathSha256 !==
+      sha256(Buffer.from(resolve(environment.paths.phase1Receipt))) ||
+    approval.receiptPathSha256 !==
+      sha256(Buffer.from(resolve(environment.paths.phase1Receipt))) ||
     approval.receiptSha256 !== sha256(receiptBytes) ||
     authorization.schemaVersion !==
       'image-upload-operator-smoke-authorization/v1' ||
@@ -562,11 +567,11 @@ export async function buildProductionSmokeDependencies(
           context,
           signal,
         );
-        const observed = await pg.observeUpload(
+        const observed = await live.getUploadStatus(
           state.responseLoss.upload.upload.uploadId,
-          adminId,
+          signal,
         );
-        if (observed?.status !== 'finalizing') {
+        if (observed.outcome !== 'finalizing') {
           throw new Error('production smoke response-first state is invalid');
         }
         return;
@@ -682,7 +687,35 @@ export async function buildProductionSmokeDependencies(
           signal,
         );
         await live.proveAllowedCorsPut(scenario.upload, imageBytes, signal);
-        await pg.makeFailedCleanupDue(binding(scenario, context));
+        const source = await store.head(
+          scenario.pending.sourceObjectKey,
+          signal,
+        );
+        if (!source) {
+          throw new Error('production smoke failed-promotion source is absent');
+        }
+        const failedBinding = binding(scenario, context);
+        await context.recordResource({
+          kind: 'promotion',
+          id: failedBinding.promotionId,
+        });
+        const dispatchedAt = new Date().toISOString();
+        await pg.prepareDispatchedPromotion(failedBinding, {
+          sourceEtag: source.etag,
+          inspectedSha256: imageSha256,
+          inspectedByteSize: imageBytes.length,
+          canonicalMime: 'image/webp',
+          inspectedWidth: 2,
+          inspectedHeight: 2,
+          accountId: new URL(environment.r2Endpoint).hostname.split('.')[0],
+          bucket: environment.r2Bucket,
+          leaseToken: randomUUID(),
+          dispatchedAt,
+          nextReconcileAt: new Date(
+            Date.parse(dispatchedAt) + 10 * 60_000,
+          ).toISOString(),
+        });
+        await pg.makeFailedCleanupDue(failedBinding);
         const deadline = Date.now() + 45_000;
         let observed: Json | null = null;
         while (Date.now() < deadline) {
@@ -751,6 +784,11 @@ export async function buildProductionSmokeDependencies(
         throw new Error('production smoke policy response is invalid');
       }
       state.policyVersion = policy.policyVersion;
+      await pg.assertRateLimitCapacity(adminId, {
+        upload_url: 9,
+        confirm_upload: 1,
+        upload_status: 60,
+      });
       const blockedRequest = request('missing-token');
       const response = await fetch(
         new URL('/images/upload-url', environment.apiBaseUrl),

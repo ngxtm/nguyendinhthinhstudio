@@ -230,6 +230,13 @@ export function createProductionSmokeLiveAdapter(
       });
     },
 
+    getUploadStatus(uploadId: string, signal: AbortSignal): Promise<ApiJson> {
+      return apiJson(
+        `/images/upload-sessions/${encodeURIComponent(uploadId)}`,
+        signal,
+      );
+    },
+
     async proveAbsoluteExpiryRetry(
       input: ProductionSmokeUploadInput,
       signal: AbortSignal,

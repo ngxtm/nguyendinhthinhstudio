@@ -267,6 +267,9 @@ describe('production smoke live adapter', () => {
     const { adapter } = harness({ apiBaseUrl: api.origin });
 
     await expect(
+      adapter.getUploadStatus('upload-1', SIGNAL),
+    ).resolves.toMatchObject({ outcome: 'finalizing' });
+    await expect(
       adapter.pollUploadTerminal('upload-1', Date.now() + 500, SIGNAL),
     ).resolves.toMatchObject({ outcome: 'consumed', resultImageId: 'image-1' });
     expect(attempts).toBe(2);

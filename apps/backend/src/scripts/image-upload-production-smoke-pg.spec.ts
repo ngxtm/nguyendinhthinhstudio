@@ -29,12 +29,18 @@ function row(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function harness(selected = row()) {
+function harness(
+  selected = row(),
+  rateRows: readonly Record<string, unknown>[] = [],
+) {
   const queries: Array<{ text: string; values?: readonly unknown[] }> = [];
   const client: ProductionSmokePgClient = {
     query: jest.fn(async (text: string, values?: readonly unknown[]) => {
       queries.push({ text, values });
       if (text.includes('FOR UPDATE')) return { rows: [selected], rowCount: 1 };
+      if (text.includes('ImageUploadRateLimitEvent')) {
+        return { rows: rateRows, rowCount: rateRows.length };
+      }
       return { rows: [], rowCount: 1 };
     }),
     release: jest.fn(),
@@ -118,5 +124,21 @@ describe('ProductionSmokePgAdapter', () => {
     expect(queries.flatMap((query) => query.values ?? [])).not.toContain(
       'uploads/%',
     );
+  });
+
+  it('refuses to start when the full run would exceed a route limit', async () => {
+    const { adapter } = harness(row(), [
+      { routeScope: 'upload_url', count: 12 },
+      { routeScope: 'confirm_upload', count: 0 },
+      { routeScope: 'upload_status', count: 0 },
+    ]);
+
+    await expect(
+      adapter.assertRateLimitCapacity('admin-owned', {
+        upload_url: 9,
+        confirm_upload: 1,
+        upload_status: 60,
+      }),
+    ).rejects.toThrow('production smoke rate-limit capacity is insufficient');
   });
 });
