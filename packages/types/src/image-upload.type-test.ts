@@ -80,6 +80,13 @@ const albumCleanupPending: UploadErrorResponse = {
 };
 void albumCleanupPending;
 
+const operatorSmokeRequired: UploadErrorResponse = {
+  statusCode: 403,
+  code: 'upload_operator_smoke_required',
+  message: 'operator smoke authorization required',
+};
+void operatorSmokeRequired;
+
 const presignFailure: UploadFailureCode = 'upload_presign_failed';
 void presignFailure;
 
@@ -92,6 +99,7 @@ function handleError(error: UploadErrorResponse): string {
     case 'upload_invalid_request':
     case 'upload_authentication_required':
     case 'upload_admin_required':
+    case 'upload_operator_smoke_required':
     case 'upload_not_found':
     case 'upload_request_conflict':
     case 'policy_refresh_required':

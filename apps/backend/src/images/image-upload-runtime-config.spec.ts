@@ -117,9 +117,7 @@ describe('parseImageUploadRuntimeConfig', () => {
         /^[a-f0-9]{64}$/,
       );
     } else {
-      expect(config.fingerprint).not.toHaveProperty(
-        'operatorSmokeTokenSha256',
-      );
+      expect(config.fingerprint).not.toHaveProperty('operatorSmokeTokenSha256');
     }
     expect(config.values).not.toHaveProperty(
       'IMAGE_UPLOAD_OPERATOR_SMOKE_TOKEN',
@@ -294,11 +292,7 @@ describe('parseImageUploadRuntimeConfig', () => {
     ['reconciler', reconciler, 'IMAGE_UPLOAD_RECONCILE_GRACE_MS'],
     ['reconciler', reconciler, 'IMAGE_UPLOAD_RECONCILE_CADENCE_MS'],
     ['cutover', cutover, 'IMAGE_UPLOAD_OPERATOR_TOKEN'],
-    [
-      'cutover',
-      cutover,
-      'IMAGE_UPLOAD_CUTOVER_R2_CONFIG_READ_ACCESS_KEY_ID',
-    ],
+    ['cutover', cutover, 'IMAGE_UPLOAD_CUTOVER_R2_CONFIG_READ_ACCESS_KEY_ID'],
     [
       'cutover',
       cutover,

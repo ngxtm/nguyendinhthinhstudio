@@ -1,5 +1,6 @@
 import {
   IMAGE_UPLOAD_OPERATOR_SMOKE_HEADER,
+  IMAGE_UPLOAD_OPERATOR_SMOKE_HEADER_NAME,
   matchesOperatorSmokeToken,
   parseImageUploadIngress,
   smokeTokenFingerprint,
@@ -135,6 +136,9 @@ describe('image upload ingress', () => {
 
     expect(IMAGE_UPLOAD_OPERATOR_SMOKE_HEADER).toBe(
       'x-image-upload-smoke-token',
+    );
+    expect(IMAGE_UPLOAD_OPERATOR_SMOKE_HEADER_NAME).toBe(
+      'X-Image-Upload-Smoke-Token',
     );
     expect(matchesOperatorSmokeToken(runtime, token)).toBe(true);
     expect(matchesOperatorSmokeToken(runtime, `${token}-wrong`)).toBe(false);

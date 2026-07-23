@@ -4,15 +4,24 @@ import {
   HttpException,
   NotFoundException,
 } from '@nestjs/common';
+import { smokeTokenFingerprint } from './image-upload-ingress';
 import { ImagesController } from './images.controller';
 
 describe('ImagesController upload contract', () => {
-  const adminRequest = { user: { sub: 'admin-1', role: 'admin' } };
+  const smokeToken = 'operator-smoke-token-with-at-least-32-bytes';
+  const adminRequest = {
+    user: { sub: 'admin-1', role: 'admin' },
+    headers: {},
+  };
+  const smokeAdminRequest = {
+    user: { sub: 'admin-1', role: 'admin' },
+    headers: { 'x-image-upload-smoke-token': smokeToken },
+  };
   const policy = {
     policyVersion: 'policy-v1',
     getPolicy: jest.fn(() => ({ policyVersion: 'policy-v1', policy: {} })),
   };
-  const runtime = { presignEnabled: true };
+  const runtime = { presignEnabled: true, mode: 'general' as const };
   const rateLimit = { admit: jest.fn().mockResolvedValue({ admitted: true }) };
   const images = {
     getUploadUrl: jest.fn().mockResolvedValue({ uploadId: 'upload-1' }),
@@ -23,13 +32,25 @@ describe('ImagesController upload contract', () => {
 
   beforeEach(() => jest.clearAllMocks());
 
-  function controller(enabled = true) {
+  function controller(enabled = true, override: Record<string, unknown> = {}) {
     return new ImagesController(
       images as never,
       policy as never,
       rateLimit as never,
-      { ...runtime, presignEnabled: enabled } as never,
+      {
+        ...runtime,
+        presignEnabled: enabled,
+        mode: enabled ? 'general' : 'disabled',
+        ...override,
+      } as never,
     );
+  }
+
+  function operatorController() {
+    return controller(true, {
+      mode: 'operator-smoke',
+      smokeTokenSha256: smokeTokenFingerprint(smokeToken),
+    });
   }
 
   it('does not expose the mock upload endpoint', () => {
@@ -57,6 +78,103 @@ describe('ImagesController upload contract', () => {
     expect(rateLimit.admit).not.toHaveBeenCalled();
     expect(images.getUploadUrl).not.toHaveBeenCalled();
   });
+
+  it.each([
+    ['getUploadUrl', [{ clientRequestId: 'missing' }, adminRequest]],
+    [
+      'confirmUpload',
+      [{ uploadId: '00000000-0000-4000-8000-000000000030' }, adminRequest],
+    ],
+    ['getUploadStatus', ['00000000-0000-4000-8000-000000000030', adminRequest]],
+    ['abandonUpload', ['00000000-0000-4000-8000-000000000030', adminRequest]],
+  ])(
+    'checks operator ingress before rate admission for %s',
+    async (method, args) => {
+      await expect(
+        (
+          operatorController() as unknown as Record<
+            string,
+            (...input: unknown[]) => unknown
+          >
+        )[method](...args),
+      ).rejects.toMatchObject({
+        response: { statusCode: 403, code: 'upload_operator_smoke_required' },
+      });
+      expect(rateLimit.admit).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    [
+      'getUploadUrl',
+      [
+        {
+          clientRequestId: '00000000-0000-4000-8000-000000000010',
+          albumId: '00000000-0000-4000-8000-000000000020',
+          filename: 'photo.webp',
+          contentType: 'image/webp',
+          fileSize: 1024,
+          processedSha256: 'a'.repeat(64),
+          policyVersion: 'policy-v1',
+        },
+        smokeAdminRequest,
+      ],
+    ],
+    [
+      'confirmUpload',
+      [{ uploadId: '00000000-0000-4000-8000-000000000030' }, smokeAdminRequest],
+    ],
+    [
+      'getUploadStatus',
+      ['00000000-0000-4000-8000-000000000030', smokeAdminRequest],
+    ],
+    [
+      'abandonUpload',
+      ['00000000-0000-4000-8000-000000000030', smokeAdminRequest],
+    ],
+  ])('admits the exact operator token for %s', async (method, args) => {
+    await expect(
+      (
+        operatorController() as unknown as Record<
+          string,
+          (...input: unknown[]) => unknown
+        >
+      )[method](...args),
+    ).resolves.toBeDefined();
+    expect(rateLimit.admit).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects duplicated operator token headers before admission', async () => {
+    const duplicated = {
+      ...smokeAdminRequest,
+      headers: { 'x-image-upload-smoke-token': [smokeToken, smokeToken] },
+    };
+    await expect(
+      operatorController().getUploadStatus(
+        '00000000-0000-4000-8000-000000000030',
+        duplicated as never,
+      ),
+    ).rejects.toMatchObject({
+      response: { statusCode: 403, code: 'upload_operator_smoke_required' },
+    });
+    expect(rateLimit.admit).not.toHaveBeenCalled();
+  });
+
+  it.each(['confirmUpload', 'getUploadStatus', 'abandonUpload'])(
+    'preserves disabled-mode drain behavior for %s',
+    async (method) => {
+      const uploadId = '00000000-0000-4000-8000-000000000030';
+      await expect(
+        (
+          controller(false) as unknown as Record<
+            string,
+            (...input: unknown[]) => unknown
+          >
+        )[method]({ uploadId }, adminRequest),
+      ).resolves.toBeDefined();
+      expect(rateLimit.admit).toHaveBeenCalledTimes(1);
+    },
+  );
 
   it.each(['clientRequestId', 'processedSha256', 'policyVersion'])(
     'admits before rejecting missing legacy field %s with policy refresh',

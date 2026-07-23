@@ -21,6 +21,7 @@ import { PrismaService } from '../src/prisma/prisma.service';
 const TEST_JWT_SECRET = 'test-jwt-secret';
 const ADMIN_ID = '00000000-0000-4000-8000-000000000001';
 const POLICY_VERSION = 'policy-v1';
+const SMOKE_TOKEN = 'operator-smoke-token-with-at-least-32-bytes';
 
 function signJwt(role: 'admin' | 'user'): string {
   const now = Math.floor(Date.now() / 1000);
@@ -63,9 +64,32 @@ describe('Images current upload routes (e2e)', () => {
     })),
   };
 
+  async function createApp(): Promise<INestApplication> {
+    const moduleFixture: TestingModule = await Test.createTestingModule({
+      imports: [AppModule],
+    })
+      .overrideProvider(PrismaService)
+      .useValue({})
+      .overrideProvider(ImagesService)
+      .useValue(imagesService)
+      .overrideProvider(ImageUploadRateLimitService)
+      .useValue(rateLimit)
+      .overrideProvider(ImageUploadPolicyService)
+      .useValue(policy)
+      .compile();
+
+    const created = moduleFixture.createNestApplication({ bodyParser: false });
+    created.use(bodyParser.json({ limit: '1mb' }));
+    created.use(bodyParser.urlencoded({ limit: '1mb', extended: true }));
+    await created.init();
+    return created;
+  }
+
   beforeEach(async () => {
     jest.resetAllMocks();
     process.env.IMAGE_UPLOAD_PRESIGN_ENABLED = 'true';
+    process.env.IMAGE_UPLOAD_INGRESS_MODE = 'general';
+    delete process.env.IMAGE_UPLOAD_OPERATOR_SMOKE_TOKEN;
     imagesService.getUploadUrl.mockResolvedValue({ uploadId: 'upload-id' });
     imagesService.confirmUpload.mockResolvedValue({ outcome: 'finalizing' });
     imagesService.getUploadStatus.mockResolvedValue({
@@ -91,28 +115,48 @@ describe('Images current upload routes (e2e)', () => {
       policy: { maxStoredBytes: 5_242_880 },
     });
 
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    })
-      .overrideProvider(PrismaService)
-      .useValue({})
-      .overrideProvider(ImagesService)
-      .useValue(imagesService)
-      .overrideProvider(ImageUploadRateLimitService)
-      .useValue(rateLimit)
-      .overrideProvider(ImageUploadPolicyService)
-      .useValue(policy)
-      .compile();
-
-    app = moduleFixture.createNestApplication({ bodyParser: false });
-    app.use(bodyParser.json({ limit: '1mb' }));
-    app.use(bodyParser.urlencoded({ limit: '1mb', extended: true }));
-    await app.init();
+    app = await createApp();
   });
 
   afterEach(async () => {
     await app.close();
     delete process.env.IMAGE_UPLOAD_PRESIGN_ENABLED;
+    delete process.env.IMAGE_UPLOAD_INGRESS_MODE;
+    delete process.env.IMAGE_UPLOAD_OPERATOR_SMOKE_TOKEN;
+  });
+
+  it('requires the exact operator token before rate admission', async () => {
+    await app.close();
+    process.env.IMAGE_UPLOAD_INGRESS_MODE = 'operator-smoke';
+    process.env.IMAGE_UPLOAD_OPERATOR_SMOKE_TOKEN = SMOKE_TOKEN;
+    app = await createApp();
+    const body = {
+      clientRequestId: '00000000-0000-4000-8000-000000000010',
+      albumId: '00000000-0000-4000-8000-000000000020',
+      filename: 'photo.webp',
+      contentType: 'image/webp',
+      fileSize: 1024,
+      processedSha256: 'a'.repeat(64),
+      policyVersion: POLICY_VERSION,
+    };
+
+    const denied = await request(app.getHttpServer())
+      .post('/images/upload-url')
+      .set('Authorization', `Bearer ${signJwt('admin')}`)
+      .send(body)
+      .expect(403);
+    expect(denied.body).toEqual(
+      expect.objectContaining({ code: 'upload_operator_smoke_required' }),
+    );
+    expect(rateLimit.admit).not.toHaveBeenCalled();
+
+    await request(app.getHttpServer())
+      .post('/images/upload-url')
+      .set('Authorization', `Bearer ${signJwt('admin')}`)
+      .set('X-Image-Upload-Smoke-Token', SMOKE_TOKEN)
+      .send(body)
+      .expect(200);
+    expect(rateLimit.admit).toHaveBeenCalledTimes(1);
   });
 
   it.each([

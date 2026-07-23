@@ -367,9 +367,7 @@ export function parseImageUploadRuntimeConfig(
       : {}),
     presignClockSkewSeconds,
     rateLimitCleanupBatch,
-    ...(role === 'reconciler'
-      ? { reconcileGraceMs, reconcileCadenceMs }
-      : {}),
+    ...(role === 'reconciler' ? { reconcileGraceMs, reconcileCadenceMs } : {}),
     r2Bucket: values.IMAGE_UPLOAD_R2_BUCKET,
     canonicalPrefix,
     ...(role === 'api' ? { trustedProxyCount: proxies.length } : {}),
