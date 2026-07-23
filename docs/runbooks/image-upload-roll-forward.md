@@ -12,7 +12,9 @@ This runbook implements the polling-only production cutover in the canonical ima
 
 ## 1. Preparation before maintenance
 
-Record the planned immutable image reference, exact merged commit, migration checksum, current policy hash, successful CI contexts, staging receipt, deterministic memory-fixture digest, manual browser-memory results, production bucket/CORS readback, exact polling readback (`reconcileGraceMs=30000`, `reconcileCadenceMs=5000`), four distinct bucket-scoped R2 data-plane credential fingerprints, and the distinct temporary production R2 Admin Read Only config-credential fingerprint. The actual Docker image ID and image commit label are post-build evidence collected after startup.
+Record the planned immutable image reference, exact merged commit, migration checksum, current policy hash, successful CI contexts, staging receipt, production bucket/CORS readback, exact polling readback (`reconcileGraceMs=30000`, `reconcileCadenceMs=5000`), four distinct bucket-scoped R2 data-plane credential fingerprints, and the distinct temporary production R2 Admin Read Only config-credential fingerprint. The actual Docker image ID and image commit label are post-build evidence collected after startup.
+
+The deterministic fixture, pinned stable Chrome, and memory thresholds remain an optional memory diagnostic. They are not CI, Phase 1, Phase 2, smoke, drill, or ingress gates. Missing optional diagnostic results do not block admission.
 
 Require these exact CI contexts:
 
