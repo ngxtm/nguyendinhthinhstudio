@@ -15,7 +15,7 @@
 **Files:**
 
 - Modify: `apps/backend/test/run-image-upload-staging.ts`
-- Modify: `apps/backend/test/run-image-upload-staging.spec.ts`
+- Modify: `apps/backend/test/run-image-upload-staging.integration-spec.ts`
 - Modify: `.github/workflows/image-upload.yml`
 - Modify: `scripts/verify-image-upload-workflow.mjs`
 - Create: `scripts/schemas/image-upload-staging-receipt.schema.json`
@@ -47,7 +47,7 @@ Assert that `consumedEventIds` is absent, successful verification records `quali
 Run:
 
 ```powershell
-npm test --workspace=backend -- --runInBand test/run-image-upload-staging.spec.ts
+npm exec --workspace=backend -- jest --config ./test/jest-integration.json --runInBand --runTestsByPath test/run-image-upload-staging.integration-spec.ts
 ```
 
 Expected: FAIL because the staging receipt lacks the new closed identity/status fields and still contains `consumedEventIds`.
@@ -90,7 +90,7 @@ Expected: both pass.
 - [ ] **Step 7: Commit Task 1**
 
 ```powershell
-git add apps/backend/test/run-image-upload-staging.ts apps/backend/test/run-image-upload-staging.spec.ts .github/workflows/image-upload.yml scripts/verify-image-upload-workflow.mjs scripts/schemas/image-upload-staging-receipt.schema.json
+git add apps/backend/test/run-image-upload-staging.ts apps/backend/test/run-image-upload-staging.integration-spec.ts .github/workflows/image-upload.yml scripts/verify-image-upload-workflow.mjs scripts/schemas/image-upload-staging-receipt.schema.json
 git commit -m "fix(images): retain sanitized staging receipt"
 ```
 
@@ -266,7 +266,7 @@ git commit -m "docs(images): define two-phase admission and cleanup"
 ```powershell
 node --test scripts/image-upload-release-fingerprint.test.mjs scripts/verify-image-upload-production-gates.test.mjs scripts/verify-image-upload-final-ingress-gates.test.mjs
 node scripts/verify-image-upload-workflow.mjs
-npm test --workspace=backend -- --runInBand test/run-image-upload-staging.spec.ts
+npm exec --workspace=backend -- jest --config ./test/jest-integration.json --runInBand --runTestsByPath test/run-image-upload-staging.integration-spec.ts
 ```
 
 Expected: every test passes and the workflow verifier reports exactly three required ruleset jobs.

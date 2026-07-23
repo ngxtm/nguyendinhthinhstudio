@@ -74,8 +74,26 @@ for (const fragment of [
     'AWS_ACCESS_KEY_ID: ${{ secrets.NDT_STAGING_IMGPROXY_ACCESS_KEY_ID }}',
     'AWS_SECRET_ACCESS_KEY: ${{ secrets.NDT_STAGING_IMGPROXY_SECRET_ACCESS_KEY }}',
     'IMGPROXY_S3_ENDPOINT: ${{ vars.NDT_STAGING_R2_ENDPOINT }}',
+    'NDT_STAGING_RECEIPT_PATH: ${{ runner.temp }}/ndt-image-upload-staging-receipt.json',
+    '- name: Upload sanitized staging receipt',
+    'uses: actions/upload-artifact@v4',
+    'name: image-upload-staging-receipt-${{ github.run_id }}-${{ github.run_attempt }}',
+    'path: ${{ env.NDT_STAGING_RECEIPT_PATH }}',
+    'if-no-files-found: error',
+    'retention-days: 30',
 ]) {
     if (!staging.includes(fragment)) fail(`image-upload-staging must contain ${fragment}`);
+}
+
+const stagingCleanupIndex = staging.indexOf('- name: Cleanup staging run');
+const stagingUploadIndex = staging.indexOf('- name: Upload sanitized staging receipt');
+if (
+    stagingCleanupIndex < 0 ||
+    stagingUploadIndex < 0 ||
+    stagingUploadIndex <= stagingCleanupIndex ||
+    !/- name: Upload sanitized staging receipt[\s\S]*?\n\s+if:\s*always\(\)/.test(staging)
+) {
+    fail('image-upload-staging must upload sanitized receipt after cleanup');
 }
 
 for (const id of required) {

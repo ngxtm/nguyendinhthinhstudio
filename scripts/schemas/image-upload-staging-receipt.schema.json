@@ -1,0 +1,41 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "https://nguyendinhthinh.studio/schemas/image-upload-staging-receipt/v1-polling",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "schemaVersion",
+        "runId",
+        "releaseCommitSha",
+        "workflowRunId",
+        "workflowRunAttempt",
+        "sourcePrefix",
+        "destinationPrefix",
+        "databaseIdentity",
+        "qualificationStatus",
+        "cleanupStatus",
+        "updatedAt"
+    ],
+    "properties": {
+        "schemaVersion": { "const": "image-upload-staging-receipt/v1-polling" },
+        "runId": { "type": "string", "format": "uuid" },
+        "releaseCommitSha": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+        "workflowRunId": { "type": "string", "pattern": "^[1-9][0-9]*$" },
+        "workflowRunAttempt": { "type": "integer", "minimum": 1 },
+        "sourcePrefix": {
+            "type": "string",
+            "pattern": "^uploads/staging/[0-9a-f-]{36}/$"
+        },
+        "destinationPrefix": {
+            "type": "string",
+            "pattern": "^albums/staging/[0-9a-f-]{36}/$"
+        },
+        "databaseIdentity": {
+            "type": "string",
+            "pattern": "^supabase:[a-f0-9]{64}$"
+        },
+        "qualificationStatus": { "enum": ["pending", "passed", "failed"] },
+        "cleanupStatus": { "enum": ["pending", "complete", "failed"] },
+        "updatedAt": { "type": "string", "format": "date-time" }
+    }
+}

@@ -151,6 +151,7 @@ jobs:
             NDT_PRODUCTION_RECONCILER_R2_ACCESS_KEY_ID: ${{ vars.NDT_PRODUCTION_RECONCILER_R2_ACCESS_KEY_ID }}
             NDT_PRODUCTION_CUTOVER_R2_ACCESS_KEY_ID: ${{ vars.NDT_PRODUCTION_CUTOVER_R2_ACCESS_KEY_ID }}
             NDT_PRODUCTION_IMGPROXY_ACCESS_KEY_ID: ${{ vars.NDT_PRODUCTION_IMGPROXY_ACCESS_KEY_ID }}
+            NDT_STAGING_RECEIPT_PATH: ${{ runner.temp }}/ndt-image-upload-staging-receipt.json
         steps:
             - uses: actions/checkout@v4
             - uses: actions/setup-node@v4
@@ -162,7 +163,15 @@ jobs:
             - run: npx --no-install playwright install --with-deps chromium
               working-directory: apps/frontend
             - name: Run staging qualification
-              run: NDT_STAGING_RECEIPT_PATH="$RUNNER_TEMP/ndt-image-upload-staging-receipt.json" npm run test:staging:run --workspace=backend
+              run: npm run test:staging:run --workspace=backend
             - name: Cleanup staging run
               if: always()
-              run: NDT_STAGING_RECEIPT_PATH="$RUNNER_TEMP/ndt-image-upload-staging-receipt.json" npm run test:staging:cleanup --workspace=backend
+              run: npm run test:staging:cleanup --workspace=backend
+            - name: Upload sanitized staging receipt
+              if: always()
+              uses: actions/upload-artifact@v4
+              with:
+                  name: image-upload-staging-receipt-${{ github.run_id }}-${{ github.run_attempt }}
+                  path: ${{ env.NDT_STAGING_RECEIPT_PATH }}
+                  if-no-files-found: error
+                  retention-days: 30
