@@ -1,0 +1,5 @@
+{
+    "base": "../pass.json",
+    "expectedGate": "sensitiveMaterial",
+    "set": { "release.imageReference": "https://example.com/private" }
+}

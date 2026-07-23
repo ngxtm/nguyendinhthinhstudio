@@ -1,0 +1,72 @@
+{
+    "schemaVersion": "image-upload-final-ingress-receipt/v1-polling",
+    "receiptId": "10000000-0000-4000-8000-000000000009",
+    "receiptPathSha256": "1111111111111111111111111111111111111111111111111111111111111111",
+    "createdAt": "2026-07-23T05:10:00.000Z",
+    "release": {
+        "imageReference": "ndt-studio-backend:cccccccccccc",
+        "imageDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "commitSha": "cccccccccccccccccccccccccccccccccccccccc",
+        "releaseFingerprint": "sha256:83ba021acb570beba262883af95e224a01e89051c1e95fdc84ebfe83c575b35f"
+    },
+    "postStart": {
+        "receiptPathSha256": "1212121212121212121212121212121212121212121212121212121212121212",
+        "receiptSha256": "1313131313131313131313131313131313131313131313131313131313131313",
+        "approvalPathSha256": "1414141414141414141414141414141414141414141414141414141414141414",
+        "approvalSha256": "1515151515151515151515151515151515151515151515151515151515151515"
+    },
+    "smoke": {
+        "authorizationPathSha256": "1616161616161616161616161616161616161616161616161616161616161616",
+        "authorizationSha256": "1717171717171717171717171717171717171717171717171717171717171717",
+        "receiptPathSha256": "1818181818181818181818181818181818181818181818181818181818181818",
+        "receiptSha256": "1919191919191919191919191919191919191919191919191919191919191919"
+    },
+    "drill": {
+        "receiptPathSha256": "2020202020202020202020202020202020202020202020202020202020202020",
+        "receiptSha256": "2121212121212121212121212121212121212121212121212121212121212121",
+        "approvalPathSha256": "2222222222222222222222222222222222222222222222222222222222222222",
+        "approvalSha256": "2323232323232323232323232323232323232323232323232323232323232323"
+    },
+    "pollingSnapshots": [
+        {
+            "observedAt": "2026-07-23T05:09:10.000Z",
+            "activeUploads": 0,
+            "unterminalizedExpiredUploads": 0,
+            "unresolvedPromotions": 0,
+            "invalidResponseHeadSettlement": 0,
+            "invalidPromotionAuthority": 0,
+            "invalidCleanupAuthority": 0,
+            "invalidPromotionConflictEvidence": 0,
+            "openPromotionConflicts": 0,
+            "dueTemporaryCleanup": 0,
+            "unverifiedTemporaryCleanup": 0,
+            "unresolvedR2ImageDeletion": 0,
+            "invalidR2DeletionAuthority": 0,
+            "invalidNonR2DeletionDisposition": 0,
+            "legacyTerminalTempPresent": 0,
+            "legacyPreDispatchTempPresent": 0,
+            "corsMismatch": 0
+        },
+        {
+            "observedAt": "2026-07-23T05:09:41.000Z",
+            "activeUploads": 0,
+            "unterminalizedExpiredUploads": 0,
+            "unresolvedPromotions": 0,
+            "invalidResponseHeadSettlement": 0,
+            "invalidPromotionAuthority": 0,
+            "invalidCleanupAuthority": 0,
+            "invalidPromotionConflictEvidence": 0,
+            "openPromotionConflicts": 0,
+            "dueTemporaryCleanup": 0,
+            "unverifiedTemporaryCleanup": 0,
+            "unresolvedR2ImageDeletion": 0,
+            "invalidR2DeletionAuthority": 0,
+            "invalidNonR2DeletionDisposition": 0,
+            "legacyTerminalTempPresent": 0,
+            "legacyPreDispatchTempPresent": 0,
+            "corsMismatch": 0
+        }
+    ],
+    "rollForwardDrillDecision": "pass",
+    "canonicalSha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+}

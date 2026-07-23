@@ -1,0 +1,132 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "https://nguyendinhthinh.studio/schemas/image-upload-final-ingress-evidence/v1-polling",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "schemaVersion",
+        "receiptId",
+        "receiptPathSha256",
+        "createdAt",
+        "release",
+        "postStart",
+        "smoke",
+        "drill",
+        "pollingSnapshots",
+        "rollForwardDrillDecision",
+        "canonicalSha256"
+    ],
+    "properties": {
+        "schemaVersion": { "const": "image-upload-final-ingress-receipt/v1-polling" },
+        "receiptId": { "type": "string", "format": "uuid" },
+        "receiptPathSha256": { "$ref": "#/$defs/sha256" },
+        "createdAt": { "$ref": "#/$defs/timestamp" },
+        "release": { "$ref": "#/$defs/release" },
+        "postStart": { "$ref": "#/$defs/receiptApprovalBinding" },
+        "smoke": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "authorizationPathSha256",
+                "authorizationSha256",
+                "receiptPathSha256",
+                "receiptSha256"
+            ],
+            "properties": {
+                "authorizationPathSha256": { "$ref": "#/$defs/sha256" },
+                "authorizationSha256": { "$ref": "#/$defs/sha256" },
+                "receiptPathSha256": { "$ref": "#/$defs/sha256" },
+                "receiptSha256": { "$ref": "#/$defs/sha256" }
+            }
+        },
+        "drill": { "$ref": "#/$defs/receiptApprovalBinding" },
+        "pollingSnapshots": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 2,
+            "items": { "$ref": "#/$defs/pollingSnapshot" }
+        },
+        "rollForwardDrillDecision": { "enum": ["pass", "fail"] },
+        "canonicalSha256": { "$ref": "#/$defs/sha256" }
+    },
+    "$defs": {
+        "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "nonNegativeInteger": { "type": "integer", "minimum": 0 },
+        "release": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["imageReference", "imageDigest", "commitSha", "releaseFingerprint"],
+            "properties": {
+                "imageReference": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9._/:@-]{0,254}$"
+                },
+                "imageDigest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+                "commitSha": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+                "releaseFingerprint": {
+                    "type": "string",
+                    "pattern": "^sha256:[a-f0-9]{64}$"
+                }
+            }
+        },
+        "receiptApprovalBinding": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "receiptPathSha256",
+                "receiptSha256",
+                "approvalPathSha256",
+                "approvalSha256"
+            ],
+            "properties": {
+                "receiptPathSha256": { "$ref": "#/$defs/sha256" },
+                "receiptSha256": { "$ref": "#/$defs/sha256" },
+                "approvalPathSha256": { "$ref": "#/$defs/sha256" },
+                "approvalSha256": { "$ref": "#/$defs/sha256" }
+            }
+        },
+        "pollingSnapshot": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "observedAt",
+                "activeUploads",
+                "unterminalizedExpiredUploads",
+                "unresolvedPromotions",
+                "invalidResponseHeadSettlement",
+                "invalidPromotionAuthority",
+                "invalidCleanupAuthority",
+                "invalidPromotionConflictEvidence",
+                "openPromotionConflicts",
+                "dueTemporaryCleanup",
+                "unverifiedTemporaryCleanup",
+                "unresolvedR2ImageDeletion",
+                "invalidR2DeletionAuthority",
+                "invalidNonR2DeletionDisposition",
+                "legacyTerminalTempPresent",
+                "legacyPreDispatchTempPresent",
+                "corsMismatch"
+            ],
+            "properties": {
+                "observedAt": { "$ref": "#/$defs/timestamp" },
+                "activeUploads": { "$ref": "#/$defs/nonNegativeInteger" },
+                "unterminalizedExpiredUploads": { "$ref": "#/$defs/nonNegativeInteger" },
+                "unresolvedPromotions": { "$ref": "#/$defs/nonNegativeInteger" },
+                "invalidResponseHeadSettlement": { "$ref": "#/$defs/nonNegativeInteger" },
+                "invalidPromotionAuthority": { "$ref": "#/$defs/nonNegativeInteger" },
+                "invalidCleanupAuthority": { "$ref": "#/$defs/nonNegativeInteger" },
+                "invalidPromotionConflictEvidence": { "$ref": "#/$defs/nonNegativeInteger" },
+                "openPromotionConflicts": { "$ref": "#/$defs/nonNegativeInteger" },
+                "dueTemporaryCleanup": { "$ref": "#/$defs/nonNegativeInteger" },
+                "unverifiedTemporaryCleanup": { "$ref": "#/$defs/nonNegativeInteger" },
+                "unresolvedR2ImageDeletion": { "$ref": "#/$defs/nonNegativeInteger" },
+                "invalidR2DeletionAuthority": { "$ref": "#/$defs/nonNegativeInteger" },
+                "invalidNonR2DeletionDisposition": { "$ref": "#/$defs/nonNegativeInteger" },
+                "legacyTerminalTempPresent": { "$ref": "#/$defs/nonNegativeInteger" },
+                "legacyPreDispatchTempPresent": { "$ref": "#/$defs/nonNegativeInteger" },
+                "corsMismatch": { "$ref": "#/$defs/nonNegativeInteger" }
+            }
+        }
+    }
+}

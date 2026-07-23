@@ -1,0 +1,76 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "https://nguyendinhthinh.studio/schemas/image-upload-operator-smoke-receipt/v1-polling",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "schemaVersion",
+        "receiptId",
+        "receiptPathSha256",
+        "createdAt",
+        "release",
+        "authorizationPathSha256",
+        "authorizationSha256",
+        "checks",
+        "canonicalSha256"
+    ],
+    "properties": {
+        "schemaVersion": { "const": "image-upload-operator-smoke-receipt/v1-polling" },
+        "receiptId": { "type": "string", "format": "uuid" },
+        "receiptPathSha256": { "$ref": "#/$defs/sha256" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "release": { "$ref": "#/$defs/release" },
+        "authorizationPathSha256": { "$ref": "#/$defs/sha256" },
+        "authorizationSha256": { "$ref": "#/$defs/sha256" },
+        "checks": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "browserUpload",
+                "absoluteExpiryRetry",
+                "allowedCorsPut",
+                "deniedCorsPut",
+                "responseFirstSettlement",
+                "copyResponseLossHeadSettlement",
+                "unchangedDestinationRetry",
+                "conflictFailClosed",
+                "committedDeletion",
+                "failedPromotionCleanup",
+                "temporaryCleanupAfterExpiry",
+                "imgproxyRendering"
+            ],
+            "properties": {
+                "browserUpload": { "const": true },
+                "absoluteExpiryRetry": { "const": true },
+                "allowedCorsPut": { "const": true },
+                "deniedCorsPut": { "const": true },
+                "responseFirstSettlement": { "const": true },
+                "copyResponseLossHeadSettlement": { "const": true },
+                "unchangedDestinationRetry": { "const": true },
+                "conflictFailClosed": { "const": true },
+                "committedDeletion": { "const": true },
+                "failedPromotionCleanup": { "const": true },
+                "temporaryCleanupAfterExpiry": { "const": true },
+                "imgproxyRendering": { "const": true }
+            }
+        },
+        "canonicalSha256": { "$ref": "#/$defs/sha256" }
+    },
+    "$defs": {
+        "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "release": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["imageReference", "imageDigest", "commitSha", "releaseFingerprint"],
+            "properties": {
+                "imageReference": { "type": "string", "minLength": 1, "maxLength": 255 },
+                "imageDigest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+                "commitSha": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+                "releaseFingerprint": {
+                    "type": "string",
+                    "pattern": "^sha256:[a-f0-9]{64}$"
+                }
+            }
+        }
+    }
+}
