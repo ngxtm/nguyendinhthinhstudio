@@ -34,6 +34,7 @@
             "required": [
                 "imageDigest",
                 "commitSha",
+                "releaseFingerprint",
                 "migrationChecksumSha256",
                 "policyVersion",
                 "policyReadbackSha256",
@@ -42,6 +43,10 @@
             "properties": {
                 "imageDigest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
                 "commitSha": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+                "releaseFingerprint": {
+                    "type": "string",
+                    "pattern": "^sha256:[a-f0-9]{64}$"
+                },
                 "migrationChecksumSha256": { "$ref": "#/$defs/sha256" },
                 "policyVersion": {
                     "type": "string",

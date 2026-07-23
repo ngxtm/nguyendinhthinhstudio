@@ -1,0 +1,7 @@
+{
+    "base": "../pass.json",
+    "expectedGate": "releaseFingerprintBinding",
+    "set": {
+        "release.releaseFingerprint": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+}

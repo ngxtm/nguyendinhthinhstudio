@@ -131,7 +131,7 @@ git commit -m "feat(images): add stable release fingerprint helper"
 - Modify: `scripts/verify-image-upload-production-gates.mjs`
 - Test: `scripts/verify-image-upload-production-gates.test.mjs`
 
-- [ ] **Step 1: Add the failing evidence fixture and schema expectations**
+- [x] **Step 1: Add the failing evidence fixture and schema expectations**
 
 Add `releaseFingerprint` to the `release.required` array and properties in the schema:
 
@@ -160,7 +160,7 @@ Create `scripts/fixtures/image-upload-production-gates/fail/release-fingerprint-
 }
 ```
 
-- [ ] **Step 2: Run verifier tests and observe the expected RED state**
+- [x] **Step 2: Run verifier tests and observe the expected RED state**
 
 Run:
 
@@ -170,7 +170,7 @@ node --test scripts/verify-image-upload-production-gates.test.mjs
 
 Expected: FAIL because the verifier does not yet reject the mismatched release fingerprint.
 
-- [ ] **Step 3: Enforce the semantic binding**
+- [x] **Step 3: Enforce the semantic binding**
 
 Import the canonical helper into `scripts/verify-image-upload-production-gates.mjs`:
 
@@ -186,7 +186,7 @@ if (receipt.release.releaseFingerprint !== createReleaseFingerprint(receipt.rele
 }
 ```
 
-- [ ] **Step 4: Run verifier tests and observe GREEN**
+- [x] **Step 4: Run verifier tests and observe GREEN**
 
 Run:
 
@@ -196,7 +196,7 @@ node --test scripts/image-upload-release-fingerprint.test.mjs scripts/verify-ima
 
 Expected: pass fixture succeeds, release-fingerprint mismatch fails at `releaseFingerprintBinding`, and all verifier tests PASS.
 
-- [ ] **Step 5: Commit production evidence binding**
+- [x] **Step 5: Commit production evidence binding**
 
 ```powershell
 git add scripts/schemas/image-upload-production-evidence.schema.json scripts/fixtures/image-upload-production-gates/pass.json scripts/fixtures/image-upload-production-gates/fail/release-fingerprint-binding.json scripts/verify-image-upload-production-gates.mjs scripts/verify-image-upload-production-gates.test.mjs

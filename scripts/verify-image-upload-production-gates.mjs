@@ -5,6 +5,7 @@ import { dirname, isAbsolute, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
+import { createReleaseFingerprint } from './image-upload-release-fingerprint.mjs';
 
 const scriptDirectory = dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = resolve(scriptDirectory, '..');
@@ -235,6 +236,11 @@ function assertTimestampAtMost(reference, value, gate, maxAgeMs = null) {
 function assertSemanticGates(receipt) {
     assertNoSensitiveMaterial(receipt);
     const createdAt = receipt.createdAt;
+    if (
+        receipt.release.releaseFingerprint !== createReleaseFingerprint(receipt.release.commitSha)
+    ) {
+        fail('releaseFingerprintBinding', 'release commit/fingerprint binding differs');
+    }
     if (receipt.release.policyVersion !== `web-v1-${receipt.release.policyHash}`) {
         fail('policyBinding', 'policy version/hash binding differs');
     }

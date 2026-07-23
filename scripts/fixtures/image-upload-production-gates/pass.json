@@ -6,6 +6,7 @@
     "release": {
         "imageDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "commitSha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "releaseFingerprint": "sha256:e26d2da3ab585c9840b157a4a9b5639fda905c2ad33d04d2c598be8883b51236",
         "migrationChecksumSha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
         "policyVersion": "web-v1-18da64f64a7d4a645b549c56ebc5dce84ed830f69defdf8b6d7f2b8d9659baef",
         "policyReadbackSha256": "3838383838383838383838383838383838383838383838383838383838383838",
