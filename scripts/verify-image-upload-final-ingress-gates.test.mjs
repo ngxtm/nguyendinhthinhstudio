@@ -372,3 +372,50 @@ test('release docs keep memory benchmarking as an optional diagnostic asset', ()
         /const required = \['backend-image-upload', 'image-upload-packaging', 'frontend-playwright-chromium'\]/,
     );
 });
+
+test('operator smoke receipt is emitted only by the journal-backed runner', () => {
+    const repositoryRoot = resolve(scriptsDirectory, '..');
+    const contract = readFileSync(
+        resolve(
+            repositoryRoot,
+            'apps/backend/src/scripts/image-upload-production-smoke-contract.ts',
+        ),
+        'utf8',
+    );
+    const orchestrator = readFileSync(
+        resolve(
+            repositoryRoot,
+            'apps/backend/src/scripts/image-upload-production-smoke-orchestrator.ts',
+        ),
+        'utf8',
+    );
+    const dependencies = readFileSync(
+        resolve(
+            repositoryRoot,
+            'apps/backend/src/scripts/image-upload-production-smoke-dependencies.ts',
+        ),
+        'utf8',
+    );
+
+    assert.match(contract, /completedChecks: readonly ProductionSmokeCheck\[\]/);
+    assert.match(contract, /writeSmokeReceipt/);
+    assert.match(orchestrator, /for \(const check of PRODUCTION_SMOKE_CHECKS\)/);
+    assert.match(orchestrator, /cleanupStatus !== 'complete'/);
+    for (const check of [
+        'browserUpload',
+        'absoluteExpiryRetry',
+        'allowedCorsPut',
+        'deniedCorsPut',
+        'responseFirstSettlement',
+        'copyResponseLossHeadSettlement',
+        'unchangedDestinationRetry',
+        'conflictFailClosed',
+        'committedDeletion',
+        'failedPromotionCleanup',
+        'temporaryCleanupAfterExpiry',
+        'imgproxyRendering',
+    ]) {
+        assert.match(dependencies, new RegExp(`case '${check}'`));
+    }
+    assert.doesNotMatch(dependencies, /browserUpload:\s*true/);
+});

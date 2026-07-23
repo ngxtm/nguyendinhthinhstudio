@@ -31,6 +31,7 @@
 - Create `apps/backend/test/image-upload-production-smoke.integration-spec.ts`: disposable PostgreSQL mutation-boundary and cleanup-resumption tests.
 - Create `apps/backend/src/scripts/run-image-upload-production-smoke.ts`: `run`/`cleanup` CLI and live dependency assembly.
 - Create `apps/backend/src/scripts/run-image-upload-production-smoke.spec.ts`: CLI mode and secret-output contract tests.
+- Create `apps/backend/src/scripts/image-upload-production-smoke-dependencies.ts`: concrete Playwright, R2, PostgreSQL, polling, cleanup, and twelve-check dependency graph.
 - Create `scripts/schemas/image-upload-operator-smoke-journal.schema.json`: closed sanitized resumable journal schema.
 - Create `apps/backend/Dockerfile.operator-smoke` and modify `apps/backend/package.json`, `docker-compose.yml`, and `apps/backend/src/images/docker-runtime-contract.spec.ts`: package the runner with pinned Playwright Chromium in a temporary image while binding the smoke secret only to API.
 - Modify `scripts/verify-image-upload-final-ingress-gates.test.mjs`: accept a runner-generated canonical receipt and reject changed bytes/checks.
@@ -648,7 +649,7 @@ Add `Dockerfile.operator-smoke` coverage for the compiled CLI and matching Playw
 npm test --workspace=backend -- --runInBand --runTestsByPath src/scripts/run-image-upload-production-smoke.spec.ts src/images/docker-runtime-contract.spec.ts
 npm run build --workspace=backend
 Test-Path apps/backend/dist/scripts/run-image-upload-production-smoke.js
-docker build -f apps/backend/Dockerfile.operator-smoke --build-arg IMAGE_UPLOAD_RELEASE_COMMIT=operator-smoke-test -t ndt-studio-operator-smoke:test .
+docker build -f apps/backend/Dockerfile.operator-smoke --build-arg IMAGE_UPLOAD_RELEASE_COMMIT=1111111111111111111111111111111111111111 --build-arg IMAGE_UPLOAD_BUILD_FINGERPRINT=sha256:2222222222222222222222222222222222222222222222222222222222222222 -t ndt-studio-operator-smoke:test .
 docker run --rm --entrypoint node ndt-studio-operator-smoke:test -e "require('playwright').chromium.executablePath(); require('/app/dist/scripts/run-image-upload-production-smoke.js'); console.log('operator smoke packaged: pass')"
 ```
 
@@ -742,7 +743,7 @@ Expected: every command exits 0; no production credential is required.
 npm run build --workspace=backend
 npm run build --workspace=frontend
 docker build -f apps/backend/Dockerfile -t ndt-studio-backend:operator-smoke-test .
-docker build -f apps/backend/Dockerfile.operator-smoke --build-arg IMAGE_UPLOAD_RELEASE_COMMIT=operator-smoke-test -t ndt-studio-operator-smoke:test .
+docker build -f apps/backend/Dockerfile.operator-smoke --build-arg IMAGE_UPLOAD_RELEASE_COMMIT=1111111111111111111111111111111111111111 --build-arg IMAGE_UPLOAD_BUILD_FINGERPRINT=sha256:2222222222222222222222222222222222222222222222222222222222222222 -t ndt-studio-operator-smoke:test .
 docker run --rm --entrypoint node ndt-studio-operator-smoke:test -e "require('playwright').chromium.executablePath(); require('/app/dist/scripts/run-image-upload-production-smoke.js'); console.log('operator smoke packaged: pass')"
 ```
 

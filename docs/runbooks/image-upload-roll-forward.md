@@ -219,11 +219,96 @@ This is the **Phase 1 post-start approval**. It authorizes only operator-only in
 
 ## 8. Operator-only mutating acceptance
 
-Presign enablement is a production mutation and requires both the passing protected post-start production receipt/approval and a separate operator-smoke approval. Keep general ingress blocked and allowlist only the authenticated operator smoke identity/path.
+Presign enablement is a production mutation and requires both the passing protected post-start production receipt/approval and a separate operator-smoke approval. Keep general ingress blocked. Redeploy only the API with `IMAGE_UPLOAD_PRESIGN_ENABLED=true`, `IMAGE_UPLOAD_INGRESS_MODE=operator-smoke`, and a new high-entropy `IMAGE_UPLOAD_OPERATOR_SMOKE_TOKEN`; the reconciler and migration roles remain `disabled` and never receive that token. A request without the token must return `403 upload_operator_smoke_required` without creating a rate-limit or upload row.
 
-Exercise representative browser uploads, fixed absolute presign-expiry retries, allowed and denied browser CORS, response-first settlement, deliberate CopyObject response loss followed by exact destination HEAD settlement in 30–35 seconds, unchanged destination on retry, conflict fail-closed behavior, committed-result deletion, failed-promotion cleanup, temporary cleanup after expiry plus skew, and imgproxy rendering.
+Build the temporary runner from the same clean merged commit and computed release fingerprint. Use `nohup` on the VPS so an SSH/Tailscale session loss does not terminate the build:
 
-Create the protected operator-smoke receipt. Keep general ingress blocked.
+```bash
+cd "$HOME/ndt-cutover-src"
+RELEASE_COMMIT="$(git rev-parse HEAD)"
+RELEASE_FINGERPRINT="$(node scripts/image-upload-release-fingerprint.mjs "$RELEASE_COMMIT")"
+SMOKE_IMAGE="ndt-studio-operator-smoke:${RELEASE_COMMIT:0:12}"
+SMOKE_BUILD_STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
+SMOKE_BUILD_LOG="$HOME/ndt-operator-smoke-build-${RELEASE_COMMIT:0:12}-${SMOKE_BUILD_STAMP}.log"
+SMOKE_BUILD_EXIT="$HOME/ndt-operator-smoke-build-${RELEASE_COMMIT:0:12}-${SMOKE_BUILD_STAMP}.exit"
+export RELEASE_COMMIT RELEASE_FINGERPRINT SMOKE_IMAGE SMOKE_BUILD_EXIT
+
+nohup sh -c '
+  docker build \
+    -f apps/backend/Dockerfile.operator-smoke \
+    --build-arg "IMAGE_UPLOAD_RELEASE_COMMIT=$RELEASE_COMMIT" \
+    --build-arg "IMAGE_UPLOAD_BUILD_FINGERPRINT=$RELEASE_FINGERPRINT" \
+    -t "$SMOKE_IMAGE" .
+  code=$?
+  printf "%s\n" "$code" >"$SMOKE_BUILD_EXIT"
+  exit "$code"
+' \
+  >"$SMOKE_BUILD_LOG" 2>&1 &
+echo "SMOKE_BUILD_PID=$!"
+echo "SMOKE_BUILD_LOG=$SMOKE_BUILD_LOG"
+echo "SMOKE_BUILD_EXIT=$SMOKE_BUILD_EXIT"
+```
+
+Reconnect safely if necessary, wait until `SMOKE_BUILD_EXIT` exists, and require its exact content to be `0`. Inspect both `studio.nguyendinhthinh.image-upload.release-commit` and `studio.nguyendinhthinh.image-upload.release-fingerprint`; they must equal the active backend release tuple. Do not use the image if either label drifts.
+
+Create one owner-only smoke environment file outside the repository. It contains the production API/imgproxy/browser origins, one existing empty smoke album UUID, ephemeral admin bearer token, distinct smoke/cutover operator tokens, session-capable database URL, cutover R2 credentials, active backend image reference/digest, Phase 1 receipt/approval, smoke authorization, and distinct journal/receipt paths. It must include all names below and mode `600`; never print its values:
+
+```text
+NDT_PRODUCTION_SMOKE_API_BASE_URL
+NDT_PRODUCTION_SMOKE_IMGPROXY_BASE_URL
+NDT_PRODUCTION_SMOKE_BROWSER_ORIGIN
+NDT_PRODUCTION_SMOKE_ALBUM_ID
+NDT_PRODUCTION_SMOKE_ADMIN_BEARER_TOKEN
+NDT_PRODUCTION_SMOKE_TOKEN
+NDT_PRODUCTION_SMOKE_OPERATOR_TOKEN
+NDT_PRODUCTION_SMOKE_IMAGE_REFERENCE
+NDT_PRODUCTION_SMOKE_IMAGE_DIGEST
+NDT_PRODUCTION_SMOKE_PHASE1_RECEIPT
+NDT_PRODUCTION_SMOKE_PHASE1_APPROVAL
+NDT_PRODUCTION_SMOKE_AUTHORIZATION
+NDT_PRODUCTION_SMOKE_JOURNAL
+NDT_PRODUCTION_SMOKE_RECEIPT
+IMAGE_UPLOAD_RELEASE_COMMIT
+IMAGE_UPLOAD_BUILD_FINGERPRINT
+IMAGE_UPLOAD_R2_ENDPOINT
+IMAGE_UPLOAD_R2_BUCKET
+IMAGE_UPLOAD_CUTOVER_R2_ACCESS_KEY_ID
+IMAGE_UPLOAD_CUTOVER_R2_SECRET_ACCESS_KEY
+DATABASE_URL
+```
+
+Run the one-shot CLI on the Dokploy network. Mount the protected evidence directory at the identical absolute path so the approved path hashes remain stable:
+
+```bash
+SMOKE_ENV="$HOME/.ndt-production-smoke.env"
+EVIDENCE_ROOT="$HOME/ndt-cutover-evidence"
+chmod 600 "$SMOKE_ENV"
+
+docker run --rm \
+  --name "ndt-operator-smoke-${RELEASE_COMMIT:0:12}" \
+  --network dokploy-network \
+  --user "$(id -u):$(id -g)" \
+  --env-file "$SMOKE_ENV" \
+  -v "$EVIDENCE_ROOT:$EVIDENCE_ROOT" \
+  "$SMOKE_IMAGE" run
+```
+
+`run-image-upload-production-smoke.js run` executes and journals all twelve checks: representative browser upload, fixed absolute presign-expiry retry, allowed and denied browser CORS, response-first settlement, deliberate CopyObject response loss followed by exact destination HEAD settlement after at least 30 seconds, unchanged destination on recovery, conflict fail-closed behavior, committed-result deletion, failed-promotion cleanup, temporary cleanup after expiry plus skew, and imgproxy rendering. It creates the official receipt only after all checks and exact-ID/R2 cleanup pass. It never runs the optional memory benchmark or downloads stable Chrome.
+
+If the run is interrupted or cleanup fails, immediately disable presign and restore `IMAGE_UPLOAD_INGRESS_MODE=disabled`, retain the journal, and run only resumable cleanup:
+
+```bash
+docker run --rm \
+  --name "ndt-operator-smoke-cleanup-${RELEASE_COMMIT:0:12}" \
+  --network dokploy-network \
+  --user "$(id -u):$(id -g)" \
+  --env-file "$SMOKE_ENV" \
+  -v "$EVIDENCE_ROOT:$EVIDENCE_ROOT" \
+  "$SMOKE_IMAGE" cleanup
+# Equivalent packaged entrypoint: run-image-upload-production-smoke.js cleanup
+```
+
+Keep general ingress blocked after a successful smoke. Retain its protected journal, authorization, and receipt for Phase 2; do not delete earlier protected evidence or encrypted backups.
 
 ## 9. Complete the roll-forward drill and final-ingress admission
 
@@ -269,6 +354,14 @@ Never start a prior application generation during this drill.
 ## 10. Open general ingress and schedule cleanup
 
 Opening general upload ingress requires the Phase 2 final-ingress approval. Remove the operator-only allowlist only after the verifier passes. If any gate changes, disable presign and keep ingress closed.
+
+Redeploy the API with `IMAGE_UPLOAD_PRESIGN_ENABLED=true`, `IMAGE_UPLOAD_INGRESS_MODE=general`, and `IMAGE_UPLOAD_OPERATOR_SMOKE_TOKEN` removed. After general-ingress canaries pass, remove only the temporary runner artifact; `--rm` has already removed the container:
+
+```bash
+docker image rm "$SMOKE_IMAGE"
+```
+
+Never remove an image referenced by any running container or the protected evidence/backup paths.
 
 After stable acceptance, add/read back the `uploads/`-only 24-hour lifecycle fallback. Prove `albums/` is excluded. Revoke `ndt-prod-r2-config-ro`, verify its former Access Key ID is denied, remove `IMAGE_UPLOAD_CUTOVER_R2_CONFIG_READ_ACCESS_KEY_ID`/`IMAGE_UPLOAD_CUTOVER_R2_CONFIG_READ_SECRET_ACCESS_KEY` from Dokploy, and retain only the sanitized credential fingerprint plus revocation receipt.
 

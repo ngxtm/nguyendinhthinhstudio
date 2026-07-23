@@ -4,7 +4,7 @@
 
 **Goal:** Retain verifiable staging evidence, remove the Stage 09 post-start/drill dependency cycle, add a fail-closed final-ingress gate, and document evidence-driven cleanup.
 
-**Architecture:** Phase 1 verifies the presign-disabled release and authorizes only operator-only smoke. Phase 2 independently binds the successful Phase 1 evidence, operator smoke, a roll-forward drill ending at the active release, and two final zero snapshots before general ingress. Staging qualification produces a closed polling-only receipt that is uploaded after cleanup and supplied as a protected verifier input.
+**Architecture:** Phase 1 verifies the presign-disabled release and authorizes only the explicit `operator-smoke` ingress state. A temporary Debian/Playwright image built from the same release commit executes the journal-backed twelve-check runner against Cloudflare and the live polling reconciler, then is removed after Phase 2. Phase 2 independently binds the successful Phase 1 evidence, operator smoke, a roll-forward drill ending at the active release, and two final zero snapshots before general ingress. Staging qualification produces a closed polling-only receipt that is uploaded after cleanup and supplied as a protected verifier input. The memory benchmark remains an optional diagnostic and is not run by the smoke image.
 
 **Tech Stack:** Node.js 24, TypeScript, JSON Schema draft-07, Ajv, Node test runner, GitHub Actions, Prettier.
 
