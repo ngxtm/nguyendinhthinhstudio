@@ -31,3 +31,15 @@ test('album images keep PhotoSwipe clicks and expose actions through a footer me
   assert.match(imageGridSource, /Xóa ảnh/)
   assert.doesNotMatch(imageGridSource, /absolute inset-0 z-20/)
 })
+
+const editSource = readFileSync(
+  new URL('../src/app/admin/albums/[id]/edit/page.tsx', import.meta.url),
+  'utf8',
+)
+
+test('album edit exposes a guarded destructive delete action', () => {
+  assert.match(editSource, /deleteAlbum\(album\.id\)/)
+  assert.match(editSource, /router\.replace\('\/admin\/albums'\)/)
+  assert.match(editSource, /Xóa album/)
+  assert.match(editSource, /disabled=\{loading \|\| deleting\}/)
+})
