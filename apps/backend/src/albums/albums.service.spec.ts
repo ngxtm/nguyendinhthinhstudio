@@ -348,6 +348,48 @@ describe('AlbumsService image presentation', () => {
     expect(imagePresenter.presentImage).toHaveBeenCalledTimes(2);
   });
 
+  it('applies admin status, search, sorting, active-state, and pagination filters', async () => {
+    const { prisma, service } = createPresentationHarness();
+    prisma.album.findMany.mockResolvedValueOnce([
+      albumRecord({ id: 'album-2', title: 'Testing 223' }),
+      albumRecord({ id: 'album-1', title: 'Older draft' }),
+    ]);
+
+    const result = await service.findAdminAll({
+      status: 'draft',
+      search: ' testing ',
+      sortBy: 'newest',
+      limit: 1,
+      cursor: 'album-cursor',
+    } as any);
+
+    expect(prisma.album.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          AND: expect.arrayContaining([
+            { deleteStatus: 'active' },
+            { status: 'draft' },
+            { id: { lt: 'album-cursor' } },
+            {
+              OR: expect.arrayContaining([
+                { title: { contains: 'testing', mode: 'insensitive' } },
+                { slug: { contains: 'testing', mode: 'insensitive' } },
+              ]),
+            },
+          ]),
+        },
+        orderBy: [{ publishedAt: 'desc' }, { createdAt: 'desc' }],
+        take: 2,
+      }),
+    );
+    expect(result.data).toHaveLength(1);
+    expect(result.pagination).toEqual({
+      hasMore: true,
+      nextCursor: 'album-2',
+      limit: 1,
+    });
+  });
+
   it('presents the cover and gallery returned by findBySlug', async () => {
     const { prisma, imagePresenter, service } = createPresentationHarness();
     const coverImage = imageRecord('detail-cover');

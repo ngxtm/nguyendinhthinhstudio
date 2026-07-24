@@ -125,8 +125,8 @@ export default function EditAlbumPage() {
 
   async function handleRefresh() {
     const [allTags, allCategories] = await Promise.all([
-      getTags(),
-      getCategories(),
+      getTags(true),
+      getCategories(true),
     ]);
     setTags(allTags);
     const mappedCategories = allCategories.map(mapCategoryToOption);

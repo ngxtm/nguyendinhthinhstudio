@@ -145,15 +145,25 @@ export class AlbumsService {
    * Find albums with filtering and pagination
    */
   async findAll(query: QueryAlbumsDto) {
+    if (query.status && query.status !== 'published') {
+      throw new BadRequestException('Public album status must be published');
+    }
+    return this.findVisibleAlbums(query, true);
+  }
+
+  private async findVisibleAlbums(
+    query: QueryAlbumsDto,
+    publicOnly: boolean,
+  ) {
     const { status, category, tag, isFeatured, limit, cursor, sortBy, search } =
       query;
 
-    if (status && status !== 'published') {
-      throw new BadRequestException('Public album status must be published');
+    const filters: Prisma.AlbumWhereInput[] = publicOnly
+      ? [{ status: 'published' }, { deleteStatus: 'active' }]
+      : [{ deleteStatus: 'active' }];
+    if (!publicOnly && status && status !== 'all') {
+      filters.push({ status });
     }
-    const filters: Prisma.AlbumWhereInput[] = [{ status: 'published' }, { deleteStatus: 'active' }];
-
-    
 
     if (category) {
       filters.push({
@@ -364,8 +374,7 @@ export class AlbumsService {
   }
 
   async findAdminAll(query: QueryAlbumsDto = {} as any) {
-    const albums = await this.prisma.album.findMany({ where: query.status && query.status !== 'all' ? { status: query.status } : undefined, include: { tags: { include: { tag: true } }, categories: { include: { category: true } }, coverImage: true, _count: { select: { images: true } } }, take: Math.min(Math.max(query.limit ?? 20, 1), 50) });
-    return { data: albums.map((a: any) => this.presentAlbum(a)), pagination: { hasMore: false, nextCursor: null, limit: query.limit ?? 20 } };
+    return this.findVisibleAlbums(query, false);
   }
 
   private presentPublicAlbum(album: any) {

@@ -74,8 +74,8 @@ export default function NewAlbumPage() {
     try {
       setLoadingData(true);
       const [allTags, allCategories] = await Promise.all([
-        getTags(),
-        getCategories()
+        getTags(true),
+        getCategories(true)
       ]);
       setTags(allTags);
       const mappedCategories = allCategories.map(mapCategoryToOption);

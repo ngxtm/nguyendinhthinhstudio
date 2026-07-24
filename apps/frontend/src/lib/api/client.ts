@@ -133,7 +133,7 @@ export async function adminApiClient<T>(endpoint: string, options?: RequestInit)
 
 export const apiClient = publicApiClient;
 
-export async function uploadFile(url: string, file: File, onProgress?: (progress: number) => void, timeout = 10 * 60 * 1000): Promise<void> {
+export async function uploadFile(url: string, file: Blob, onProgress?: (progress: number) => void, timeout = 10 * 60 * 1000): Promise<void> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.timeout = timeout;
