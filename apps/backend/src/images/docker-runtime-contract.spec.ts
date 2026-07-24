@@ -178,6 +178,17 @@ describe('operator smoke one-shot Docker runner', () => {
     expect(backendDockerfile).not.toMatch(/playwright|chromium|chrome/i);
   });
 
+  it('pins the multi-architecture Playwright manifest for native VPS builds', () => {
+    expect(
+      dockerfile.match(
+        /mcr\.microsoft\.com\/playwright:v1\.60\.0-noble@sha256:9bd26ad900bb5e0f4dee75839e957a89ae89c2b7ab1e76050e559790e946b948/g,
+      ),
+    ).toHaveLength(2);
+    expect(dockerfile).not.toContain(
+      'sha256:83192064c7510f7ee73dd63dc5f22a5e01a92c81a2e6a9c715d9e3fe55471fd9',
+    );
+  });
+
   it('labels the release and packages the production smoke CLI', () => {
     expect(dockerfile).toContain('ARG IMAGE_UPLOAD_RELEASE_COMMIT');
     expect(dockerfile).toContain('ARG IMAGE_UPLOAD_BUILD_FINGERPRINT');

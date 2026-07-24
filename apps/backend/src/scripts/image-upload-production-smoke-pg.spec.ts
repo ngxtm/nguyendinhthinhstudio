@@ -101,6 +101,25 @@ describe('ProductionSmokePgAdapter', () => {
     expect(queries[2].text).not.toMatch(/\bLIKE\b/i);
   });
 
+  it('expires the presign window before making failed cleanup due', async () => {
+    const { adapter, queries } = harness();
+
+    await adapter.makeFailedCleanupDue(BINDING);
+
+    expect(
+      queries.map((query) => query.text.trim().split(/\s+/, 1)[0]),
+    ).toEqual(['BEGIN', 'SELECT', 'UPDATE', 'COMMIT']);
+    expect(queries[2].text).toContain(
+      `"presignExpiresAt" = CURRENT_TIMESTAMP - INTERVAL '10 minutes'`,
+    );
+    expect(queries[2].text).toContain(
+      `"expiresAt" = CURRENT_TIMESTAMP - INTERVAL '10 minutes'`,
+    );
+    expect(queries[2].text).toContain(
+      `"temporaryCleanupNextAttemptAt" = CURRENT_TIMESTAMP`,
+    );
+  });
+
   it('uses only exact journal ids for cleanup and never prefix LIKE deletion', async () => {
     const { adapter, queries } = harness();
     await adapter.cleanup({
