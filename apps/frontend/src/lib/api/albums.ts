@@ -230,8 +230,12 @@ export async function listAlbums(
  * Get album by slug
  * @param skipViewIncrement - Skip incrementing view count (for metadata/admin requests)
  */
+export function adminAlbumBySlugEndpoint(slug: string): string {
+  return `/albums/admin/slug/${encodeURIComponent(slug)}`;
+}
+
 export async function getAlbum(slug: string, skipViewIncrement = false, admin = false): Promise<Album> {
-  const path = admin ? `/albums/admin/${slug}` : `/albums/${slug}`;
+  const path = admin ? adminAlbumBySlugEndpoint(slug) : `/albums/${slug}`;
   const url = `${path}${skipViewIncrement && !admin ? '?skipViewIncrement=true' : ''}`;
   return (admin ? adminApiClient : apiClient)<Album>(url);
 }

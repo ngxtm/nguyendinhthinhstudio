@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { isReplayableBody, parseAllowedOrigins, validateApiOrigin } from '../src/lib/api/client';
 import { getAccessTokenRole, safeAdminPath } from '../src/lib/auth/session';
+import * as albumsApi from '../src/lib/api/albums';
 
 test('admin API origin requires an absolute origin and rejects frontend origin', () => {
   assert.equal(validateApiOrigin('https://api.example.test', { production: true, frontendOrigin: 'https://admin.example.test' }), 'https://api.example.test');
@@ -37,4 +38,15 @@ test('intended admin paths cannot escape the admin area', () => {
   assert.equal(safeAdminPath('https://evil.test/admin'), '/admin');
   assert.equal(safeAdminPath('/admin/login'), '/admin');
   assert.equal(safeAdminPath('/public'), '/admin');
+});
+
+test('admin album detail uses the authenticated slug endpoint', () => {
+  const endpoint = (
+    albumsApi as typeof albumsApi & {
+      adminAlbumBySlugEndpoint?: (slug: string) => string;
+    }
+  ).adminAlbumBySlugEndpoint;
+
+  assert.equal(typeof endpoint, 'function');
+  assert.equal(endpoint?.('testing-223'), '/albums/admin/slug/testing-223');
 });

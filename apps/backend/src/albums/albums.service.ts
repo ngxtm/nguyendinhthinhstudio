@@ -349,6 +349,20 @@ export class AlbumsService {
     return this.presentAlbum(album as any);
   }
 
+  async findAdminBySlug(slug: string) {
+    const album = await this.prisma.album.findUnique({
+      where: { slug },
+      include: {
+        tags: { include: { tag: true } },
+        categories: { include: { category: true } },
+        coverImage: true,
+        images: true,
+      },
+    });
+    if (!album) throw new NotFoundException('Album not found');
+    return this.presentAlbum(album as any);
+  }
+
   async findAdminAll(query: QueryAlbumsDto = {} as any) {
     const albums = await this.prisma.album.findMany({ where: query.status && query.status !== 'all' ? { status: query.status } : undefined, include: { tags: { include: { tag: true } }, categories: { include: { category: true } }, coverImage: true, _count: { select: { images: true } } }, take: Math.min(Math.max(query.limit ?? 20, 1), 50) });
     return { data: albums.map((a: any) => this.presentAlbum(a)), pagination: { hasMore: false, nextCursor: null, limit: query.limit ?? 20 } };

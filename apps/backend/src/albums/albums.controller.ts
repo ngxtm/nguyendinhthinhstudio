@@ -47,6 +47,20 @@ export class AlbumsController {
     return this.albumsService.getDashboardStats();
   }
 
+  @Get('admin')
+  @Roles('admin')
+  findAdminAll(@Query() query: QueryAlbumsDto) { return this.albumsService.findAdminAll(query); }
+
+  @Get('admin/:id')
+  @Roles('admin')
+  findAdminById(@Param('id') id: string) { return this.albumsService.findAdminById(id); }
+
+  @Get('admin/slug/:slug')
+  @Roles('admin')
+  findAdminBySlug(@Param('slug') slug: string) {
+    return this.albumsService.findAdminBySlug(slug);
+  }
+
   @Get(':slug')
   @Public()
   @ApiOperation({ summary: 'Get album by slug' })
@@ -57,14 +71,6 @@ export class AlbumsController {
   ) {
     return this.albumsService.findBySlug(slug);
   }
-
-  @Get('admin')
-  @Roles('admin')
-  findAdminAll(@Query() query: QueryAlbumsDto) { return this.albumsService.findAdminAll(query); }
-
-  @Get('admin/:id')
-  @Roles('admin')
-  findAdminById(@Param('id') id: string) { return this.albumsService.findAdminById(id); }
 
   @Get(':slug/related')
   @Public()
