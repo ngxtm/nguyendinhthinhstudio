@@ -29,26 +29,20 @@
 Read the five component sources and assert:
 
 ```ts
-const imageGridSource = readFileSync(
-  new URL('../src/app/admin/components/ImageGrid.tsx', import.meta.url),
-  'utf8'
-)
-const imageTileSource = readFileSync(
-  new URL('../src/app/admin/components/AlbumImageTile.tsx', import.meta.url),
-  'utf8'
-)
-const imageActionsSource = readFileSync(
-  new URL('../src/app/admin/components/ImageActionMenu.tsx', import.meta.url),
-  'utf8'
-)
-const responsiveMenuSource = readFileSync(
-  new URL('../src/app/admin/components/ResponsiveActionMenu.tsx', import.meta.url),
-  'utf8'
-)
-const confirmDialogSource = readFileSync(
-  new URL('../src/app/admin/components/ConfirmDialog.tsx', import.meta.url),
-  'utf8'
-)
+function readOptionalSource(relativePath: string): string {
+  try {
+    return readFileSync(new URL(relativePath, import.meta.url), 'utf8')
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return ''
+    throw error
+  }
+}
+
+const imageGridSource = readOptionalSource('../src/app/admin/components/ImageGrid.tsx')
+const imageTileSource = readOptionalSource('../src/app/admin/components/AlbumImageTile.tsx')
+const imageActionsSource = readOptionalSource('../src/app/admin/components/ImageActionMenu.tsx')
+const responsiveMenuSource = readOptionalSource('../src/app/admin/components/ResponsiveActionMenu.tsx')
+const confirmDialogSource = readOptionalSource('../src/app/admin/components/ConfirmDialog.tsx')
 
 test('album images keep PhotoSwipe clicks while actions stay isolated', () => {
   assert.match(imageGridSource, /<AlbumImageTile/)

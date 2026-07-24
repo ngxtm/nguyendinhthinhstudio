@@ -12,15 +12,49 @@ test('post-upload album refresh keeps the existing grid mounted', () => {
   )
 })
 
-const imageGridSource = readFileSync(new URL('../src/app/admin/components/ImageGrid.tsx', import.meta.url), 'utf8')
+function readOptionalSource(relativePath: string): string {
+  try {
+    return readFileSync(new URL(relativePath, import.meta.url), 'utf8')
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return ''
+    throw error
+  }
+}
 
-test('album images keep PhotoSwipe clicks and expose actions through a footer menu', () => {
-  assert.match(imageGridSource, /data-pswp-src=\{lightboxUrl\}/)
-  assert.match(imageGridSource, /aria-haspopup="menu"/)
-  assert.match(imageGridSource, /<MoreVertical/)
-  assert.match(imageGridSource, /Đặt làm ảnh bìa/)
-  assert.match(imageGridSource, /Xóa ảnh/)
-  assert.doesNotMatch(imageGridSource, /absolute inset-0 z-20/)
+const imageGridSource = readOptionalSource('../src/app/admin/components/ImageGrid.tsx')
+const imageTileSource = readOptionalSource('../src/app/admin/components/AlbumImageTile.tsx')
+const imageActionsSource = readOptionalSource('../src/app/admin/components/ImageActionMenu.tsx')
+const responsiveMenuSource = readOptionalSource('../src/app/admin/components/ResponsiveActionMenu.tsx')
+const confirmDialogSource = readOptionalSource('../src/app/admin/components/ConfirmDialog.tsx')
+
+test('album images keep PhotoSwipe clicks while actions stay isolated', () => {
+  assert.match(imageGridSource, /<AlbumImageTile/)
+  assert.match(imageGridSource, /<ConfirmDialog/)
+  assert.match(imageTileSource, /data-pswp-src=\{lightboxUrl\}/)
+  assert.match(imageTileSource, /<ImageActionMenu/)
+  assert.doesNotMatch(imageTileSource, /deleteImage\(/)
+  assert.doesNotMatch(imageActionsSource, /@\/lib\/api/)
+})
+
+test('image actions adapt to a touch-safe mobile sheet and desktop popover', () => {
+  assert.match(responsiveMenuSource, /matchMedia\('\(min-width: 768px\)'\)/)
+  assert.match(responsiveMenuSource, /<Dialog/)
+  assert.match(responsiveMenuSource, /env\(safe-area-inset-bottom\)/)
+  assert.match(responsiveMenuSource, /h-11 w-11/)
+  assert.match(responsiveMenuSource, /role="menu"/)
+  assert.match(imageActionsSource, /Đặt làm ảnh bìa/)
+  assert.match(imageActionsSource, /Đang là ảnh bìa/)
+  assert.match(imageActionsSource, /Xóa ảnh/)
+  assert.match(imageActionsSource, /text-red-600/)
+})
+
+test('image deletion is guarded by one reusable confirmation dialog', () => {
+  assert.match(imageGridSource, /deleteCandidate/)
+  assert.match(imageGridSource, /await deleteImage\(image\.id\)/)
+  assert.match(confirmDialogSource, /<Dialog/)
+  assert.match(confirmDialogSource, /isPending/)
+  assert.match(confirmDialogSource, /Xác nhận xóa/)
+  assert.doesNotMatch(imageGridSource, /\bconfirm\(/)
 })
 
 const editSource = readFileSync(new URL('../src/app/admin/albums/[id]/edit/page.tsx', import.meta.url), 'utf8')
