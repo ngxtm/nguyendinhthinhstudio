@@ -1,20 +1,20 @@
-'use client';
+'use client'
 
-import { GripVertical } from 'lucide-react';
-import type { DragEvent } from 'react';
-import type { Image } from '@/lib/api';
-import ImageActionMenu from './ImageActionMenu';
+import { GripVertical } from 'lucide-react'
+import type { DragEvent } from 'react'
+import type { Image } from '@/lib/api'
+import ImageActionMenu from './ImageActionMenu'
 
 interface AlbumImageTileProps {
-  image: Image;
-  index: number;
-  dimensions: { width: number; height: number };
-  coverImageId?: string;
-  onSetCover: (id: string) => Promise<boolean>;
-  onDeleteRequest: (image: Image) => void;
-  onDragStart: (event: DragEvent<HTMLDivElement>, index: number) => void;
-  onDragOver: (event: DragEvent<HTMLDivElement>) => void;
-  onDrop: (event: DragEvent<HTMLDivElement>, index: number) => void;
+  image: Image
+  index: number
+  dimensions: { width: number; height: number }
+  coverImageId?: string
+  onSetCover: (id: string) => Promise<boolean>
+  onDeleteRequest: (image: Image) => void
+  onDragStart: (event: DragEvent<HTMLDivElement>, index: number) => void
+  onDragOver: (event: DragEvent<HTMLDivElement>) => void
+  onDrop: (event: DragEvent<HTMLDivElement>, index: number) => void
 }
 
 export default function AlbumImageTile({
@@ -26,27 +26,18 @@ export default function AlbumImageTile({
   onDeleteRequest,
   onDragStart,
   onDragOver,
-  onDrop,
+  onDrop
 }: AlbumImageTileProps) {
-  const lightboxUrl =
-    image.xlargeUrl ||
-    image.largeUrl ||
-    image.mediumUrl ||
-    image.smallUrl ||
-    image.thumbnailUrl;
+  const lightboxUrl = image.xlargeUrl || image.largeUrl || image.mediumUrl || image.smallUrl || image.thumbnailUrl
 
   return (
     <div
       className="group relative mb-4 touch-pan-y md:mb-6"
       onDragOver={onDragOver}
-      onDrop={(event) => onDrop(event, index)}
+      onDrop={event => onDrop(event, index)}
     >
       <div className="relative" style={{ animation: `fadeInUp 0.6s ease-out ${index * 0.04}s both` }}>
-        <div
-          className="relative cursor-move"
-          draggable
-          onDragStart={(event) => onDragStart(event, index)}
-        >
+        <div className="relative cursor-move" draggable onDragStart={event => onDragStart(event, index)}>
           <a
             href={lightboxUrl}
             data-pswp-src={lightboxUrl}
@@ -90,5 +81,5 @@ export default function AlbumImageTile({
         />
       </div>
     </div>
-  );
+  )
 }

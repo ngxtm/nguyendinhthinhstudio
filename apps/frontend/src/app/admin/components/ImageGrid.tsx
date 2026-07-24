@@ -3,36 +3,30 @@
  * Hiển thị và quản lý images (set cover, delete, reorder)
  */
 
-'use client';
+'use client'
 
-import { useEffect, useMemo, useState, type DragEvent } from 'react';
-import Masonry from 'react-masonry-css';
-import { deleteImage, reorderImages, type Image } from '@/lib/api';
-import { toast } from 'sonner';
-import { usePhotoSwipe } from '@/lib/photoswipe';
-import AlbumImageTile from './AlbumImageTile';
-import ConfirmDialog from './ConfirmDialog';
-import 'photoswipe/style.css';
+import { useEffect, useMemo, useState, type DragEvent } from 'react'
+import Masonry from 'react-masonry-css'
+import { deleteImage, reorderImages, type Image } from '@/lib/api'
+import { toast } from 'sonner'
+import { usePhotoSwipe } from '@/lib/photoswipe'
+import AlbumImageTile from './AlbumImageTile'
+import ConfirmDialog from './ConfirmDialog'
+import 'photoswipe/style.css'
 
 interface Props {
-  images: Image[];
-  coverImageId?: string;
-  onSetCover: (imageId: string) => Promise<boolean>;
-  onDelete: () => Promise<void>;
-  onReorder: () => Promise<void>;
+  images: Image[]
+  coverImageId?: string
+  onSetCover: (imageId: string) => Promise<boolean>
+  onDelete: () => Promise<void>
+  onReorder: () => Promise<void>
 }
 
-export default function ImageGrid({
-  images,
-  coverImageId,
-  onSetCover,
-  onDelete,
-  onReorder,
-}: Props) {
-  const [localImages, setLocalImages] = useState(images);
-  const [dimensions, setDimensions] = useState<Record<string, { width: number; height: number }>>({});
-  const [deleteCandidate, setDeleteCandidate] = useState<Image | null>(null);
-  const [isDeletePending, setIsDeletePending] = useState(false);
+export default function ImageGrid({ images, coverImageId, onSetCover, onDelete, onReorder }: Props) {
+  const [localImages, setLocalImages] = useState(images)
+  const [dimensions, setDimensions] = useState<Record<string, { width: number; height: number }>>({})
+  const [deleteCandidate, setDeleteCandidate] = useState<Image | null>(null)
+  const [isDeletePending, setIsDeletePending] = useState(false)
   const masonryBreakpoints = useMemo(
     () => ({
       default: 4,
@@ -41,144 +35,139 @@ export default function ImageGrid({
       1024: 3,
       768: 2,
       640: 2,
-      480: 1,
+      480: 1
     }),
-    [],
-  );
+    []
+  )
 
   useEffect(() => {
-    setLocalImages(images);
-  }, [images]);
+    setLocalImages(images)
+  }, [images])
 
-  const galleryId = 'admin-album-gallery';
+  const galleryId = 'admin-album-gallery'
   const galleryKey = useMemo(
     () =>
       localImages
-        .map((img) => {
-          const dims = dimensions[img.id];
-          const width = dims?.width ?? img.width ?? 'auto';
-          const height = dims?.height ?? img.height ?? 'auto';
-          return `${img.id}:${width}x${height}`;
+        .map(img => {
+          const dims = dimensions[img.id]
+          const width = dims?.width ?? img.width ?? 'auto'
+          const height = dims?.height ?? img.height ?? 'auto'
+          return `${img.id}:${width}x${height}`
         })
         .join('|'),
-    [localImages, dimensions],
-  );
+    [localImages, dimensions]
+  )
 
   usePhotoSwipe({
     options: {
       gallery: `#${galleryId}`,
       children: 'a[data-pswp-src]',
-      pswpModule: () => import('photoswipe'),
+      pswpModule: () => import('photoswipe')
     },
-    dependencies: [galleryKey],
-  });
+    dependencies: [galleryKey]
+  })
 
   useEffect(() => {
     if (typeof window === 'undefined') {
-      return;
+      return
     }
 
-    setDimensions((prev) => {
-      const next = { ...prev };
-      localImages.forEach((img) => {
+    setDimensions(prev => {
+      const next = { ...prev }
+      localImages.forEach(img => {
         if (img.width && img.height && !next[img.id]) {
-          next[img.id] = { width: img.width, height: img.height };
+          next[img.id] = { width: img.width, height: img.height }
         }
-      });
-      return next;
-    });
+      })
+      return next
+    })
 
-    const missing = localImages.filter((img) => !img.width || !img.height);
+    const missing = localImages.filter(img => !img.width || !img.height)
     if (missing.length === 0) {
-      return;
+      return
     }
 
-    let cancelled = false;
+    let cancelled = false
 
-    missing.forEach((image) => {
-      const loader = new window.Image();
+    missing.forEach(image => {
+      const loader = new window.Image()
       loader.onload = () => {
-        if (cancelled) return;
-        setDimensions((prev) => ({
+        if (cancelled) return
+        setDimensions(prev => ({
           ...prev,
           [image.id]: {
             width: loader.naturalWidth || image.width || 2048,
-            height: loader.naturalHeight || image.height || 1365,
-          },
-        }));
-      };
+            height: loader.naturalHeight || image.height || 1365
+          }
+        }))
+      }
       loader.onerror = () => {
-        if (cancelled) return;
-        setDimensions((prev) => ({
+        if (cancelled) return
+        setDimensions(prev => ({
           ...prev,
           [image.id]: {
             width: image.width || 2048,
-            height: image.height || 1365,
-          },
-        }));
-      };
-      loader.src =
-        image.xlargeUrl ||
-        image.largeUrl ||
-        image.mediumUrl ||
-        image.smallUrl ||
-        image.thumbnailUrl;
-    });
+            height: image.height || 1365
+          }
+        }))
+      }
+      loader.src = image.xlargeUrl || image.largeUrl || image.mediumUrl || image.smallUrl || image.thumbnailUrl
+    })
 
     return () => {
-      cancelled = true;
-    };
-  }, [localImages]);
+      cancelled = true
+    }
+  }, [localImages])
 
   async function handleConfirmDelete(): Promise<void> {
-    if (!deleteCandidate || isDeletePending) return;
+    if (!deleteCandidate || isDeletePending) return
 
-    const image = deleteCandidate;
-    setIsDeletePending(true);
+    const image = deleteCandidate
+    setIsDeletePending(true)
     try {
-      await deleteImage(image.id);
-      setLocalImages((current) => current.filter((item) => item.id !== image.id));
-      setDeleteCandidate(null);
-      toast.success('Đã xóa ảnh!');
-      await onDelete();
+      await deleteImage(image.id)
+      setLocalImages(current => current.filter(item => item.id !== image.id))
+      setDeleteCandidate(null)
+      toast.success('Đã xóa ảnh!')
+      await onDelete()
     } catch (error) {
-      console.error('Failed to delete image:', error);
-      toast.error('Không thể xóa ảnh');
+      console.error('Failed to delete image:', error)
+      toast.error('Không thể xóa ảnh')
     } finally {
-      setIsDeletePending(false);
+      setIsDeletePending(false)
     }
   }
 
   function handleDragStart(event: DragEvent, index: number) {
-    event.dataTransfer.effectAllowed = 'move';
-    event.dataTransfer.setData('text/plain', String(index));
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('text/plain', String(index))
   }
 
   function handleDragOver(event: DragEvent) {
-    event.preventDefault();
-    event.dataTransfer.dropEffect = 'move';
+    event.preventDefault()
+    event.dataTransfer.dropEffect = 'move'
   }
 
   async function handleDrop(event: DragEvent, dropIndex: number) {
-    event.preventDefault();
-    const dragIndex = Number(event.dataTransfer.getData('text/plain'));
+    event.preventDefault()
+    const dragIndex = Number(event.dataTransfer.getData('text/plain'))
 
-    if (dragIndex === dropIndex) return;
+    if (dragIndex === dropIndex) return
 
-    const newImages = [...localImages];
-    const [removed] = newImages.splice(dragIndex, 1);
-    newImages.splice(dropIndex, 0, removed);
-    setLocalImages(newImages);
+    const newImages = [...localImages]
+    const [removed] = newImages.splice(dragIndex, 1)
+    newImages.splice(dropIndex, 0, removed)
+    setLocalImages(newImages)
 
     try {
-      const imageIds = newImages.map((img) => img.id);
-      await reorderImages(images[0]?.albumId || '', imageIds);
-      toast.success('Đã sắp xếp lại ảnh!');
-      await onReorder();
+      const imageIds = newImages.map(img => img.id)
+      await reorderImages(images[0]?.albumId || '', imageIds)
+      toast.success('Đã sắp xếp lại ảnh!')
+      await onReorder()
     } catch (error) {
-      console.error('Failed to reorder images:', error);
-      toast.error('Không thể sắp xếp lại ảnh');
-      setLocalImages(images);
+      console.error('Failed to reorder images:', error)
+      toast.error('Không thể sắp xếp lại ảnh')
+      setLocalImages(images)
     }
   }
 
@@ -193,8 +182,8 @@ export default function ImageGrid({
           {localImages.map((image, index) => {
             const dims = dimensions[image.id] ?? {
               width: image.width || 2048,
-              height: image.height || 1365,
-            };
+              height: image.height || 1365
+            }
 
             return (
               <AlbumImageTile
@@ -209,7 +198,7 @@ export default function ImageGrid({
                 onDragOver={handleDragOver}
                 onDrop={handleDrop}
               />
-            );
+            )
           })}
         </Masonry>
       </div>
@@ -220,8 +209,8 @@ export default function ImageGrid({
         description={
           <>
             Bạn có chắc chắn muốn xóa ảnh{' '}
-            <strong className="font-semibold text-gray-900">“{deleteCandidate?.filename}”</strong>?
-            Hành động này không thể hoàn tác.
+            <strong className="font-semibold text-gray-900">“{deleteCandidate?.filename}”</strong>? Hành động này không
+            thể hoàn tác.
           </>
         }
         isPending={isDeletePending}
@@ -258,5 +247,5 @@ export default function ImageGrid({
         }
       `}</style>
     </>
-  );
+  )
 }

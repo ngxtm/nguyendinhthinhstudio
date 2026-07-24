@@ -1,17 +1,17 @@
-'use client';
+'use client'
 
-import { Dialog, Transition } from '@headlessui/react';
-import { MoreVertical } from 'lucide-react';
-import { Fragment, type ReactNode, useEffect, useRef, useState } from 'react';
+import { Dialog, Transition } from '@headlessui/react'
+import { MoreVertical } from 'lucide-react'
+import { Fragment, type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 
-export type ActionMenuPresentation = 'mobile-sheet' | 'desktop-popover';
+export type ActionMenuPresentation = 'mobile-sheet' | 'desktop-popover'
 
 interface ResponsiveActionMenuProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  triggerLabel: string;
-  title: string;
-  children: (presentation: ActionMenuPresentation) => ReactNode;
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  triggerLabel: string
+  title: string
+  children: (presentation: ActionMenuPresentation) => ReactNode
 }
 
 export default function ResponsiveActionMenu({
@@ -19,58 +19,58 @@ export default function ResponsiveActionMenu({
   onOpenChange,
   triggerLabel,
   title,
-  children,
+  children
 }: ResponsiveActionMenuProps) {
-  const [isDesktop, setIsDesktop] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
+  const [isDesktop, setIsDesktop] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
-    const mediaQuery = window.matchMedia('(min-width: 768px)');
-    const updatePresentation = () => setIsDesktop(mediaQuery.matches);
+    const mediaQuery = window.matchMedia('(min-width: 768px)')
+    const updatePresentation = () => setIsDesktop(mediaQuery.matches)
 
-    updatePresentation();
-    mediaQuery.addEventListener('change', updatePresentation);
-    return () => mediaQuery.removeEventListener('change', updatePresentation);
-  }, []);
+    updatePresentation()
+    mediaQuery.addEventListener('change', updatePresentation)
+    return () => mediaQuery.removeEventListener('change', updatePresentation)
+  }, [])
 
-  const closeMenu = () => {
-    onOpenChange(false);
-    queueMicrotask(() => triggerRef.current?.focus());
-  };
+  const closeMenu = useCallback(() => {
+    onOpenChange(false)
+    queueMicrotask(() => triggerRef.current?.focus())
+  }, [onOpenChange])
 
   useEffect(() => {
-    if (!open || !isDesktop) return;
+    if (!open || !isDesktop) return
 
     const closeOnPointerDown = (event: PointerEvent) => {
       if (!containerRef.current?.contains(event.target as Node)) {
-        closeMenu();
+        closeMenu()
       }
-    };
+    }
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') closeMenu();
-    };
+      if (event.key === 'Escape') closeMenu()
+    }
 
-    document.addEventListener('pointerdown', closeOnPointerDown);
-    document.addEventListener('keydown', closeOnEscape);
+    document.addEventListener('pointerdown', closeOnPointerDown)
+    document.addEventListener('keydown', closeOnEscape)
     return () => {
-      document.removeEventListener('pointerdown', closeOnPointerDown);
-      document.removeEventListener('keydown', closeOnEscape);
-    };
-  }, [isDesktop, open]);
+      document.removeEventListener('pointerdown', closeOnPointerDown)
+      document.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [closeMenu, isDesktop, open])
 
   return (
-    <div ref={containerRef} className="relative shrink-0" data-image-actions>
+    <div ref={containerRef} className="relative shrink-0">
       <button
         ref={triggerRef}
         type="button"
         aria-haspopup={isDesktop ? 'menu' : 'dialog'}
         aria-expanded={open}
         aria-label={triggerLabel}
-        onClick={(event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          onOpenChange(!open);
+        onClick={event => {
+          event.preventDefault()
+          event.stopPropagation()
+          onOpenChange(!open)
         }}
         className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
       >
@@ -81,7 +81,7 @@ export default function ResponsiveActionMenu({
         <div
           role="menu"
           aria-label={title}
-          className="absolute bottom-full right-0 z-30 mb-1 w-52 max-w-[calc(100vw-2rem)] rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
+          className="absolute right-0 bottom-full z-30 mb-1 w-52 max-w-[calc(100vw-2rem)] rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
         >
           {children('desktop-popover')}
         </div>
@@ -113,12 +113,8 @@ export default function ResponsiveActionMenu({
             >
               <Dialog.Panel className="w-full rounded-t-2xl bg-white px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl motion-reduce:transition-none">
                 <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-gray-300" aria-hidden="true" />
-                <Dialog.Title className="px-2 pb-2 text-base font-semibold text-gray-900">
-                  {title}
-                </Dialog.Title>
-                <div className="overflow-hidden rounded-xl border border-gray-200">
-                  {children('mobile-sheet')}
-                </div>
+                <Dialog.Title className="px-2 pb-2 text-base font-semibold text-gray-900">{title}</Dialog.Title>
+                <div className="overflow-hidden rounded-xl border border-gray-200">{children('mobile-sheet')}</div>
                 <button
                   type="button"
                   onClick={closeMenu}
@@ -132,5 +128,5 @@ export default function ResponsiveActionMenu({
         </Dialog>
       </Transition>
     </div>
-  );
+  )
 }

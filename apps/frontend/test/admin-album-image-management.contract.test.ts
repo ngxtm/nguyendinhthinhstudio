@@ -46,6 +46,8 @@ test('image actions adapt to a touch-safe mobile sheet and desktop popover', () 
   assert.match(imageActionsSource, /Đang là ảnh bìa/)
   assert.match(imageActionsSource, /Xóa ảnh/)
   assert.match(imageActionsSource, /text-red-600/)
+  assert.match(imageActionsSource, /min-h-12/)
+  assert.doesNotMatch(imageActionsSource, /md:min-h-10/)
 })
 
 test('image deletion is guarded by one reusable confirmation dialog', () => {

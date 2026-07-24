@@ -22,6 +22,7 @@
 ### Task 1: Lock the responsive and architecture contract
 
 **Files:**
+
 - Modify: `apps/frontend/test/admin-album-image-management.contract.test.ts`
 
 - [ ] **Step 1: Replace the image-grid-only contract with focused source contracts**
@@ -30,49 +31,51 @@ Read the five component sources and assert:
 
 ```ts
 function readOptionalSource(relativePath: string): string {
-  try {
-    return readFileSync(new URL(relativePath, import.meta.url), 'utf8')
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return ''
-    throw error
-  }
+    try {
+        return readFileSync(new URL(relativePath, import.meta.url), 'utf8');
+    } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') return '';
+        throw error;
+    }
 }
 
-const imageGridSource = readOptionalSource('../src/app/admin/components/ImageGrid.tsx')
-const imageTileSource = readOptionalSource('../src/app/admin/components/AlbumImageTile.tsx')
-const imageActionsSource = readOptionalSource('../src/app/admin/components/ImageActionMenu.tsx')
-const responsiveMenuSource = readOptionalSource('../src/app/admin/components/ResponsiveActionMenu.tsx')
-const confirmDialogSource = readOptionalSource('../src/app/admin/components/ConfirmDialog.tsx')
+const imageGridSource = readOptionalSource('../src/app/admin/components/ImageGrid.tsx');
+const imageTileSource = readOptionalSource('../src/app/admin/components/AlbumImageTile.tsx');
+const imageActionsSource = readOptionalSource('../src/app/admin/components/ImageActionMenu.tsx');
+const responsiveMenuSource = readOptionalSource(
+    '../src/app/admin/components/ResponsiveActionMenu.tsx',
+);
+const confirmDialogSource = readOptionalSource('../src/app/admin/components/ConfirmDialog.tsx');
 
 test('album images keep PhotoSwipe clicks while actions stay isolated', () => {
-  assert.match(imageGridSource, /<AlbumImageTile/)
-  assert.match(imageGridSource, /<ConfirmDialog/)
-  assert.match(imageTileSource, /data-pswp-src=\{lightboxUrl\}/)
-  assert.match(imageTileSource, /<ImageActionMenu/)
-  assert.doesNotMatch(imageTileSource, /deleteImage\(/)
-  assert.doesNotMatch(imageActionsSource, /@\/lib\/api/)
-})
+    assert.match(imageGridSource, /<AlbumImageTile/);
+    assert.match(imageGridSource, /<ConfirmDialog/);
+    assert.match(imageTileSource, /data-pswp-src=\{lightboxUrl\}/);
+    assert.match(imageTileSource, /<ImageActionMenu/);
+    assert.doesNotMatch(imageTileSource, /deleteImage\(/);
+    assert.doesNotMatch(imageActionsSource, /@\/lib\/api/);
+});
 
 test('image actions adapt to a touch-safe mobile sheet and desktop popover', () => {
-  assert.match(responsiveMenuSource, /matchMedia\('\(min-width: 768px\)'\)/)
-  assert.match(responsiveMenuSource, /<Dialog/)
-  assert.match(responsiveMenuSource, /env\(safe-area-inset-bottom\)/)
-  assert.match(responsiveMenuSource, /h-11 w-11/)
-  assert.match(responsiveMenuSource, /role="menu"/)
-  assert.match(imageActionsSource, /Đặt làm ảnh bìa/)
-  assert.match(imageActionsSource, /Đang là ảnh bìa/)
-  assert.match(imageActionsSource, /Xóa ảnh/)
-  assert.match(imageActionsSource, /text-red-600/)
-})
+    assert.match(responsiveMenuSource, /matchMedia\('\(min-width: 768px\)'\)/);
+    assert.match(responsiveMenuSource, /<Dialog/);
+    assert.match(responsiveMenuSource, /env\(safe-area-inset-bottom\)/);
+    assert.match(responsiveMenuSource, /h-11 w-11/);
+    assert.match(responsiveMenuSource, /role="menu"/);
+    assert.match(imageActionsSource, /Đặt làm ảnh bìa/);
+    assert.match(imageActionsSource, /Đang là ảnh bìa/);
+    assert.match(imageActionsSource, /Xóa ảnh/);
+    assert.match(imageActionsSource, /text-red-600/);
+});
 
 test('image deletion is guarded by one reusable confirmation dialog', () => {
-  assert.match(imageGridSource, /deleteCandidate/)
-  assert.match(imageGridSource, /await deleteImage\(image\.id\)/)
-  assert.match(confirmDialogSource, /<Dialog/)
-  assert.match(confirmDialogSource, /isPending/)
-  assert.match(confirmDialogSource, /Xác nhận xóa/)
-  assert.doesNotMatch(imageGridSource, /\bconfirm\(/)
-})
+    assert.match(imageGridSource, /deleteCandidate/);
+    assert.match(imageGridSource, /await deleteImage\(image\.id\)/);
+    assert.match(confirmDialogSource, /<Dialog/);
+    assert.match(confirmDialogSource, /isPending/);
+    assert.match(confirmDialogSource, /Xác nhận xóa/);
+    assert.doesNotMatch(imageGridSource, /\bconfirm\(/);
+});
 ```
 
 Keep the existing upload-refresh and album-delete tests unchanged.
@@ -97,6 +100,7 @@ git commit -m "test(admin): define responsive image action contract"
 ### Task 2: Build reusable action and confirmation primitives
 
 **Files:**
+
 - Create: `apps/frontend/src/app/admin/components/ResponsiveActionMenu.tsx`
 - Create: `apps/frontend/src/app/admin/components/ConfirmDialog.tsx`
 
@@ -108,11 +112,11 @@ Define this public contract:
 export type ActionMenuPresentation = 'mobile-sheet' | 'desktop-popover';
 
 interface ResponsiveActionMenuProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  triggerLabel: string;
-  title: string;
-  children: (presentation: ActionMenuPresentation) => ReactNode;
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    triggerLabel: string;
+    title: string;
+    children: (presentation: ActionMenuPresentation) => ReactNode;
 }
 ```
 
@@ -131,13 +135,13 @@ Define the reusable props:
 
 ```tsx
 interface ConfirmDialogProps {
-  open: boolean;
-  title: string;
-  description: ReactNode;
-  confirmLabel?: string;
-  isPending?: boolean;
-  onClose: () => void;
-  onConfirm: () => void | Promise<void>;
+    open: boolean;
+    title: string;
+    description: ReactNode;
+    confirmLabel?: string;
+    isPending?: boolean;
+    onClose: () => void;
+    onConfirm: () => void | Promise<void>;
 }
 ```
 
@@ -163,6 +167,7 @@ git commit -m "feat(admin): add responsive action primitives"
 ### Task 3: Extract the tile and image-specific action menu
 
 **Files:**
+
 - Create: `apps/frontend/src/app/admin/components/ImageActionMenu.tsx`
 - Create: `apps/frontend/src/app/admin/components/AlbumImageTile.tsx`
 - Modify: `apps/frontend/src/app/admin/components/ImageGrid.tsx`
@@ -173,10 +178,10 @@ Expose callbacks rather than APIs:
 
 ```tsx
 interface ImageActionMenuProps {
-  filename: string;
-  isCover: boolean;
-  onSetCover: () => Promise<boolean>;
-  onDeleteRequest: () => void;
+    filename: string;
+    isCover: boolean;
+    onSetCover: () => Promise<boolean>;
+    onDeleteRequest: () => void;
 }
 ```
 
@@ -188,15 +193,15 @@ Move the existing tile markup into a named default component with this callback 
 
 ```tsx
 interface AlbumImageTileProps {
-  image: Image;
-  index: number;
-  dimensions: { width: number; height: number };
-  coverImageId?: string;
-  onSetCover: (id: string) => Promise<boolean>;
-  onDeleteRequest: (image: Image) => void;
-  onDragStart: (event: React.DragEvent<HTMLDivElement>, index: number) => void;
-  onDragOver: (event: React.DragEvent<HTMLDivElement>) => void;
-  onDrop: (event: React.DragEvent<HTMLDivElement>, index: number) => void;
+    image: Image;
+    index: number;
+    dimensions: { width: number; height: number };
+    coverImageId?: string;
+    onSetCover: (id: string) => Promise<boolean>;
+    onDeleteRequest: (image: Image) => void;
+    onDragStart: (event: React.DragEvent<HTMLDivElement>, index: number) => void;
+    onDragOver: (event: React.DragEvent<HTMLDivElement>) => void;
+    onDrop: (event: React.DragEvent<HTMLDivElement>, index: number) => void;
 }
 ```
 
@@ -204,10 +209,10 @@ Preserve the existing PhotoSwipe URL fallback, dimensions, cover badge, animatio
 
 ```tsx
 <ImageActionMenu
-  filename={image.filename}
-  isCover={image.id === coverImageId}
-  onSetCover={() => onSetCover(image.id)}
-  onDeleteRequest={() => onDeleteRequest(image)}
+    filename={image.filename}
+    isCover={image.id === coverImageId}
+    onSetCover={() => onSetCover(image.id)}
+    onDeleteRequest={() => onDeleteRequest(image)}
 />
 ```
 
@@ -226,22 +231,22 @@ Replace browser `confirm()` with a guarded mutation:
 
 ```tsx
 async function handleConfirmDelete(): Promise<void> {
-  if (!deleteCandidate || isDeletePending) return;
+    if (!deleteCandidate || isDeletePending) return;
 
-  const image = deleteCandidate;
-  setIsDeletePending(true);
-  try {
-    await deleteImage(image.id);
-    setLocalImages((current) => current.filter((item) => item.id !== image.id));
-    setDeleteCandidate(null);
-    toast.success('Đã xóa ảnh!');
-    await onDelete();
-  } catch (error) {
-    console.error('Failed to delete image:', error);
-    toast.error('Không thể xóa ảnh');
-  } finally {
-    setIsDeletePending(false);
-  }
+    const image = deleteCandidate;
+    setIsDeletePending(true);
+    try {
+        await deleteImage(image.id);
+        setLocalImages((current) => current.filter((item) => item.id !== image.id));
+        setDeleteCandidate(null);
+        toast.success('Đã xóa ảnh!');
+        await onDelete();
+    } catch (error) {
+        console.error('Failed to delete image:', error);
+        toast.error('Không thể xóa ảnh');
+    } finally {
+        setIsDeletePending(false);
+    }
 }
 ```
 
@@ -249,20 +254,18 @@ Pass `onDeleteRequest={setDeleteCandidate}` to each tile and render one shared d
 
 ```tsx
 <ConfirmDialog
-  open={deleteCandidate !== null}
-  title="Xóa ảnh?"
-  description={
-    <>
-      Bạn có chắc chắn muốn xóa ảnh{' '}
-      <strong className="font-semibold text-gray-900">
-        “{deleteCandidate?.filename}”
-      </strong>
-      ? Hành động này không thể hoàn tác.
-    </>
-  }
-  isPending={isDeletePending}
-  onClose={() => setDeleteCandidate(null)}
-  onConfirm={handleConfirmDelete}
+    open={deleteCandidate !== null}
+    title="Xóa ảnh?"
+    description={
+        <>
+            Bạn có chắc chắn muốn xóa ảnh{' '}
+            <strong className="font-semibold text-gray-900">“{deleteCandidate?.filename}”</strong>?
+            Hành động này không thể hoàn tác.
+        </>
+    }
+    isPending={isDeletePending}
+    onClose={() => setDeleteCandidate(null)}
+    onConfirm={handleConfirmDelete}
 />
 ```
 
@@ -286,6 +289,7 @@ git commit -m "feat(admin): adapt image actions for mobile"
 ### Task 4: Focused regression and build verification
 
 **Files:**
+
 - Modify only files required to correct failures introduced by Tasks 1–3.
 
 - [ ] **Step 1: Run all frontend tests**

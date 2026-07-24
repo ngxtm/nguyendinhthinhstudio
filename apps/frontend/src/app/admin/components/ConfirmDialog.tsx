@@ -1,17 +1,17 @@
-'use client';
+'use client'
 
-import { Dialog, Transition } from '@headlessui/react';
-import { AlertTriangle, X } from 'lucide-react';
-import { Fragment, type ReactNode } from 'react';
+import { Dialog, Transition } from '@headlessui/react'
+import { AlertTriangle, X } from 'lucide-react'
+import { Fragment, type ReactNode } from 'react'
 
 interface ConfirmDialogProps {
-  open: boolean;
-  title: string;
-  description: ReactNode;
-  confirmLabel?: string;
-  isPending?: boolean;
-  onClose: () => void;
-  onConfirm: () => void | Promise<void>;
+  open: boolean
+  title: string
+  description: ReactNode
+  confirmLabel?: string
+  isPending?: boolean
+  onClose: () => void
+  onConfirm: () => void | Promise<void>
 }
 
 export default function ConfirmDialog({
@@ -21,11 +21,11 @@ export default function ConfirmDialog({
   confirmLabel = 'Xác nhận xóa',
   isPending = false,
   onClose,
-  onConfirm,
+  onConfirm
 }: ConfirmDialogProps) {
   const closeIfIdle = () => {
-    if (!isPending) onClose();
-  };
+    if (!isPending) onClose()
+  }
 
   return (
     <Transition appear show={open} as={Fragment}>
@@ -60,9 +60,7 @@ export default function ConfirmDialog({
                       <AlertTriangle className="h-5 w-5 text-red-600" aria-hidden="true" />
                     </div>
                     <div className="min-w-0">
-                      <Dialog.Title className="text-lg font-semibold text-gray-900">
-                        {title}
-                      </Dialog.Title>
+                      <Dialog.Title className="text-lg font-semibold text-gray-900">{title}</Dialog.Title>
                       <Dialog.Description as="div" className="mt-2 text-sm leading-6 text-gray-600">
                         {description}
                       </Dialog.Description>
@@ -103,5 +101,5 @@ export default function ConfirmDialog({
         </div>
       </Dialog>
     </Transition>
-  );
+  )
 }
