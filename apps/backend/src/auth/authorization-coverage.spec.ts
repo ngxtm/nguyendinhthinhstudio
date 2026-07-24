@@ -18,7 +18,18 @@ const contracts: Array<{
   {
     controller: AlbumsController,
     public: ['findAll', 'findOne', 'getRelated'],
-    admin: ['create', 'getDashboardStats', 'update', 'remove', 'setCover', 'publish', 'toggleFeatured'],
+    admin: [
+      'create',
+      'getDashboardStats',
+      'findAdminAll',
+      'findAdminById',
+      'findAdminBySlug',
+      'update',
+      'remove',
+      'setCover',
+      'publish',
+      'toggleFeatured',
+    ],
   },
   {
     controller: ImagesController,

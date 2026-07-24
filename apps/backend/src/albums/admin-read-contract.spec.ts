@@ -24,4 +24,35 @@ describe('album public/admin read contracts', () => {
     await expect(service.findAdminById('a')).resolves.toMatchObject({ googleDriveLink: 'secret' });
     expect(prisma.album.findUnique).toHaveBeenCalled();
   });
+
+  it('provides an admin slug read path for draft albums', async () => {
+    const row: any = {
+      id: 'album-id',
+      title: 'Draft album',
+      slug: 'testing-223',
+      status: 'draft',
+      deleteStatus: 'active',
+      googleDriveLink: 'secret',
+      tags: [],
+      categories: [],
+      images: [],
+    };
+    const prisma: any = {
+      album: { findUnique: jest.fn().mockResolvedValue(row) },
+    };
+    const service = new AlbumsService(
+      prisma,
+      {} as any,
+      {} as any,
+      { presentImage: (x: any) => x } as any,
+    );
+
+    await expect(service.findAdminBySlug('testing-223')).resolves.toMatchObject({
+      status: 'draft',
+      googleDriveLink: 'secret',
+    });
+    expect(prisma.album.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { slug: 'testing-223' } }),
+    );
+  });
 });

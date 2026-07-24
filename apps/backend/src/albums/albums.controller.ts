@@ -66,6 +66,12 @@ export class AlbumsController {
   @Roles('admin')
   findAdminById(@Param('id') id: string) { return this.albumsService.findAdminById(id); }
 
+  @Get('admin/slug/:slug')
+  @Roles('admin')
+  findAdminBySlug(@Param('slug') slug: string) {
+    return this.albumsService.findAdminBySlug(slug);
+  }
+
   @Get(':slug/related')
   @Public()
   @ApiOperation({ summary: 'Get 12 related albums using smart recommendation' })

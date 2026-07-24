@@ -38,7 +38,7 @@ export default function AlbumDetailPage() {
   async function loadAlbum() {
     try {
       setLoading(true);
-      const data = await getAlbum(slug, true); // Skip view increment for admin
+      const data = await getAlbum(slug, true, true); // Use authenticated read for draft albums
       setAlbum(data);
     } catch (error) {
       console.error('Failed to load album:', error);
