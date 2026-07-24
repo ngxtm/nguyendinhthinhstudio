@@ -17,3 +17,17 @@ test('post-upload album refresh keeps the existing grid mounted', () => {
     /async function handleUploadComplete\(\)[\s\S]*await loadAlbum\(\{ showLoading: false \}\)/,
   )
 })
+
+const imageGridSource = readFileSync(
+  new URL('../src/app/admin/components/ImageGrid.tsx', import.meta.url),
+  'utf8',
+)
+
+test('album images keep PhotoSwipe clicks and expose actions through a footer menu', () => {
+  assert.match(imageGridSource, /data-pswp-src=\{lightboxUrl\}/)
+  assert.match(imageGridSource, /aria-haspopup="menu"/)
+  assert.match(imageGridSource, /<MoreVertical/)
+  assert.match(imageGridSource, /Đặt làm ảnh bìa/)
+  assert.match(imageGridSource, /Xóa ảnh/)
+  assert.doesNotMatch(imageGridSource, /absolute inset-0 z-20/)
+})
