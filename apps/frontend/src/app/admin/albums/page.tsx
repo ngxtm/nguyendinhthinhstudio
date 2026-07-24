@@ -33,7 +33,7 @@ export default function AlbumsPage() {
             limit: 50,
             search: trimmedSearch ? trimmedSearch : undefined,
           },
-          { signal }
+          { signal, admin: true }
         );
 
         if (!signal.aborted) {

@@ -98,7 +98,9 @@ export default function ImageUploadZone({ albumId, onUploadComplete }: Props) {
     setFiles((prev) => [...prev, ...validFiles]);
 
     if (validFiles.length > 0) {
-      toast.success(`Đã thêm ${validFiles.length} ảnh vào danh sách`);
+      toast.success(
+        `Đã chọn ${validFiles.length} ảnh. Bấm nút Upload bên dưới để bắt đầu.`,
+      );
     }
   }
 
@@ -352,7 +354,7 @@ export default function ImageUploadZone({ albumId, onUploadComplete }: Props) {
               </span>
               {stats.pending > 0 && (
                 <span className="text-gray-500">
-                  {stats.pending} chờ
+                  {stats.pending} sẵn sàng
                 </span>
               )}
               {stats.uploading > 0 && (
@@ -434,7 +436,7 @@ export default function ImageUploadZone({ albumId, onUploadComplete }: Props) {
                     </p>
                   )}
                   {(fileItem.status === 'pending' || fileItem.status === 'uploading') && (
-                    <ImageUploadProgress progress={fileItem.progress} state={fileItem.status === 'uploading' ? 'Đang upload' : 'Đang chờ'} />
+                    <ImageUploadProgress progress={fileItem.progress} state={fileItem.status === 'uploading' ? 'Đang upload' : 'Sẵn sàng'} />
                   )}
 
                   {/* Error Message */}
