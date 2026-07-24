@@ -403,6 +403,10 @@ test('rejects ICC profiles whose declared structure does not match the payload',
         vp8l,
     );
 
+    assert.deepEqual(await classifySource(input([bytes]), policy), {
+        outcome: 'rejected',
+        code: 'image_invalid_icc',
+    });
     assert.deepEqual(await validateStored(input([bytes]), policy), {
         outcome: 'rejected',
         code: 'image_invalid_icc',

@@ -175,13 +175,40 @@ function zlibStored(bytes: Uint8Array): Uint8Array {
     );
 }
 
-function wideGamutPng(): Uint8Array {
+function wideGamutProfile(): Uint8Array {
     const profile = new Uint8Array(132);
     profile.set(u32be(profile.byteLength), 0);
     profile.set(new TextEncoder().encode('acsp'), 36);
     profile.set(u32be(0), 128);
-    const iccp = concat(new TextEncoder().encode('wide'), Uint8Array.of(0, 0), zlibStored(profile));
+    return profile;
+}
+
+function wideGamutJpeg(): Uint8Array {
+    const icc = concat(
+        new TextEncoder().encode('ICC_PROFILE\0'),
+        Uint8Array.of(1, 1),
+        wideGamutProfile(),
+    );
+    return minimalJpeg([segment(0xe2, icc)]);
+}
+
+function wideGamutPng(): Uint8Array {
+    const iccp = concat(
+        new TextEncoder().encode('wide'),
+        Uint8Array.of(0, 0),
+        zlibStored(wideGamutProfile()),
+    );
     return minimalPng([pngChunk('iCCP', iccp)]);
+}
+
+function wideGamutWebp(): Uint8Array {
+    const body = concat(
+        new TextEncoder().encode('WEBP'),
+        webpChunk('VP8X', Uint8Array.of(0x20, 0, 0, 0, 0, 0, 0, 0, 0, 0)),
+        webpChunk('ICCP', wideGamutProfile()),
+        webpChunk('VP8L', concat(Uint8Array.of(0x2f), u32le(0))),
+    );
+    return concat(new TextEncoder().encode('RIFF'), u32le(body.byteLength), body);
 }
 
 const CORNER_SIGNATURE_JPEG = Uint8Array.from(
@@ -285,8 +312,16 @@ const orientationFixtures = ([1, 2, 3, 4, 5, 6, 7, 8] as const).map((orientation
 const srgbFacts = baseFacts('image/png');
 const alphaFacts = baseFacts('image/webp');
 const WIDE_GAMUT_ICC_SHA256 = 'f1b507b1be52fe4859fed97898d58ca1c6f77c1cb818a299da572c3529ffc580';
-const wideGamutFacts = baseFacts('image/png', {
+const wideGamutJpegFacts = baseFacts('image/jpeg', {
+    metadataBytes: 146,
+    iccSha256: WIDE_GAMUT_ICC_SHA256,
+});
+const wideGamutPngFacts = baseFacts('image/png', {
     metadataBytes: 149,
+    iccSha256: WIDE_GAMUT_ICC_SHA256,
+});
+const wideGamutWebpFacts = baseFacts('image/webp', {
+    metadataBytes: 132,
     iccSha256: WIDE_GAMUT_ICC_SHA256,
 });
 const wideGamutPolicy: ImageUploadPolicy = {
@@ -311,11 +346,18 @@ export const IMAGE_GRAMMAR_FIXTURES: readonly ImageGrammarFixture[] = Object.fre
         { outcome: 'allowed', facts: srgbFacts },
     ),
     fixture(
+        'jpeg-wide-gamut-icc',
+        'wide-gamut',
+        wideGamutJpeg(),
+        { outcome: 'requiresNormalization', facts: wideGamutJpegFacts },
+        { outcome: 'rejected', code: 'image_invalid_icc' },
+    ),
+    fixture(
         'png-wide-gamut-icc-allowed',
         'wide-gamut',
         wideGamutPng(),
-        { outcome: 'allowed', facts: wideGamutFacts },
-        { outcome: 'allowed', facts: wideGamutFacts },
+        { outcome: 'allowed', facts: wideGamutPngFacts },
+        { outcome: 'allowed', facts: wideGamutPngFacts },
         null,
         wideGamutPolicy,
     ),
@@ -323,7 +365,14 @@ export const IMAGE_GRAMMAR_FIXTURES: readonly ImageGrammarFixture[] = Object.fre
         'png-wide-gamut-icc',
         'wide-gamut',
         wideGamutPng(),
+        { outcome: 'requiresNormalization', facts: wideGamutPngFacts },
         { outcome: 'rejected', code: 'image_invalid_icc' },
+    ),
+    fixture(
+        'webp-wide-gamut-icc',
+        'wide-gamut',
+        wideGamutWebp(),
+        { outcome: 'requiresNormalization', facts: wideGamutWebpFacts },
         { outcome: 'rejected', code: 'image_invalid_icc' },
     ),
     fixture(

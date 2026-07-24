@@ -99,6 +99,16 @@ export function result(
     };
 }
 
+export function iccRequiresNormalization(
+    mode: ImageGrammarMode,
+    policy: ImageUploadPolicy,
+    digest: string,
+): boolean {
+    if (policy.allowedIccSha256.includes(digest)) return false;
+    if (mode === 'validate-stored') fail('image_invalid_icc');
+    return true;
+}
+
 export function validateIccProfile(profile: Uint8Array): void {
     if (
         profile.byteLength < 132 ||
