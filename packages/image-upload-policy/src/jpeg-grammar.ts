@@ -2,6 +2,7 @@ import type { ImageByteReader, ImageParser } from './grammar-types.js';
 import {
     ascii,
     fail,
+    iccRequiresNormalization,
     readU16Be,
     result,
     sha256,
@@ -460,9 +461,8 @@ export const parseJpeg: ImageParser = async (reader, policy, mode) => {
         }
         validateIccProfile(profile);
         iccSha256 = await sha256(profile);
-        if (!policy.allowedIccSha256.includes(iccSha256)) {
-            fail('image_invalid_icc');
-        }
+        requiresNormalization =
+            iccRequiresNormalization(mode, policy, iccSha256) || requiresNormalization;
     }
 
     return result(

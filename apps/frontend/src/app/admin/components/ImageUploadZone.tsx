@@ -10,7 +10,10 @@ import { Upload, X, FileImage, CheckCircle, AlertCircle, Loader2 } from 'lucide-
 import { toast } from 'sonner';
 import { uploadImage } from '@/lib/api';
 import { ImageUploadProgress } from './ImageUploadProgress';
-import { ImageUploadErrors } from './ImageUploadErrors';
+import {
+  IMAGE_NORMALIZATION_MESSAGE,
+  ImageUploadErrors,
+} from './ImageUploadErrors';
 
 interface Props {
   albumId: string;
@@ -153,6 +156,7 @@ export default function ImageUploadZone({ albumId, onUploadComplete }: Props) {
       newFiles[index].status = 'uploading';
       newFiles[index].progress = 0;
       newFiles[index].error = undefined;
+      newFiles[index].statusText = IMAGE_NORMALIZATION_MESSAGE;
       return newFiles;
     });
 
@@ -164,6 +168,12 @@ export default function ImageUploadZone({ albumId, onUploadComplete }: Props) {
           setFiles((prev) => {
             const newFiles = [...prev];
             newFiles[index].progress = progress;
+            newFiles[index].statusText =
+              progress < 10
+                ? IMAGE_NORMALIZATION_MESSAGE
+                : progress < 90
+                  ? 'Đang upload'
+                  : 'Đang hoàn tất';
             return newFiles;
           });
         }
@@ -436,7 +446,13 @@ export default function ImageUploadZone({ albumId, onUploadComplete }: Props) {
                     </p>
                   )}
                   {(fileItem.status === 'pending' || fileItem.status === 'uploading') && (
-                    <ImageUploadProgress progress={fileItem.progress} state={fileItem.status === 'uploading' ? 'Đang upload' : 'Sẵn sàng'} />
+                    <ImageUploadProgress
+                      progress={fileItem.progress}
+                      state={
+                        fileItem.statusText ??
+                        (fileItem.status === 'uploading' ? 'Đang upload' : 'Sẵn sàng')
+                      }
+                    />
                   )}
 
                   {/* Error Message */}

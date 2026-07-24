@@ -2,6 +2,7 @@ import type { ImageByteReader, ImageParser } from './grammar-types.js';
 import {
     ascii,
     fail,
+    iccRequiresNormalization,
     readU24Le,
     readU32Le,
     result,
@@ -162,9 +163,8 @@ export const parseWebp: ImageParser = async (reader, policy, mode) => {
             );
             validateIccProfile(profile);
             iccSha256 = await sha256(profile);
-            if (!policy.allowedIccSha256.includes(iccSha256)) {
-                fail('image_invalid_icc');
-            }
+            requiresNormalization =
+                iccRequiresNormalization(mode, policy, iccSha256) || requiresNormalization;
             metadataBytes += length;
             iccSeen = true;
         } else if (type === 'EXIF' || type === 'XMP ') {
