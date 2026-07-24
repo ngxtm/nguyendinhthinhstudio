@@ -4,14 +4,14 @@ import { runUploadQueue } from '../src/lib/image-upload/upload-queue'
 
 function deferred() {
   let resolve!: () => void
-  const promise = new Promise<void>((done) => {
+  const promise = new Promise<void>(done => {
     resolve = done
   })
   return { promise, resolve }
 }
 
 function flush(): Promise<void> {
-  return new Promise((resolve) => setImmediate(resolve))
+  return new Promise(resolve => setImmediate(resolve))
 }
 
 test('waits for out-of-order jobs and never exceeds the worker limit', async () => {
@@ -21,7 +21,7 @@ test('waits for out-of-order jobs and never exceeds the worker limit', async () 
   let maxActive = 0
   let settled = false
 
-  const resultPromise = runUploadQueue([0, 1, 2], 2, async (item) => {
+  const resultPromise = runUploadQueue([0, 1, 2], 2, async item => {
     started.push(item)
     active++
     maxActive = Math.max(maxActive, active)
@@ -50,7 +50,7 @@ test('waits for out-of-order jobs and never exceeds the worker limit', async () 
 
 test('counts failures without skipping the remaining jobs', async () => {
   const visited: number[] = []
-  const result = await runUploadQueue([0, 1, 2], 2, async (item) => {
+  const result = await runUploadQueue([0, 1, 2], 2, async item => {
     visited.push(item)
     if (item === 1) throw new Error('failed')
   })

@@ -6,7 +6,7 @@ export type UploadQueueResult = {
 export async function runUploadQueue<T>(
   items: readonly T[],
   concurrency: number,
-  run: (item: T) => Promise<void>,
+  run: (item: T) => Promise<void>
 ): Promise<UploadQueueResult> {
   if (!Number.isSafeInteger(concurrency) || concurrency < 1) {
     throw new RangeError('concurrency must be a positive safe integer')
