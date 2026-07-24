@@ -441,6 +441,8 @@ export class ProductionSmokePgAdapter {
         `UPDATE "ImageUpload"
          SET "status" = 'failed',
              "failureCode" = 'upload_storage_retryable',
+             "presignExpiresAt" = CURRENT_TIMESTAMP - INTERVAL '10 minutes',
+             "expiresAt" = CURRENT_TIMESTAMP - INTERVAL '10 minutes',
              "temporaryCleanupState" = 'pending',
              "temporaryCleanupNextAttemptAt" = CURRENT_TIMESTAMP
          WHERE "id" = $1 AND "createdByAdminId" = $2`,
