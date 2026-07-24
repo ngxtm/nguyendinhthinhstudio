@@ -8,11 +8,12 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, RefreshCw } from 'lucide-react';
+import { ArrowLeft, RefreshCw, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   getAlbum,
   updateAlbum,
+  deleteAlbum,
   getTags,
   getCategories,
   type UpdateAlbumDto,
@@ -30,6 +31,7 @@ export default function EditAlbumPage() {
 
   const [album, setAlbum] = useState<Album | null>(null);
   const [loading, setLoading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
   const [tags, setTags] = useState<Tag[]>([]);
   const [categories, setCategories] = useState<ComboboxCategory[]>([]);
@@ -226,6 +228,29 @@ export default function EditAlbumPage() {
       toast.error('Không thể cập nhật album. Vui lòng thử lại.');
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleDeleteAlbum(): Promise<void> {
+    if (
+      !album ||
+      deleting ||
+      !window.confirm(
+        `Bạn có chắc muốn xóa album "${album.title}"? Hành động này không thể hoàn tác.`,
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setDeleting(true);
+      await deleteAlbum(album.id);
+      toast.success('Đã xóa album!');
+      router.replace('/admin/albums');
+    } catch (error) {
+      console.error('Failed to delete album:', error);
+      toast.error('Không thể xóa album');
+      setDeleting(false);
     }
   }
 
@@ -466,20 +491,32 @@ export default function EditAlbumPage() {
           </div>
 
           {/* Actions */}
-          <div className="flex gap-4 pt-6 border-t">
+          <div className="flex flex-wrap items-center justify-between gap-4 border-t pt-6">
+            <div className="flex gap-4">
+              <button
+                type="submit"
+                disabled={loading || deleting}
+                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading ? 'Đang lưu...' : 'Lưu Thay Đổi'}
+              </button>
+              <Link
+                href={`/admin/albums/${slug}`}
+                className="px-6 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+              >
+                Hủy
+              </Link>
+            </div>
+
             <button
-              type="submit"
-              disabled={loading}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              type="button"
+              onClick={handleDeleteAlbum}
+              disabled={loading || deleting}
+              className="inline-flex items-center gap-2 rounded-lg border border-red-300 px-4 py-3 font-medium text-red-600 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {loading ? 'Đang lưu...' : 'Lưu Thay Đổi'}
+              <Trash2 size={18} />
+              {deleting ? 'Đang xóa...' : 'Xóa album'}
             </button>
-            <Link
-              href={`/admin/albums/${slug}`}
-              className="px-6 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-medium"
-            >
-              Hủy
-            </Link>
           </div>
         </div>
       </form>

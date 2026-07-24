@@ -860,7 +860,7 @@ export class ImagesService {
       resultRetentionExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       temporaryCleanupNextAttemptAt: new Date(Math.max(Date.now(), new Date(upload.presignExpiresAt ?? upload.expiresAt).getTime() + 5 * 60 * 1000)),
     });
-    return (this.prisma as any).image.findUnique({ where: { id: imageId } });
+    return this.getUploadStatus(upload.id, upload.createdByAdminId);
   }
 
   private async terminalizeCurrentFailure(

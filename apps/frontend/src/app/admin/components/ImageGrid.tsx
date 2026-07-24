@@ -7,7 +7,7 @@
 
 import { useEffect, useMemo, useState, useRef } from 'react';
 import Masonry from 'react-masonry-css';
-import { Star, Trash2, GripVertical } from 'lucide-react';
+import { Star, Trash2, GripVertical, MoreVertical } from 'lucide-react';
 import { deleteImage, reorderImages, type Image } from '@/lib/api';
 import { toast } from 'sonner';
 import { usePhotoSwipe } from '@/lib/photoswipe';
@@ -30,7 +30,6 @@ export default function ImageGrid({
 }: Props) {
   const [localImages, setLocalImages] = useState(images);
   const [dimensions, setDimensions] = useState<Record<string, { width: number; height: number }>>({});
-  const [activeSwipeId, setActiveSwipeId] = useState<string | null>(null);
   const masonryBreakpoints = useMemo(
     () => ({
       default: 4,
@@ -199,9 +198,6 @@ export default function ImageGrid({
                 index={index}
                 dimensions={dims}
                 coverImageId={coverImageId}
-                showActions={activeSwipeId === image.id}
-                onOpenSwipe={setActiveSwipeId}
-                onCloseSwipe={() => setActiveSwipeId(null)}
                 onSetCover={onSetCover}
                 onDelete={handleDelete}
                 onDragStart={handleDragStart}
@@ -249,9 +245,6 @@ interface AlbumImageTileProps {
   index: number;
   dimensions: { width: number; height: number };
   coverImageId?: string;
-  showActions: boolean;
-  onOpenSwipe: (id: string) => void;
-  onCloseSwipe: () => void;
   onSetCover: (id: string) => Promise<boolean>;
   onDelete: (image: Image) => Promise<boolean>;
   onDragStart: (event: React.DragEvent<HTMLDivElement>, index: number) => void;
@@ -264,18 +257,15 @@ function AlbumImageTile({
   index,
   dimensions,
   coverImageId,
-  showActions,
-  onOpenSwipe,
-  onCloseSwipe,
   onSetCover,
   onDelete,
   onDragStart,
   onDragOver,
   onDrop,
 }: AlbumImageTileProps) {
-  const touchStartX = useRef<number | null>(null);
-  const touchStartY = useRef<number | null>(null);
   const [isActionPending, setIsActionPending] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
   const lightboxUrl =
     image.xlargeUrl ||
     image.largeUrl ||
@@ -283,50 +273,25 @@ function AlbumImageTile({
     image.smallUrl ||
     image.thumbnailUrl;
 
-  const resetTouch = () => {
-    touchStartX.current = null;
-    touchStartY.current = null;
-  };
+  useEffect(() => {
+    if (!menuOpen) return;
 
-  const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
-    const touch = event.touches[0];
-    touchStartX.current = touch.clientX;
-    touchStartY.current = touch.clientY;
-  };
-
-  const handleTouchMove = (event: React.TouchEvent<HTMLDivElement>) => {
-    if (touchStartX.current === null || touchStartY.current === null) {
-      return;
-    }
-
-    const touch = event.touches[0];
-    const deltaX = touch.clientX - touchStartX.current;
-    const deltaY = Math.abs(touch.clientY - touchStartY.current);
-
-    if (deltaY > 25) {
-      return;
-    }
-
-    if (deltaX <= -40) {
-      onOpenSwipe(image.id);
-    } else if (deltaX >= 40) {
-      onCloseSwipe();
-    }
-  };
-
-  const handleTouchEnd = () => {
-    resetTouch();
-  };
-
-  const handleAnchorClick = (event: React.MouseEvent<HTMLAnchorElement>) => {
-    if (showActions || isActionPending) {
-      event.preventDefault();
-      event.stopPropagation();
-      if (showActions && !isActionPending) {
-        onCloseSwipe();
+    const closeOnPointerDown = (event: PointerEvent) => {
+      if (!menuRef.current?.contains(event.target as Node)) {
+        setMenuOpen(false);
       }
-    }
-  };
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMenuOpen(false);
+    };
+
+    document.addEventListener('pointerdown', closeOnPointerDown);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('pointerdown', closeOnPointerDown);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [menuOpen]);
 
   const handleSetCover = async (event: React.MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
@@ -337,7 +302,7 @@ function AlbumImageTile({
     try {
       const success = await onSetCover(image.id);
       if (success) {
-        onCloseSwipe();
+        setMenuOpen(false);
       }
     } finally {
       setIsActionPending(false);
@@ -353,98 +318,101 @@ function AlbumImageTile({
     try {
       const deleted = await onDelete(image);
       if (deleted) {
-        onCloseSwipe();
+        setMenuOpen(false);
       }
     } finally {
       setIsActionPending(false);
     }
   };
 
-  const overlayIsInteractive = showActions || isActionPending;
-
   return (
     <div
-      className="relative group mb-4 cursor-move touch-pan-y md:mb-6"
-      draggable
-      onDragStart={(event) => onDragStart(event, index)}
+      className="group relative mb-4 touch-pan-y md:mb-6"
       onDragOver={onDragOver}
       onDrop={(event) => onDrop(event, index)}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-      onTouchCancel={handleTouchEnd}
     >
       <div className="relative" style={{ animation: `fadeInUp 0.6s ease-out ${index * 0.04}s both` }}>
-        <a
-          href={lightboxUrl}
-          data-pswp-src={lightboxUrl}
-          data-pswp-width={dimensions.width}
-          data-pswp-height={dimensions.height}
-          className="block"
-          onClick={handleAnchorClick}
-        >
-          <div className="relative overflow-hidden rounded-md bg-gray-100 shadow-md transition-shadow hover:shadow-lg md:rounded-lg">
-            <img
-              src={image.largeUrl || image.mediumUrl || image.smallUrl || image.thumbnailUrl}
-              alt={image.altText || image.filename}
-              className="h-auto w-full object-cover"
-              loading="lazy"
-            />
-
-            {image.id === coverImageId && (
-              <div className="absolute left-2 top-2 z-10 rounded bg-yellow-500 px-2 py-1 text-xs font-medium text-white">
-                Cover
-              </div>
-            )}
-
-            <div className="pointer-events-none absolute right-2 top-2 z-10 rounded bg-black/60 p-1 opacity-0 transition-opacity group-hover:opacity-100">
-              <GripVertical size={16} className="text-white" />
-            </div>
-          </div>
-        </a>
-
         <div
-          aria-hidden={!overlayIsInteractive}
-          className={`absolute inset-0 z-20 flex items-center justify-center gap-3 transition-all ${
-            showActions
-              ? 'bg-black/60 opacity-100 pointer-events-auto'
-              : 'bg-black/0 opacity-0 pointer-events-none'
-          } md:group-hover:bg-black/40 md:group-hover:opacity-100 md:group-hover:pointer-events-auto`}
+          className="relative cursor-move"
+          draggable
+          onDragStart={(event) => onDragStart(event, index)}
         >
-          <button
-            type="button"
-            onClick={handleSetCover}
-            disabled={isActionPending}
-            className={`${
-              overlayIsInteractive
-                ? 'pointer-events-auto'
-                : 'pointer-events-none md:group-hover:pointer-events-auto'
-            } inline-flex h-12 w-12 items-center justify-center rounded-full bg-white text-gray-700 transition-colors hover:bg-yellow-100 disabled:cursor-not-allowed disabled:opacity-70`}
-            title="Đặt làm cover"
+          <a
+            href={lightboxUrl}
+            data-pswp-src={lightboxUrl}
+            data-pswp-width={dimensions.width}
+            data-pswp-height={dimensions.height}
+            className="block"
           >
-            <Star
-              size={20}
-              className={image.id === coverImageId ? 'text-yellow-500 fill-yellow-500' : 'text-gray-700'}
-            />
-          </button>
-          <button
-            type="button"
-            onClick={handleDeleteImage}
-            disabled={isActionPending}
-            className={`${
-              overlayIsInteractive
-                ? 'pointer-events-auto'
-                : 'pointer-events-none md:group-hover:pointer-events-auto'
-            } inline-flex h-12 w-12 items-center justify-center rounded-full bg-white text-red-600 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-70`}
-            title="Xóa ảnh"
-          >
-            <Trash2 size={20} />
-          </button>
+            <div className="relative overflow-hidden rounded-md bg-gray-100 shadow-md transition-shadow hover:shadow-lg md:rounded-lg">
+              <img
+                src={image.largeUrl || image.mediumUrl || image.smallUrl || image.thumbnailUrl}
+                alt={image.altText || image.filename}
+                className="h-auto w-full object-cover"
+                loading="lazy"
+              />
+
+              {image.id === coverImageId && (
+                <div className="absolute left-2 top-2 z-10 rounded bg-yellow-500 px-2 py-1 text-xs font-medium text-white">
+                  Cover
+                </div>
+              )}
+
+              <div className="pointer-events-none absolute right-2 top-2 z-10 rounded bg-black/60 p-1 opacity-0 transition-opacity group-hover:opacity-100">
+                <GripVertical size={16} className="text-white" />
+              </div>
+            </div>
+          </a>
         </div>
       </div>
 
-      <p className="mt-1 truncate text-xs text-gray-500">{image.filename}</p>
-      <p className="text-xs text-gray-400">Order: {image.orderIndex}</p>
+      <div className="mt-2 flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="truncate text-xs text-gray-500">{image.filename}</p>
+          <p className="text-xs text-gray-400">Order: {image.orderIndex}</p>
+        </div>
+
+        <div ref={menuRef} className="relative shrink-0" data-image-actions>
+          <button
+            type="button"
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+            aria-label={`Thao tác với ảnh ${image.filename}`}
+            onClick={() => setMenuOpen((open) => !open)}
+            className="rounded p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900"
+          >
+            <MoreVertical size={18} />
+          </button>
+
+          {menuOpen && (
+            <div
+              role="menu"
+              className="absolute bottom-full right-0 z-30 mb-1 w-48 rounded-md border border-gray-200 bg-white py-1 shadow-lg"
+            >
+              <button
+                type="button"
+                role="menuitem"
+                disabled={isActionPending || image.id === coverImageId}
+                onClick={handleSetCover}
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:text-gray-400"
+              >
+                <Star size={16} />
+                {image.id === coverImageId ? 'Đang là ảnh bìa' : 'Đặt làm ảnh bìa'}
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                disabled={isActionPending}
+                onClick={handleDeleteImage}
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <Trash2 size={16} />
+                Xóa ảnh
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

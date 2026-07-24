@@ -749,6 +749,65 @@ describe('ImagesService upload sessions', () => {
     expect(release).toHaveBeenCalledTimes(1);
   });
 
+  it('returns the consumed response envelope after current confirmation commits', async () => {
+    const harness = createHarness();
+    harness.storage.verifyObject.mockResolvedValue('source-etag');
+    harness.storage.promoteObject.mockResolvedValue('destination-etag');
+    const release = jest.fn();
+    const semaphore = { acquire: jest.fn().mockResolvedValue(release) };
+    const inspector = {
+      inspect: jest.fn().mockResolvedValue({
+        digestSha256: 'b'.repeat(64),
+        byteSize: 3,
+        facts: { mime: 'image/jpeg', width: 10, height: 20 },
+      }),
+    };
+    const promotions = {
+      createDispatchedPromotion: jest.fn().mockResolvedValue({
+        id: 'promotion-1',
+        uploadId: UPLOAD_ID,
+      }),
+      settleCopyResponseAndCommit: jest.fn().mockImplementation(
+        async ({ image, observedAt, resultRetentionExpiresAt }: any) => {
+          harness.rows.upload = {
+            ...harness.rows.upload,
+            status: 'consumed',
+            consumedAt: observedAt,
+            terminalAt: observedAt,
+            resultImageId: image.id,
+            resultDeletedAt: null,
+            resultRetentionExpiresAt,
+          };
+          harness.prisma.image.findUnique.mockResolvedValue(image);
+          return {
+            uploadId: UPLOAD_ID,
+            disposition: 'committed',
+            committedResultImageId: image.id,
+          };
+        },
+      ),
+    };
+
+    await expect(
+      harness
+        .createCurrentService(promotions, semaphore, inspector)
+        .confirmUpload({ uploadId: UPLOAD_ID } as any, ADMIN_ID),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        outcome: 'consumed',
+        statusCode: 200,
+        uploadId: UPLOAD_ID,
+        image: expect.objectContaining({
+          id: expect.any(String),
+          thumbnailUrl: expect.stringMatching(/^presented:\/\//),
+        }),
+        resultImageId: expect.any(String),
+        resultDeletedAt: null,
+        retentionExpiresAt: '2026-08-11T12:00:00.000Z',
+      }),
+    );
+  });
+
   it('hides a session owned by another admin before HEAD or body access', async () => {
     const harness = createHarness();
     const service = harness.createCurrentService({}, { acquire: jest.fn() }, { inspect: jest.fn() });

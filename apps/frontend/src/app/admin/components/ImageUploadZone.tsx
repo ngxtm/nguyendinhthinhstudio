@@ -9,6 +9,7 @@ import { useState, useRef, useCallback } from 'react';
 import { Upload, X, FileImage, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { uploadImage } from '@/lib/api';
+import { runUploadQueue } from '@/lib/image-upload/upload-queue';
 import { ImageUploadProgress } from './ImageUploadProgress';
 import {
   IMAGE_NORMALIZATION_MESSAGE,
@@ -17,7 +18,7 @@ import {
 
 interface Props {
   albumId: string;
-  onUploadComplete: () => void;
+  onUploadComplete: () => void | Promise<void>;
 }
 
 type UploadStatus = 'pending' | 'uploading' | 'success' | 'error' | 'paused';
@@ -217,37 +218,16 @@ export default function ImageUploadZone({ albumId, onUploadComplete }: Props) {
         !file.error && file.status !== 'success'
       )];
 
-      const activeUploads: Promise<void>[] = [];
-      let completed = 0;
-      let failed = 0;
-
-      while (queue.length > 0 || activeUploads.length > 0) {
-        // Check if cancelled
-        if (uploadControllerRef.current.cancel) {
-          break;
-        }
-
-        // Start new uploads up to CONCURRENT_UPLOADS
-        while (activeUploads.length < CONCURRENT_UPLOADS && queue.length > 0) {
-          const { file, index } = queue.shift()!;
-
-          const uploadPromise = uploadSingleFile(file, index)
-            .then(() => {
-              completed++;
-            })
-            .catch(() => {
-              failed++;
-            });
-
-          activeUploads.push(uploadPromise);
-        }
-
-        // Wait for at least one upload to complete
-        if (activeUploads.length > 0) {
-          await Promise.race(activeUploads);
-          activeUploads.splice(0, 1);
-        }
-      }
+      const { completed, failed } = await runUploadQueue(
+        queue,
+        CONCURRENT_UPLOADS,
+        async ({ file, index }) => {
+          if (uploadControllerRef.current.cancel) {
+            throw new Error('Upload cancelled');
+          }
+          await uploadSingleFile(file, index);
+        },
+      );
 
       // Summary
       if (uploadControllerRef.current.cancel) {
@@ -263,7 +243,7 @@ export default function ImageUploadZone({ albumId, onUploadComplete }: Props) {
 
       // Reload album if any success
       if (completed > 0) {
-        onUploadComplete();
+        await onUploadComplete();
       }
     } catch (error: any) {
       console.error('Upload failed:', error);
@@ -285,7 +265,7 @@ export default function ImageUploadZone({ albumId, onUploadComplete }: Props) {
 
       // Remove from list if success
       setFiles((prev) => prev.filter((_, i) => i !== index));
-      onUploadComplete();
+      await onUploadComplete();
     } catch (error) {
       toast.error(`Upload thất bại ${fileItem.file.name}`);
     }
@@ -461,11 +441,6 @@ export default function ImageUploadZone({ albumId, onUploadComplete }: Props) {
 
                 {/* Status Icon */}
                 <div className="flex-shrink-0">
-                  {fileItem.status === 'pending' && (
-                    <div className="text-gray-400">
-                      <Upload size={20} />
-                    </div>
-                  )}
                   {fileItem.status === 'uploading' && (
                     <div className="text-blue-600">
                       <Loader2 size={20} className="animate-spin" />

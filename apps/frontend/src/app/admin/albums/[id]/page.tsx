@@ -35,16 +35,18 @@ export default function AlbumDetailPage() {
     }
   }, [slug]);
 
-  async function loadAlbum() {
+  async function loadAlbum(
+    { showLoading = true }: { showLoading?: boolean } = {},
+  ): Promise<void> {
     try {
-      setLoading(true);
+      if (showLoading) setLoading(true);
       const data = await getAlbum(slug, true, true); // Use authenticated read for draft albums
       setAlbum(data);
     } catch (error) {
       console.error('Failed to load album:', error);
       toast.error('Không thể tải album');
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   }
 
@@ -86,9 +88,8 @@ export default function AlbumDetailPage() {
     }
   }
 
-  function handleUploadComplete() {
-    // Reload album để lấy images mới
-    loadAlbum();
+  async function handleUploadComplete(): Promise<void> {
+    await loadAlbum({ showLoading: false });
   }
 
   if (loading) {
