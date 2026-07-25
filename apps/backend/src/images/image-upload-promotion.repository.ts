@@ -239,7 +239,12 @@ async function settleAndCommit(
       return promotion;
     }
 
-    const image = await transaction.image.create({ data: input.image });
+    // Promotion-committed images are fully materialized in R2 with variants,
+    // so they must be visible to public reads (which filter uploadStatus =
+    // 'completed'). The legacy default 'pending' would hide them, so force it.
+    const image = await transaction.image.create({
+      data: { ...input.image, uploadStatus: 'completed' },
+    });
     await transaction.album.updateMany({
       where: { id: input.image.albumId },
       data: { imageCount: { increment: 1 } },
