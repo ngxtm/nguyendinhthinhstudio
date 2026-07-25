@@ -65,6 +65,7 @@ function createPresentationHarness() {
       findMany: jest.fn().mockResolvedValue([]),
       create: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn().mockResolvedValue({ count: 0 }),
       findFirst: jest.fn().mockResolvedValue(null),
     },
     image: {
@@ -85,6 +86,7 @@ function createPresentationHarness() {
     })),
   };
   const uploadCleanup = { cleanupExpired: jest.fn().mockResolvedValue({}) };
+  const recommendationService = { clearCache: jest.fn() };
 
   return {
     prisma,
@@ -94,6 +96,7 @@ function createPresentationHarness() {
       {} as any,
       uploadCleanup,
       imagePresenter,
+      recommendationService,
     ) as AlbumsService,
   };
 }
@@ -151,6 +154,7 @@ function createHarness(
     ),
   };
   const uploadCleanup = { cleanupExpired: jest.fn().mockResolvedValue({}) };
+  const recommendationService = { clearCache: jest.fn() };
   return {
     prisma,
     tx,
@@ -161,6 +165,7 @@ function createHarness(
       {} as any,
       uploadCleanup as any,
       { presentImage: jest.fn() },
+      recommendationService,
     ) as AlbumsService,
   };
 }
@@ -398,7 +403,7 @@ describe('AlbumsService image presentation', () => {
       albumRecord({ coverImage, images }),
     );
 
-    const result = await service.findBySlug('wedding-album', true);
+    const result = await service.findBySlug('wedding-album');
 
     expect(result.coverImage.thumbnailUrl).toBe('presented://detail-cover');
     expect(result.images.map((image: any) => image.thumbnailUrl)).toEqual([
@@ -406,6 +411,39 @@ describe('AlbumsService image presentation', () => {
       'presented://detail-2',
     ]);
     expect(imagePresenter.presentImage).toHaveBeenCalledTimes(3);
+  });
+
+  it('incrementView increments viewCount for an active published album via a single guarded updateMany', async () => {
+    const { prisma, service } = createPresentationHarness();
+    prisma.album.updateMany.mockResolvedValueOnce({ count: 1 });
+
+    await service.incrementView('album-1');
+
+    expect(prisma.album.updateMany).toHaveBeenCalledWith({
+      where: { slug: 'album-1', status: 'published', deleteStatus: 'active' },
+      data: { viewCount: { increment: 1 } },
+    });
+    expect(prisma.album.findUnique).not.toHaveBeenCalled();
+  });
+
+  it('incrementView is a no-op when the album is missing or deleted', async () => {
+    const { prisma, service } = createPresentationHarness();
+    prisma.album.updateMany.mockResolvedValueOnce({ count: 0 });
+
+    await service.incrementView('missing');
+
+    expect(prisma.album.updateMany).toHaveBeenCalledTimes(1);
+  });
+
+  it('findBySlug does not increment view count (delegated to incrementView)', async () => {
+    const { prisma, service } = createPresentationHarness();
+    prisma.album.findUnique.mockResolvedValueOnce(albumRecord());
+
+    await service.findBySlug('wedding-album');
+
+    expect(prisma.album.update).not.toHaveBeenCalledWith(
+      expect.objectContaining({ data: { viewCount: { increment: 1 } } }),
+    );
   });
 
   it('presents the cover returned by update', async () => {

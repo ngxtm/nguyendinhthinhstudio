@@ -19,6 +19,7 @@ import { CreateAlbumDto } from './dto/create-album.dto';
 import { UpdateAlbumDto } from './dto/update-album.dto';
 import { QueryAlbumsDto } from './dto/query-albums.dto';
 import { SetCoverDto } from './dto/set-cover.dto';
+import { RecommendationService } from './recommendation.service';
 
 type CategoryAssignment = {
   categoryId: string;
@@ -49,6 +50,7 @@ export class AlbumsService {
     private readonly storage: StorageService,
     private readonly uploadCleanup: UploadCleanupService,
     private readonly imagePresenter: ImagePresenterService,
+    private readonly recommendationService: RecommendationService,
   ) {}
 
   /**
@@ -138,6 +140,8 @@ export class AlbumsService {
     });
 
     this.logger.log(`Album created: ${album.id}`);
+    // A new published album should appear in other albums' related lists immediately.
+    this.recommendationService.clearCache();
     return this.presentAlbum(album);
   }
 
@@ -307,9 +311,11 @@ export class AlbumsService {
 
   /**
    * Find album by slug
-   * @param skipViewIncrement - Skip view count increment (for metadata/admin requests)
+   * Reads only — view count is incremented by the dedicated `incrementView`
+   * endpoint (`POST /albums/:slug/view`) so prefetch/SSR metadata requests
+   * don't double-count.
    */
-  async findBySlug(slug: string, skipViewIncrement = false) {
+  async findBySlug(slug: string) {
     const album = await this.prisma.album.findUnique({
       where: { slug, status: 'published', deleteStatus: 'active' },
       include: {
@@ -338,19 +344,26 @@ export class AlbumsService {
       throw new NotFoundException('Album not found');
     }
 
-    // Increment view count only for actual page views (not metadata requests)
-    if (!skipViewIncrement) {
-      this.prisma.album
-        .update({
-          where: { id: album.id },
-          data: { viewCount: { increment: 1 } },
-        })
-        .catch((err) => {
-          this.logger.error(`Failed to increment view count: ${err}`);
-        });
-    }
-
     return this.presentPublicAlbum(album);
+  }
+
+  /**
+   * Increment an album's view count by 1.
+   * Called once per real page view from the client. Single guarded write:
+   * the where-clause (slug + published + active) prevents incrementing a
+   * draft/soft-deleted album (no TOCTOU window), and the write is awaited so
+   * the caller gets a non-2xx signal on DB failure.
+   */
+  async incrementView(slug: string): Promise<void> {
+    const result = await this.prisma.album.updateMany({
+      where: { slug, status: 'published', deleteStatus: 'active' },
+      data: { viewCount: { increment: 1 } },
+    });
+
+    if (result.count === 0) {
+      // Album missing, draft, or soft-deleted: no-op. Don't leak existence.
+      return;
+    }
   }
 
   async findAdminById(id: string) {
@@ -494,6 +507,8 @@ export class AlbumsService {
     });
 
     this.logger.log(`Album updated: ${id}`);
+    // Album visibility/tags/categories may have changed; invalidate related-album cache.
+    this.recommendationService.clearCache();
     return this.presentAlbum(updated);
   }
 
@@ -579,6 +594,9 @@ export class AlbumsService {
     );
 
     this.logger.log(`Album deleted: ${id} (${imagesDeleted} images removed)`);
+    // Album is gone from public lists; invalidate related-album cache so it
+    // stops appearing in "explore more" across all albums.
+    this.recommendationService.clearCache();
     return {
       message: 'Album deleted successfully',
       imagesDeleted,
@@ -631,6 +649,9 @@ export class AlbumsService {
       },
     });
 
+    // Cover image is cached per candidate in recommendation results; the new
+    // cover must propagate to other albums' "explore more" strips.
+    this.recommendationService.clearCache();
     return this.presentAlbum(updated);
   }
 

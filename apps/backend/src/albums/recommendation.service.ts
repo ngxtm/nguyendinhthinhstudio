@@ -33,7 +33,7 @@ export class RecommendationService {
 
     // Get current album with tags
     const currentAlbum = await this.prisma.album.findUnique({
-      where: { slug: albumSlug, status: 'published' },
+      where: { slug: albumSlug, status: 'published', deleteStatus: 'active' },
       include: {
         tags: {
           include: {
@@ -52,6 +52,7 @@ export class RecommendationService {
     const candidates = await this.prisma.album.findMany({
       where: {
         status: 'published',
+        deleteStatus: 'active',
         id: { not: currentAlbum.id },
       },
       include: {
@@ -221,6 +222,7 @@ export class RecommendationService {
     return this.prisma.album.findMany({
       where: {
         status: 'published',
+        deleteStatus: 'active',
         id: { notIn: excludeIds },
       },
       include: {

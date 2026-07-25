@@ -8,6 +8,7 @@
 import { useState } from 'react'
 import { Plus, FolderOpen, Image, Eye, Tag, Folder, TrendingUp } from 'lucide-react'
 import { listAlbums, getAlbumDashboardStats, type Album, type AlbumDashboardStats } from '@/lib/api/albums'
+import { formatFullCount } from '@/lib/format'
 import { useAbortableEffect } from './hooks'
 
 export default function AdminDashboard() {
@@ -100,7 +101,7 @@ export default function AdminDashboard() {
         />
         <StatCard
           title="Tổng Lượt Xem"
-          value={stats.totalViews.toLocaleString()}
+          value={formatFullCount(stats.totalViews)}
           description="Views trên tất cả albums"
           icon={<TrendingUp className="w-6 h-6" />}
           color="orange"
@@ -191,7 +192,7 @@ export default function AdminDashboard() {
                         </span>
                         <span className="flex items-center gap-1">
                           <Eye size={14} />
-                          {album.viewCount} views
+                          {formatFullCount(album.viewCount)} views
                         </span>
                         <span className={`px-2 py-0.5 rounded text-xs font-medium ${
                           album.status === 'published'

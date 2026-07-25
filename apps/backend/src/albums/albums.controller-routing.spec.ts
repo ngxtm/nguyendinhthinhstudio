@@ -13,6 +13,7 @@ describe('AlbumsController route ordering', () => {
     findBySlug: jest.fn(),
     findAdminAll: jest.fn(),
     findAdminBySlug: jest.fn(),
+    incrementView: jest.fn().mockResolvedValue(undefined),
   };
 
   beforeEach(async () => {

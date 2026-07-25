@@ -113,4 +113,62 @@ describe('RecommendationService image presentation', () => {
     expect(prisma.album.findUnique).toHaveBeenCalledTimes(1);
     expect(prisma.album.findMany).toHaveBeenCalledTimes(1);
   });
+
+  it('only queries active (non-soft-deleted) albums for the current album, candidates, and fallbacks', async () => {
+    const currentAlbum = albumRecord('current-album');
+    const candidate = albumRecord('candidate-album');
+    const prisma: any = {
+      album: {
+        findUnique: jest.fn().mockResolvedValue(currentAlbum),
+        findMany: jest.fn().mockResolvedValue([candidate]),
+      },
+    };
+    const imagePresenter = { presentImage: jest.fn((image: any) => image) };
+    const service = new (RecommendationService as any)(
+      prisma,
+      imagePresenter,
+    ) as RecommendationService;
+
+    await service.getRelatedAlbums('current-album', 1);
+
+    // current album lookup must require an active published album
+    const currentCall = prisma.album.findUnique.mock.calls[0][0];
+    expect(currentCall.where).toMatchObject({
+      slug: 'current-album',
+      status: 'published',
+      deleteStatus: 'active',
+    });
+
+    // candidate query must exclude soft-deleted albums
+    const candidateCall = prisma.album.findMany.mock.calls[0][0];
+    expect(candidateCall.where).toMatchObject({
+      status: 'published',
+      deleteStatus: 'active',
+    });
+  });
+
+  it('does not return soft-deleted albums from the fallback pool', async () => {
+    const currentAlbum = albumRecord('current-album');
+    const prisma: any = {
+      album: {
+        findUnique: jest.fn().mockResolvedValue(currentAlbum),
+        findMany: jest.fn().mockResolvedValue([]), // no qualified candidates → triggers fallback
+      },
+    };
+    const imagePresenter = { presentImage: jest.fn((image: any) => image) };
+    const service = new (RecommendationService as any)(
+      prisma,
+      imagePresenter,
+    ) as RecommendationService;
+
+    await service.getRelatedAlbums('current-album', 1);
+
+    // findMany is called twice: call 0 = candidate query, call 1 = fallback.
+    expect(prisma.album.findMany).toHaveBeenCalledTimes(2);
+    const fallbackCall = prisma.album.findMany.mock.calls[1][0];
+    expect(fallbackCall.where).toMatchObject({
+      status: 'published',
+      deleteStatus: 'active',
+    });
+  });
 });
