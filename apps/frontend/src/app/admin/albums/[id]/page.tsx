@@ -17,6 +17,7 @@ import {
   type Album,
   type Image,
 } from '@/lib/api';
+import { formatFullCount } from '@/lib/format';
 import ImageUploadZone from '../../components/ImageUploadZone';
 import ImageGrid from '../../components/ImageGrid';
 
@@ -40,7 +41,7 @@ export default function AlbumDetailPage() {
   ): Promise<void> {
     try {
       if (showLoading) setLoading(true);
-      const data = await getAlbum(slug, true, true); // Use authenticated read for draft albums
+      const data = await getAlbum(slug, true); // Use authenticated read for draft albums
       setAlbum(data);
     } catch (error) {
       console.error('Failed to load album:', error);
@@ -173,7 +174,7 @@ export default function AlbumDetailPage() {
           </div>
           <div>
             <p className="text-sm text-gray-500">Views</p>
-            <p className="font-medium">{album.viewCount}</p>
+            <p className="font-medium">{formatFullCount(album.viewCount)}</p>
           </div>
         </div>
       </div>

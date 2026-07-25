@@ -8,7 +8,8 @@
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, Eye, Calendar } from 'lucide-react'
-import { type Album, normalizeAlbumTags, normalizeAlbumCategories } from '@/lib/api'
+import { type Album, normalizeAlbumTags, normalizeAlbumCategories, incrementAlbumView } from '@/lib/api'
+import { formatCompactCount } from '@/lib/format'
 import Masonry from 'react-masonry-css'
 import PhotoSwipeLightbox from 'photoswipe/lightbox'
 import 'photoswipe/style.css'
@@ -24,10 +25,45 @@ export default function AlbumDetailClient({ album, relatedAlbums }: Props) {
   const [imagesLoaded, setImagesLoaded] = useState(false)
   const [imageDimensions, setImageDimensions] = useState<Record<string, { width: number; height: number }>>({})
   const lightboxRef = useRef<PhotoSwipeLightbox | null>(null)
+  // In-memory dedupe for environments where sessionStorage is unavailable
+  // (Safari private mode). Survives re-mounts within the same tab session.
+  const viewedRef = useRef<Set<string>>(new Set())
 
   const displayTags = normalizeAlbumTags(album.tags)
   const displayCategories = normalizeAlbumCategories(album.categories)
   const primaryCategory = album.primaryCategory || displayCategories.find(cat => cat.source === 'manual') || null
+
+  // Record one real page view (server no longer increments on GET).
+  // Deduped across re-mounts/reloads in the same tab via sessionStorage; the
+  // key is only persisted AFTER the POST succeeds, so a failed first attempt
+  // retries on the next mount instead of being permanently dropped.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const key = `ndt:view:${album.slug}`
+
+    let storageAvailable = true
+    try {
+      if (sessionStorage.getItem(key)) return
+    } catch {
+      storageAvailable = false
+    }
+    if (viewedRef.current.has(key)) return
+
+    incrementAlbumView(album.slug)
+      .then(() => {
+        viewedRef.current.add(key)
+        if (storageAvailable) {
+          try {
+            sessionStorage.setItem(key, '1')
+          } catch {
+            // Best-effort persist; in-memory guard still prevents re-fire.
+          }
+        }
+      })
+      .catch(() => {
+        // Leave the guard unset so a later mount can retry.
+      })
+  }, [album.slug])
 
   // Preload all images before showing and get real dimensions
   useEffect(() => {
@@ -189,7 +225,7 @@ export default function AlbumDetailClient({ album, relatedAlbums }: Props) {
                     {album.imageCount} ảnh
                   </span>
                   <span>•</span>
-                  <span>{album.viewCount} lượt xem</span>
+                  <span>{formatCompactCount(album.viewCount)} lượt xem</span>
                 </div>
 
                 {/* Category Badges */}

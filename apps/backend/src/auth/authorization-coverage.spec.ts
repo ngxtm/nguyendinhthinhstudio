@@ -17,7 +17,7 @@ const contracts: Array<{
 }> = [
   {
     controller: AlbumsController,
-    public: ['findAll', 'findOne', 'getRelated'],
+    public: ['findAll', 'findOne', 'getRelated', 'recordView'],
     admin: [
       'create',
       'getDashboardStats',

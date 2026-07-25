@@ -86,7 +86,7 @@ export default function EditAlbumPage() {
     try {
       setLoadingData(true);
       const [albumData, allTags, allCategories] = await Promise.all([
-        getAlbum(slug, true, true), // Skip view increment for admin
+        getAlbum(slug, true), // Authenticated read for draft albums
         getTags(true),
         getCategories(true),
       ]);

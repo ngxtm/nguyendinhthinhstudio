@@ -228,23 +228,32 @@ export async function listAlbums(
 
 /**
  * Get album by slug
- * @param skipViewIncrement - Skip incrementing view count (for metadata/admin requests)
+ * Reads only — view count is incremented separately via `incrementAlbumView`.
  */
 export function adminAlbumBySlugEndpoint(slug: string): string {
   return `/albums/admin/slug/${encodeURIComponent(slug)}`;
 }
 
-export async function getAlbum(slug: string, skipViewIncrement = false, admin = false): Promise<Album> {
-  const path = admin ? adminAlbumBySlugEndpoint(slug) : `/albums/${slug}`;
-  const url = `${path}${skipViewIncrement && !admin ? '?skipViewIncrement=true' : ''}`;
-  return (admin ? adminApiClient : apiClient)<Album>(url);
+export async function getAlbum(slug: string, admin = false): Promise<Album> {
+  const path = admin ? adminAlbumBySlugEndpoint(slug) : `/albums/${encodeURIComponent(slug)}`;
+  return (admin ? adminApiClient : apiClient)<Album>(path);
+}
+
+/**
+ * Record a single album page view (increments view count by 1).
+ * Call once per real page view from the client.
+ */
+export async function incrementAlbumView(slug: string): Promise<void> {
+  await apiClient<void>(`/albums/${encodeURIComponent(slug)}/view`, {
+    method: 'POST',
+  });
 }
 
 /**
  * Get related albums
  */
 export async function getRelatedAlbums(slug: string): Promise<Album[]> {
-  return apiClient<Album[]>(`/albums/${slug}/related`);
+  return apiClient<Album[]>(`/albums/${encodeURIComponent(slug)}/related`);
 }
 
 export async function getAlbumDashboardStats(): Promise<AlbumDashboardStats> {

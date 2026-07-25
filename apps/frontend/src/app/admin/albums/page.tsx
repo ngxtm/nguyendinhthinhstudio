@@ -10,6 +10,7 @@ import Link from 'next/link';
 import { Plus, Edit, Trash2, Eye, Star, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { listAlbums, deleteAlbum, toggleFeatured, type Album } from '@/lib/api';
+import { formatFullCount } from '@/lib/format';
 import { useAbortableEffect, useDebouncedValue } from '../hooks';
 
 type AlbumFilter = 'all' | 'published' | 'draft';
@@ -289,7 +290,7 @@ function AlbumRow({
         <span className="text-sm text-gray-900">{album.imageCount}</span>
       </td>
       <td className="px-6 py-4">
-        <span className="text-sm text-gray-900">{album.viewCount}</span>
+        <span className="text-sm text-gray-900">{formatFullCount(album.viewCount)}</span>
       </td>
       <td className="px-6 py-4">
         <div className="flex items-center justify-end gap-2">

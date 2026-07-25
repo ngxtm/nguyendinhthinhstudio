@@ -1,4 +1,5 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, Query, UseGuards } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { AlbumsService } from './albums.service';
 import { RecommendationService } from './recommendation.service';
@@ -70,6 +71,15 @@ export class AlbumsController {
     @Param('slug') slug: string,
   ) {
     return this.albumsService.findBySlug(slug);
+  }
+
+  @Post(':slug/view')
+  @Public()
+  @Throttle({ default: { limit: 30, ttl: 60000 } }) // 30 views/min/IP — tight per-album view counter
+  @ApiOperation({ summary: 'Record a single album page view (increment view count)' })
+  @ApiResponse({ status: 200, description: 'View recorded' })
+  recordView(@Param('slug') slug: string) {
+    return this.albumsService.incrementView(slug);
   }
 
   @Get(':slug/related')

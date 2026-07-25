@@ -19,7 +19,7 @@ type Props = {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   try {
-    const album = await getAlbum(slug, true); // Skip view increment for metadata
+    const album = await getAlbum(slug);
 
     const resolvedTags = normalizeAlbumTags(album.tags);
     const tagNames = resolvedTags.map((t) => t.name);

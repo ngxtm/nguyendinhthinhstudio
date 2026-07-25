@@ -69,7 +69,8 @@ const BASE_PHOTOSWIPE_OPTIONS: Partial<ExtendedPhotoSwipeOptions> = {
 
   // Animation
   showHideAnimationType: 'zoom',
-  maxWidthToAnimate: 768,
+  // No maxWidthToAnimate cap: run the zoom open/close transition on every
+  // viewport size (desktop included) so the lightbox doesn't snap open.
   transitionDuration: 420,
   easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
   zoomAnimationDuration: 380,
