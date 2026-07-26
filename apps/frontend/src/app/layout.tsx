@@ -136,7 +136,7 @@ export default function RootLayout({
   }
 
   return (
-    <html lang="vi">
+    <html lang="vi" data-scroll-behavior="smooth">
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} ${kapakana.variable} ${montserrat.variable} antialiased`}
       >
@@ -146,7 +146,6 @@ export default function RootLayout({
           id="organization-schema"
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
-          strategy="beforeInteractive"
         />
       </body>
     </html>

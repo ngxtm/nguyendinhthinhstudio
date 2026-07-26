@@ -114,7 +114,7 @@ export default function Contact() {
             </div>
 
             {/* Thông tin liên hệ */}
-            <div className="w-full space-y-8 lg:w-3/8">
+            <div className="w-full space-y-8 lg:w-1/3">
               <div className="space-y-6">
                 <h2 className="font-kapakana text-center text-2xl text-gray-800 md:text-3xl">
                   Nguyen Dinh Thinh Studio

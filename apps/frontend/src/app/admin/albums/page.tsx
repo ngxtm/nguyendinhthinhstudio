@@ -3,115 +3,136 @@
  * Hiển thị danh sách albums với actions
  */
 
-'use client';
+'use client'
 
-import { useMemo, useState, type ReactNode } from 'react';
-import Link from 'next/link';
-import { Plus, Edit, Trash2, Eye, Star, Search } from 'lucide-react';
-import { toast } from 'sonner';
-import { listAlbums, deleteAlbum, toggleFeatured, type Album } from '@/lib/api';
-import { formatFullCount } from '@/lib/format';
-import { useAbortableEffect, useDebouncedValue } from '../hooks';
+import { useMemo, useState, type ReactNode } from 'react'
+import ConfirmDialog from '../components/ConfirmDialog'
+import Link from 'next/link'
+import { Plus, Edit, Trash2, Eye, Star, Search } from 'lucide-react'
+import { toast } from 'sonner'
+import { listAlbums, deleteAlbum, toggleFeatured, type Album } from '@/lib/api'
+import { formatFullCount } from '@/lib/format'
+import { useAbortableEffect, useDebouncedValue } from '../hooks'
 
-type AlbumFilter = 'all' | 'published' | 'draft';
+type AlbumFilter = 'all' | 'published' | 'draft'
 
 export default function AlbumsPage() {
-  const [albums, setAlbums] = useState<Album[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<AlbumFilter>('all');
-  const [searchTerm, setSearchTerm] = useState('');
+  const [albums, setAlbums] = useState<Album[]>([])
+  const [loading, setLoading] = useState(true)
+  const [filter, setFilter] = useState<AlbumFilter>('all')
+  const [searchTerm, setSearchTerm] = useState('')
 
-  const debouncedSearch = useDebouncedValue(searchTerm, 300);
-  const trimmedSearch = debouncedSearch.trim();
+  const debouncedSearch = useDebouncedValue(searchTerm, 300)
+  const trimmedSearch = debouncedSearch.trim()
 
-  useAbortableEffect((signal) => {
-    async function loadAlbums() {
-      try {
-        setLoading(true);
-        const response = await listAlbums(
-          {
-            status: filter === 'all' ? undefined : filter,
-            limit: 50,
-            search: trimmedSearch ? trimmedSearch : undefined,
-          },
-          { signal, admin: true }
-        );
+  useAbortableEffect(
+    signal => {
+      async function loadAlbums() {
+        try {
+          setLoading(true)
+          const response = await listAlbums(
+            {
+              status: filter === 'all' ? undefined : filter,
+              limit: 50,
+              search: trimmedSearch ? trimmedSearch : undefined
+            },
+            { signal, admin: true }
+          )
 
-        if (!signal.aborted) {
-          setAlbums(response.data);
-        }
-      } catch (error: any) {
-        if (signal.aborted) {
-          return;
-        }
+          if (!signal.aborted) {
+            setAlbums(response.data)
+          }
+        } catch (error: any) {
+          if (signal.aborted) {
+            return
+          }
 
-        const isAbortError = error?.name === 'AbortError' || error instanceof DOMException && error.name === 'AbortError';
-        if (isAbortError) {
-          return;
-        }
+          const isAbortError =
+            error?.name === 'AbortError' || (error instanceof DOMException && error.name === 'AbortError')
+          if (isAbortError) {
+            return
+          }
 
-        console.error('Failed to load albums:', error);
-        toast.error('Không thể tải danh sách albums');
-      } finally {
-        if (!signal.aborted) {
-          setLoading(false);
+          console.error('Failed to load albums:', error)
+          toast.error('Không thể tải danh sách albums')
+        } finally {
+          if (!signal.aborted) {
+            setLoading(false)
+          }
         }
       }
-    }
 
-    loadAlbums();
-  }, [filter, trimmedSearch]);
+      loadAlbums()
+    },
+    [filter, trimmedSearch]
+  )
 
-  const isSearching = trimmedSearch.length > 0;
+  const isSearching = trimmedSearch.length > 0
+  const [deleteCandidate, setDeleteCandidate] = useState<Album | null>(null)
+  const [isDeletePending, setIsDeletePending] = useState(false)
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Bạn có chắc muốn xóa album này?')) return;
+  const requestDelete = (album: Album) => {
+    if (!isDeletePending) setDeleteCandidate(album)
+  }
 
+  const handleConfirmDelete = async (): Promise<void> => {
+    if (!deleteCandidate || isDeletePending) return
+
+    setIsDeletePending(true)
     try {
-      await deleteAlbum(id);
-      setAlbums((previous) => previous.filter((album) => album.id !== id));
-      toast.success('Đã xóa album!');
+      await deleteAlbum(deleteCandidate.id)
+      setAlbums(previous => previous.filter(album => album.id !== deleteCandidate.id))
+      toast.success('Đã xóa album!')
+      setDeleteCandidate(null)
     } catch (error) {
-      console.error('Failed to delete album:', error);
-      toast.error('Không thể xóa album');
+      console.error('Failed to delete album:', error)
+      toast.error('Không thể xóa album')
+    } finally {
+      setIsDeletePending(false)
     }
-  };
+  }
 
   const handleToggleFeatured = async (album: Album) => {
     try {
-      const updated = await toggleFeatured(album.id);
-      setAlbums((previous) =>
-        previous.map((item) => (item.id === album.id ? updated : item)),
-      );
+      const updated = await toggleFeatured(album.id)
+      setAlbums(previous => previous.map(item => (item.id === album.id ? updated : item)))
     } catch (error) {
-      console.error('Failed to toggle featured:', error);
-      toast.error('Không thể cập nhật featured status');
+      console.error('Failed to toggle featured:', error)
+      toast.error('Không thể cập nhật featured status')
     }
-  };
+  }
 
   return (
     <div>
       <AlbumsHeader />
-      <AlbumsToolbar
-        filter={filter}
-        onFilterChange={setFilter}
-        search={searchTerm}
-        onSearchChange={setSearchTerm}
-      />
+      <AlbumsToolbar filter={filter} onFilterChange={setFilter} search={searchTerm} onSearchChange={setSearchTerm} />
       <AlbumsContent
         albums={albums}
         loading={loading}
         onToggleFeatured={handleToggleFeatured}
-        onDelete={handleDelete}
+        onDelete={requestDelete}
         isSearching={isSearching}
       />
+      <ConfirmDialog
+        open={deleteCandidate !== null}
+        title="Xóa album?"
+        description={
+          <>
+            Xóa album <strong>&quot;{deleteCandidate?.title}&quot;</strong>? Hành động này không thể hoàn tác.
+          </>
+        }
+        confirmLabel="Xóa album"
+        isPending={isDeletePending}
+        onClose={() => setDeleteCandidate(null)}
+        onConfirm={handleConfirmDelete}
+      />
     </div>
-  );
+  )
 }
 
 function AlbumsHeader() {
   return (
-    <div className="flex flex-col gap-3 mb-8 md:flex-row md:items-center md:justify-between">
+    <div className="mb-8 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
       <div>
         <h1 className="text-3xl font-bold text-gray-900">Albums</h1>
         <p className="text-gray-600">Quản lý danh sách albums và trạng thái hiển thị</p>
@@ -124,33 +145,33 @@ function AlbumsHeader() {
         Tạo Album Mới
       </Link>
     </div>
-  );
+  )
 }
 
 function AlbumsToolbar({
   filter,
   onFilterChange,
   search,
-  onSearchChange,
+  onSearchChange
 }: {
-  filter: AlbumFilter;
-  onFilterChange: (filter: AlbumFilter) => void;
-  search: string;
-  onSearchChange: (value: string) => void;
+  filter: AlbumFilter
+  onFilterChange: (filter: AlbumFilter) => void
+  search: string
+  onSearchChange: (value: string) => void
 }) {
   const filters = useMemo(
     () => [
       { label: 'Tất cả', value: 'all' as AlbumFilter },
       { label: 'Published', value: 'published' as AlbumFilter },
-      { label: 'Draft', value: 'draft' as AlbumFilter },
+      { label: 'Draft', value: 'draft' as AlbumFilter }
     ],
-    [],
-  );
+    []
+  )
 
   return (
-    <div className="flex flex-col gap-4 mb-6 md:flex-row md:items-center md:justify-between">
+    <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
       <div className="flex flex-wrap gap-2">
-        {filters.map((item) => (
+        {filters.map(item => (
           <FilterPill
             key={item.value}
             label={item.label}
@@ -160,17 +181,17 @@ function AlbumsToolbar({
         ))}
       </div>
       <div className="relative w-full md:w-72">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+        <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
         <input
           type="search"
           value={search}
-          onChange={(event) => onSearchChange(event.target.value)}
+          onChange={event => onSearchChange(event.target.value)}
           placeholder="Tìm kiếm album..."
-          className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-9 pr-3 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+          className="w-full rounded-lg border border-gray-300 bg-white py-2 pr-3 pl-9 text-sm text-gray-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none"
         />
       </div>
     </div>
-  );
+  )
 }
 
 function AlbumsContent({
@@ -178,45 +199,41 @@ function AlbumsContent({
   loading,
   onToggleFeatured,
   onDelete,
-  isSearching,
+  isSearching
 }: {
-  albums: Album[];
-  loading: boolean;
-  onToggleFeatured: (album: Album) => void;
-  onDelete: (id: string) => void;
-  isSearching: boolean;
+  albums: Album[]
+  loading: boolean
+  onToggleFeatured: (album: Album) => void
+  onDelete: (album: Album) => void
+  isSearching: boolean
 }) {
   if (loading) {
     return (
       <div className="py-12 text-center">
         <p className="text-gray-500">Đang tải danh sách albums...</p>
       </div>
-    );
+    )
   }
 
   if (albums.length === 0) {
-    return <EmptyState isSearching={isSearching} />;
+    return <EmptyState isSearching={isSearching} />
   }
 
   return (
     <div className="overflow-hidden rounded-lg bg-white shadow">
-      <AlbumsTable
-        albums={albums}
-        onToggleFeatured={onToggleFeatured}
-        onDelete={onDelete}
-      />
+      <AlbumsTable albums={albums} onToggleFeatured={onToggleFeatured} onDelete={onDelete} />
     </div>
-  );
+  )
 }
 
 function AlbumsTable({
   albums,
   onToggleFeatured,
-  onDelete,
+  onDelete
 }: {
-  albums: Album[];
-  onToggleFeatured: (album: Album) => void;
-  onDelete: (id: string) => void;
+  albums: Album[]
+  onToggleFeatured: (album: Album) => void
+  onDelete: (album: Album) => void
 }) {
   return (
     <table className="w-full">
@@ -231,40 +248,31 @@ function AlbumsTable({
         </tr>
       </thead>
       <tbody className="divide-y divide-gray-200">
-        {albums.map((album) => (
-          <AlbumRow
-            key={album.id}
-            album={album}
-            onToggleFeatured={onToggleFeatured}
-            onDelete={onDelete}
-          />
+        {albums.map(album => (
+          <AlbumRow key={album.id} album={album} onToggleFeatured={onToggleFeatured} onDelete={onDelete} />
         ))}
       </tbody>
     </table>
-  );
+  )
 }
 
 function AlbumRow({
   album,
   onToggleFeatured,
-  onDelete,
+  onDelete
 }: {
-  album: Album;
-  onToggleFeatured: (album: Album) => void;
-  onDelete: (id: string) => void;
+  album: Album
+  onToggleFeatured: (album: Album) => void
+  onDelete: (album: Album) => void
 }) {
-  const manualCategories = album.categories?.filter((cat) => cat.source === 'manual') ?? [];
+  const manualCategories = album.categories?.filter(cat => cat.source === 'manual') ?? []
 
   return (
     <tr className="hover:bg-gray-50">
       <td className="px-6 py-4">
         <div className="flex items-center gap-3">
           {album.coverImage ? (
-            <img
-              src={album.coverImage.thumbnailUrl}
-              alt={album.title}
-              className="h-12 w-12 rounded object-cover"
-            />
+            <img src={album.coverImage.thumbnailUrl} alt={album.title} className="h-12 w-12 rounded object-cover" />
           ) : (
             <div className="flex h-12 w-12 items-center justify-center rounded bg-gray-200">
               <Eye size={20} className="text-gray-400" />
@@ -278,9 +286,7 @@ function AlbumRow({
       </td>
       <td className="px-6 py-4">
         <span className="text-sm text-gray-600">
-          {manualCategories.length > 0
-            ? manualCategories.map((cat) => cat.name).join(', ')
-            : '-'}
+          {manualCategories.length > 0 ? manualCategories.map(cat => cat.name).join(', ') : '-'}
         </span>
       </td>
       <td className="px-6 py-4">
@@ -310,7 +316,7 @@ function AlbumRow({
             <Edit size={18} />
           </Link>
           <button
-            onClick={() => onDelete(album.id)}
+            onClick={() => onDelete(album)}
             className="rounded p-2 text-red-600 transition-colors hover:bg-gray-100"
           >
             <Trash2 size={18} />
@@ -318,7 +324,7 @@ function AlbumRow({
         </div>
       </td>
     </tr>
-  );
+  )
 }
 
 function EmptyState({ isSearching }: { isSearching: boolean }) {
@@ -337,16 +343,14 @@ function EmptyState({ isSearching }: { isSearching: boolean }) {
         </Link>
       )}
     </div>
-  );
+  )
 }
 
 function TableHeader({ children, align = 'left' }: { children: ReactNode; align?: 'left' | 'right' }) {
-  const alignment = align === 'right' ? 'text-right' : 'text-left';
+  const alignment = align === 'right' ? 'text-right' : 'text-left'
   return (
-    <th className={`px-6 py-3 text-xs font-medium uppercase tracking-wide text-gray-500 ${alignment}`}>
-      {children}
-    </th>
-  );
+    <th className={`px-6 py-3 text-xs font-medium tracking-wide text-gray-500 uppercase ${alignment}`}>{children}</th>
+  )
 }
 
 function FilterPill({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
@@ -361,21 +365,21 @@ function FilterPill({ label, active, onClick }: { label: string; active: boolean
     >
       {label}
     </button>
-  );
+  )
 }
 
 function StatusBadge({ status }: { status: string }) {
   const colors = {
     published: 'bg-green-100 text-green-800',
     draft: 'bg-gray-100 text-gray-800',
-    scheduled: 'bg-blue-100 text-blue-800',
-  } as const;
+    scheduled: 'bg-blue-100 text-blue-800'
+  } as const
 
-  const colorClass = colors[status as keyof typeof colors] ?? colors.draft;
+  const colorClass = colors[status as keyof typeof colors] ?? colors.draft
 
   return (
     <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${colorClass}`}>
       {status}
     </span>
-  );
+  )
 }

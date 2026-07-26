@@ -8,3 +8,5 @@ export * from './albums';
 export * from './images';
 export * from './tags';
 export * from './categories';
+export * from './site-settings';
+export * from './staff';

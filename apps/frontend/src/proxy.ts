@@ -25,14 +25,26 @@ export function proxy(request: NextRequest) {
   const production = process.env.NODE_ENV === 'production';
   const api = configuredOrigin(process.env.NEXT_PUBLIC_API_URL, 'NEXT_PUBLIC_API_URL', production);
   const supabase = configuredOrigin(process.env.NEXT_PUBLIC_SUPABASE_URL, 'NEXT_PUBLIC_SUPABASE_URL', production);
-  const connect = ["'self'", api, supabase].join(' ');
+  // R2 presigned PUT URLs land on <account>.r2.cloudflarestorage.com during
+  // direct-to-storage uploads (image pipeline + staff avatars). Allow the
+  // R2 host family so browser uploads aren't blocked by connect-src.
+  const connect = ["'self'", api, supabase, 'https://*.r2.cloudflarestorage.com'].join(' ');
   const reportOnly = process.env.ADMIN_CSP_REPORT_ONLY === 'true';
+  // React dev mode uses eval() for stack reconstruction; allow it only outside production.
+  const scriptSrc = production
+    ? `script-src 'self' 'nonce-${nonce}'`
+    : `script-src 'self' 'nonce-${nonce}' 'unsafe-eval'`;
+  // Local imgproxy serves http://localhost:8080 in dev (prod uses https://img.ndtstudio.site
+  // already covered by 'https:'). Allow loopback imgproxy only outside production.
+  const imgSrc = production
+    ? "img-src 'self' data: blob: https:"
+    : "img-src 'self' data: blob: https: http://localhost:8080 http://127.0.0.1:8080";
   const csp = [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}'`,
+    scriptSrc,
     "style-src 'self' 'unsafe-inline'",
     `connect-src ${connect}`,
-    "img-src 'self' data: blob: https:",
+    imgSrc,
     "font-src 'self' data:",
     "object-src 'none'",
     "base-uri 'self'",

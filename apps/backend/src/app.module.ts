@@ -16,6 +16,8 @@ import { CategoriesModule } from './categories/categories.module';
 import { AuthModule } from './auth/auth.module';
 import { AlbumsModule } from './albums/albums.module';
 import { ImagesModule } from './images/images.module';
+import { SiteSettingsModule } from './site-settings/site-settings.module';
+import { StaffModule } from './staff/staff.module';
 import { validateEnv } from './config/env.validation';
 import { AuditInterceptor } from './audit/audit.interceptor';
 
@@ -35,6 +37,8 @@ import { AuditInterceptor } from './audit/audit.interceptor';
     CategoriesModule,
     AlbumsModule,
     ImagesModule,
+    SiteSettingsModule,
+    StaffModule,
   ],
   controllers: [AppController],
   providers: [

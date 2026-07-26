@@ -8,6 +8,31 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+// ============ SITE SETTINGS ============
+
+model SiteSettings {
+  key       String   @id
+  value     String   // JSON-encoded value
+  updatedAt DateTime @updatedAt
+}
+
+// ============ STAFF ============
+
+model Staff {
+  id        String   @id @default(uuid())
+  fullName  String
+  phone     String?
+  email     String?  @unique
+  avatarUrl String?
+  role      String   @default("photographer") // 'photographer' | 'makeup_artist'
+  status    String   @default("active") // 'active' | 'inactive'
+  note      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([role, status])
+}
+
 // ============ ALBUMS & IMAGES ============
 
 model Category {

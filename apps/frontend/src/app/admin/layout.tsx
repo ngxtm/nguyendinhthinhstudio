@@ -13,9 +13,11 @@ import {
   Image as ImageIcon,
   Tag,
   FolderOpen,
-  Settings,
+  LibraryBig,
+  Users,
   Menu,
   X,
+  ChevronDown,
 } from 'lucide-react';
 import { Toaster } from 'sonner';
 import { useRouter } from 'next/navigation';
@@ -23,13 +25,24 @@ import { getBrowserSupabase } from '@/lib/auth/supabase';
 import { getAccessTokenRole, signOutAndReturnToAdminLogin } from '@/lib/auth/session';
 import { AdminAccessDenied } from './access-denied';
 
-const NAV_ITEMS = [
+type NavItem = { href: string; label: string; icon: React.ReactNode };
+type NavGroup = { group: string; icon: React.ReactNode; items: NavItem[] };
+type NavEntry = NavItem | NavGroup;
+
+const NAV_ENTRIES: NavEntry[] = [
   { href: '/admin', label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
-  { href: '/admin/albums', label: 'Albums', icon: <ImageIcon size={18} /> },
-  { href: '/admin/categories', label: 'Categories', icon: <FolderOpen size={18} /> },
-  { href: '/admin/tags', label: 'Tags', icon: <Tag size={18} /> },
-  { href: '/admin/settings', label: 'Settings', icon: <Settings size={18} /> },
-] as const;
+  {
+    group: 'Quản lý thư viện',
+    icon: <LibraryBig size={18} />,
+    items: [
+      { href: '/admin/albums', label: 'Albums', icon: <ImageIcon size={18} /> },
+      { href: '/admin/categories', label: 'Categories', icon: <FolderOpen size={18} /> },
+      { href: '/admin/tags', label: 'Tags', icon: <Tag size={18} /> },
+      { href: '/admin/library', label: 'Cấu hình thư viện', icon: <LibraryBig size={18} /> },
+    ],
+  },
+  { href: '/admin/staff', label: 'Quản lý nhân viên', icon: <Users size={18} /> },
+];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -37,6 +50,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [authState, setAuthState] = useState<'checking' | 'admin' | 'denied'>('checking');
   const [signingOut, setSigningOut] = useState(false);
+  // Auto-expand groups containing the active route; user can toggle afterwards.
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (pathname === '/admin/login') return;
@@ -86,7 +101,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
         {/* Sidebar */}
         <aside
-          className={`fixed inset-y-0 left-0 z-50 flex w-64 transform flex-col border-r border-gray-200 bg-white transition-transform duration-300 ease-in-out lg:static lg:z-0 lg:translate-x-0 lg:border-r lg:shadow-none ${
+          className={`fixed inset-y-0 left-0 z-50 flex w-64 transform flex-col border-r border-gray-200 bg-white transition-transform duration-300 ease-in-out lg:sticky lg:top-0 lg:z-30 lg:h-screen lg:translate-x-0 lg:border-r lg:shadow-none ${
             sidebarOpen ? 'translate-x-0 shadow-xl' : '-translate-x-full lg:translate-x-0'
           }`}
           aria-label="Sidebar navigation"
@@ -106,17 +121,39 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
 
           <nav className="flex-1 space-y-1 px-4 py-2">
-            {NAV_ITEMS.map((item) => {
-              const active = item.href === '/admin'
-                ? activePath === '/admin'
-                : activePath.startsWith(item.href);
+            {NAV_ENTRIES.map((entry) => {
+              if ('group' in entry) {
+                const groupActive = entry.items.some(
+                  (it) => it.href === '/admin'
+                    ? activePath === '/admin'
+                    : activePath.startsWith(it.href),
+                );
+                const isOpen = openGroups[entry.group] ?? groupActive;
+                return (
+                  <NavGroup
+                    key={entry.group}
+                    label={entry.group}
+                    icon={entry.icon}
+                    items={entry.items}
+                    activePath={activePath}
+                    isOpen={isOpen}
+                    onToggle={() =>
+                      setOpenGroups((prev) => ({ ...prev, [entry.group]: !isOpen }))
+                    }
+                    onNavigate={closeSidebar}
+                  />
+                );
+              }
 
+              const active = entry.href === '/admin'
+                ? activePath === '/admin'
+                : activePath.startsWith(entry.href);
               return (
                 <NavLink
-                  key={item.href}
-                  href={item.href}
-                  label={item.label}
-                  icon={item.icon}
+                  key={entry.href}
+                  href={entry.href}
+                  label={entry.label}
+                  icon={entry.icon}
                   active={active}
                   onNavigate={closeSidebar}
                 />
@@ -199,6 +236,61 @@ function NavLink({
       <span className={active ? 'text-blue-600' : 'text-gray-500'}>{icon}</span>
       <span>{label}</span>
     </Link>
+  );
+}
+
+function NavGroup({
+  label,
+  icon,
+  items,
+  activePath,
+  isOpen,
+  onToggle,
+  onNavigate,
+}: {
+  label: string;
+  icon: React.ReactNode;
+  items: NavItem[];
+  activePath: string;
+  isOpen: boolean;
+  onToggle: () => void;
+  onNavigate: () => void;
+}) {
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={isOpen}
+        className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 hover:text-gray-900"
+      >
+        <span className="text-gray-500">{icon}</span>
+        <span className="flex-1 text-left">{label}</span>
+        <ChevronDown
+          size={16}
+          className={`text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+        />
+      </button>
+      {isOpen && (
+        <div className="mt-1 ml-4 space-y-1 border-l border-gray-200 pl-3">
+          {items.map((item) => {
+            const active = item.href === '/admin'
+              ? activePath === '/admin'
+              : activePath.startsWith(item.href);
+            return (
+              <NavLink
+                key={item.href}
+                href={item.href}
+                label={item.label}
+                icon={item.icon}
+                active={active}
+                onNavigate={onNavigate}
+              />
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
 

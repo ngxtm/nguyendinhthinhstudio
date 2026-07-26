@@ -50,7 +50,14 @@ test('bulk removal opens a reusable confirmation dialog that confirms the remova
   )
   assert.match(
     source,
-    /<ConfirmDialog\b[\s\S]*?\bopen=\{[^}]*Bulk[^}]*\}[\s\S]*?\bonConfirm=\{onBulkRemove\}/,
-    'the bulk confirmation dialog must call onBulkRemove'
+    /<ConfirmDialog\b[\s\S]*?\bopen=\{bulkConfirmOpen\}[\s\S]*?\bonConfirm=\{handleConfirmBulkRemove\}/,
+    'the bulk confirmation dialog must call its confirmed removal handler'
   )
+})
+
+test('dependency modal opens albums by slug', () => {
+  const source = readSource('../src/app/admin/components/DeleteConfirmModal.tsx')
+
+  assert.match(source, /href=\{\`\/admin\/albums\/\$\{album\.slug\}\`\}/)
+  assert.doesNotMatch(source, /href=\{\`\/admin\/albums\/\$\{album\.id\}\`\}/)
 })

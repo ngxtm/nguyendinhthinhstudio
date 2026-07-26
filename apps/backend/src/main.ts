@@ -7,6 +7,16 @@ import * as bodyParser from 'body-parser';
 import { parseImageUploadRuntimeConfig } from './images/image-upload-runtime-config';
 import { IMAGE_UPLOAD_OPERATOR_SMOKE_HEADER_NAME } from './images/image-upload-ingress';
 
+// Local development: load .env from apps/backend before reading process.env.
+// In production (Dokploy) environment variables are injected into the container,
+// so this import is a no-op there.
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  require('dotenv').config();
+} catch {
+  // dotenv not installed in the production image; env already injected.
+}
+
 async function bootstrap() {
   const imageUploadRuntime = parseImageUploadRuntimeConfig(process.env, 'api');
   console.log(

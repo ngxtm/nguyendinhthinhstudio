@@ -6,17 +6,14 @@ import * as imagesApi from '../src/lib/api/images'
 
 test('admin album list always requests the authenticated admin collection', () => {
   const source = readFileSync(new URL('../src/app/admin/albums/page.tsx', import.meta.url), 'utf8')
-  const listCall = source.match(/await listAlbums\([\s\S]*?\n\s*\);/)?.[0]
+  const listCall = source.match(/await listAlbums\([\s\S]*?\n\s*\);?/)?.[0]
 
   assert.ok(listCall, 'admin album list call must remain present')
   assert.match(listCall, /\{\s*signal,\s*admin:\s*true\s*\}/)
 })
 
 test('admin album forms load taxonomy through the authenticated client', () => {
-  for (const relativePath of [
-    '../src/app/admin/albums/new/page.tsx',
-    '../src/app/admin/albums/[id]/edit/page.tsx'
-  ]) {
+  for (const relativePath of ['../src/app/admin/albums/new/page.tsx', '../src/app/admin/albums/[id]/edit/page.tsx']) {
     const source = readFileSync(new URL(relativePath, import.meta.url), 'utf8')
     assert.doesNotMatch(source, /\bgetTags\(\s*\)/, relativePath)
     assert.doesNotMatch(source, /\bgetCategories\(\s*\)/, relativePath)

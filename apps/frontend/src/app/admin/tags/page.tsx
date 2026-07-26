@@ -52,9 +52,10 @@ export default function TagsPage() {
     }
   }
 
-  const filteredTags = tags.filter(tag =>
-    tag.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    tag.slug.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredTags = tags.filter(
+    tag =>
+      tag.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      tag.slug.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
   function handleOpenCreateModal() {
@@ -132,16 +133,8 @@ export default function TagsPage() {
     }
   }
 
-  async function handleBulkRemove() {
-    if (!deletingTag) return
-
-    if (
-      !confirm(
-        `Xóa "${deletingTag.tag.name}" khỏi ${deletingTag.usage.albumCount} album?`
-      )
-    ) {
-      return
-    }
+  async function handleBulkRemove(): Promise<boolean> {
+    if (!deletingTag) return false
 
     setIsSubmitting(true)
     try {
@@ -149,9 +142,11 @@ export default function TagsPage() {
       toast.success(`Đã xóa tag khỏi ${result.removed} album!`)
       const newUsage = await checkTagUsage(deletingTag.tag.id)
       setDeletingTag({ ...deletingTag, usage: newUsage })
+      return true
     } catch (error: any) {
       console.error('Error:', error)
       toast.error(error.message || 'Không thể xóa hàng loạt')
+      return false
     } finally {
       setIsSubmitting(false)
     }
@@ -173,158 +168,148 @@ export default function TagsPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6">
-        {/* Header */}
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Quản lý Tags</h1>
-          <p className="mt-2 text-sm text-gray-600">
-            Quản lý các thẻ phân loại album (Tết, Mùa xuân, Nàng thơ, Cá tính, Sexy...)
-          </p>
-          <div className="mt-3 flex items-center gap-4 text-sm">
+      {/* Header */}
+      <div>
+        <h1 className="text-3xl font-bold text-gray-900">Quản lý Tags</h1>
+        <p className="mt-2 text-sm text-gray-600">
+          Quản lý các thẻ phân loại album (Tết, Mùa xuân, Nàng thơ, Cá tính, Sexy...)
+        </p>
+        <div className="mt-3 flex items-center gap-4 text-sm">
+          <span className="text-gray-700">
+            <span className="font-semibold text-blue-600">{tags.length}</span> tags tổng cộng
+          </span>
+          {searchQuery && (
             <span className="text-gray-700">
-              <span className="font-semibold text-blue-600">{tags.length}</span> tags tổng cộng
+              <span className="font-semibold text-green-600">{filteredTags.length}</span> kết quả tìm kiếm
             </span>
-            {searchQuery && (
-              <span className="text-gray-700">
-                <span className="font-semibold text-green-600">{filteredTags.length}</span> kết quả tìm kiếm
-              </span>
-            )}
-          </div>
+          )}
         </div>
+      </div>
 
-        {/* Search & Actions */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="relative w-full sm:max-w-xs md:max-w-sm">
-            <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Tìm kiếm tag..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
-            />
-          </div>
-          <button
-            onClick={handleOpenCreateModal}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 sm:w-auto"
+      {/* Search & Actions */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="relative w-full sm:max-w-xs md:max-w-sm">
+          <Search className="absolute top-1/2 left-3 h-5 w-5 -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Tìm kiếm tag..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            className="w-full rounded-lg border border-gray-300 py-2 pr-4 pl-10 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none"
+          />
+        </div>
+        <button
+          onClick={handleOpenCreateModal}
+          className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 sm:w-auto"
+        >
+          <Plus size={18} />
+          Thêm Tag
+        </button>
+      </div>
+
+      {/* Tags Display - Enhanced card grid */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {filteredTags.map(tag => (
+          <div
+            key={tag.id}
+            className="group relative rounded-xl border border-gray-200 bg-white p-4 transition-all duration-200 hover:border-blue-400 hover:shadow-lg"
           >
-            <Plus size={18} />
-            Thêm Tag
-          </button>
-        </div>
-
-        {/* Tags Display - Enhanced card grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {filteredTags.map(tag => (
-            <div
-              key={tag.id}
-              className="group relative rounded-xl border border-gray-200 bg-white p-4 hover:border-blue-400 hover:shadow-lg transition-all duration-200"
-            >
-              {/* Header with icon and name */}
-              <div className="mb-3 flex items-start justify-between">
-                <div className="flex items-start gap-3 flex-1 min-w-0">
-                  <div className="rounded-lg bg-blue-50 p-2 flex-shrink-0">
-                    <TagIcon size={18} className="text-blue-600" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-gray-900 text-base truncate">
-                      {tag.name}
-                    </h3>
-                    <div className="flex items-center gap-2 mt-1">
-                      <code className="text-xs text-gray-500 bg-gray-50 px-2 py-0.5 rounded truncate block max-w-[150px]">
-                        {tag.slug}
-                      </code>
-                      <button
-                        onClick={() => handleCopySlug(tag.slug)}
-                        className="text-gray-400 hover:text-blue-600 transition-colors"
-                        title="Copy slug"
-                      >
-                        {copiedSlug === tag.slug ? (
-                          <span className="text-green-600 text-xs font-medium">✓</span>
-                        ) : (
-                          <Copy size={12} />
-                        )}
-                      </button>
-                    </div>
-                  </div>
+            {/* Header with icon and name */}
+            <div className="mb-3 flex items-start justify-between">
+              <div className="flex min-w-0 flex-1 items-start gap-3">
+                <div className="flex-shrink-0 rounded-lg bg-blue-50 p-2">
+                  <TagIcon size={18} className="text-blue-600" />
                 </div>
-
-                <div className="ml-2 flex gap-1 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100">
-                  <button
-                    onClick={() => handleOpenEditModal(tag)}
-                    className="inline-flex items-center justify-center rounded p-1.5 bg-gray-100 text-gray-600 transition-colors hover:bg-blue-100 hover:text-blue-600"
-                    title="Chỉnh sửa"
-                  >
-                    <Edit2 size={14} />
-                  </button>
-                  <button
-                    onClick={() => handleDeleteClick(tag)}
-                    className="inline-flex items-center justify-center rounded p-1.5 bg-gray-100 text-gray-600 transition-colors hover:bg-red-100 hover:text-red-600"
-                    title="Xóa"
-                  >
-                    <Trash2 size={14} />
-                  </button>
+                <div className="min-w-0 flex-1">
+                  <h3 className="truncate text-base font-semibold text-gray-900">{tag.name}</h3>
+                  <div className="mt-1 flex items-center gap-2">
+                    <code className="block max-w-[150px] truncate rounded bg-gray-50 px-2 py-0.5 text-xs text-gray-500">
+                      {tag.slug}
+                    </code>
+                    <button
+                      onClick={() => handleCopySlug(tag.slug)}
+                      className="text-gray-400 transition-colors hover:text-blue-600"
+                      title="Copy slug"
+                    >
+                      {copiedSlug === tag.slug ? (
+                        <span className="text-xs font-medium text-green-600">✓</span>
+                      ) : (
+                        <Copy size={12} />
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
 
-              {/* Description */}
-              {tag.description ? (
-                <p className="text-sm text-gray-600 line-clamp-2 mb-3 min-h-[40px]">
-                  {tag.description}
-                </p>
-              ) : (
-                <p className="text-sm text-gray-400 italic mb-3 min-h-[40px]">
-                  Chưa có mô tả
-                </p>
-              )}
-
-              {/* Footer with quick link */}
-              <div className="flex items-center justify-end pt-3 border-t border-gray-100">
-                <a
-                  href={`/thu-vien?tag=${tag.slug}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1 hover:underline"
-                  title="Xem albums có tag này trên trang chủ"
+              <div className="ml-2 flex gap-1 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100">
+                <button
+                  onClick={() => handleOpenEditModal(tag)}
+                  className="inline-flex items-center justify-center rounded bg-gray-100 p-1.5 text-gray-600 transition-colors hover:bg-blue-100 hover:text-blue-600"
+                  title="Chỉnh sửa"
                 >
-                  Xem trên trang chủ
-                  <ExternalLink size={12} />
-                </a>
+                  <Edit2 size={14} />
+                </button>
+                <button
+                  onClick={() => handleDeleteClick(tag)}
+                  className="inline-flex items-center justify-center rounded bg-gray-100 p-1.5 text-gray-600 transition-colors hover:bg-red-100 hover:text-red-600"
+                  title="Xóa"
+                >
+                  <Trash2 size={14} />
+                </button>
               </div>
             </div>
-          ))}
-        </div>
 
-        {/* Empty state */}
-        {filteredTags.length === 0 && (
-          <div className="rounded-lg bg-white shadow p-12 text-center">
-            <TagIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
-              {searchQuery ? 'Không tìm thấy tag' : 'Chưa có tag nào'}
-            </h3>
-            <p className="text-sm text-gray-500 mb-6">
-              {searchQuery
-                ? 'Thử tìm kiếm với từ khóa khác'
-                : 'Tạo tag đầu tiên để bắt đầu phân loại album của bạn'}
-            </p>
-            {!searchQuery && (
-              <button
-                onClick={handleOpenCreateModal}
-                className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-              >
-                <Plus size={18} />
-                Thêm Tag Đầu Tiên
-              </button>
+            {/* Description */}
+            {tag.description ? (
+              <p className="mb-3 line-clamp-2 min-h-[40px] text-sm text-gray-600">{tag.description}</p>
+            ) : (
+              <p className="mb-3 min-h-[40px] text-sm text-gray-400 italic">Chưa có mô tả</p>
             )}
+
+            {/* Footer with quick link */}
+            <div className="flex items-center justify-end border-t border-gray-100 pt-3">
+              <a
+                href={`/thu-vien?tag=${tag.slug}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline"
+                title="Xem albums có tag này trên trang chủ"
+              >
+                Xem trên trang chủ
+                <ExternalLink size={12} />
+              </a>
+            </div>
           </div>
-        )}
+        ))}
+      </div>
+
+      {/* Empty state */}
+      {filteredTags.length === 0 && (
+        <div className="rounded-lg bg-white p-12 text-center shadow">
+          <TagIcon className="mx-auto mb-4 h-12 w-12 text-gray-400" />
+          <h3 className="mb-2 text-lg font-medium text-gray-900">
+            {searchQuery ? 'Không tìm thấy tag' : 'Chưa có tag nào'}
+          </h3>
+          <p className="mb-6 text-sm text-gray-500">
+            {searchQuery ? 'Thử tìm kiếm với từ khóa khác' : 'Tạo tag đầu tiên để bắt đầu phân loại album của bạn'}
+          </p>
+          {!searchQuery && (
+            <button
+              onClick={handleOpenCreateModal}
+              className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            >
+              <Plus size={18} />
+              Thêm Tag Đầu Tiên
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Create/Edit Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-lg rounded-lg bg-white p-6 shadow-xl">
-            <h2 className="text-xl font-semibold text-gray-900">
-              {editingTag ? 'Chỉnh sửa Tag' : 'Thêm Tag Mới'}
-            </h2>
+            <h2 className="text-xl font-semibold text-gray-900">{editingTag ? 'Chỉnh sửa Tag' : 'Thêm Tag Mới'}</h2>
             <form onSubmit={handleSubmit} className="mt-4 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700">Tên Tag *</label>
@@ -334,7 +319,7 @@ export default function TagsPage() {
                   value={formData.name}
                   onChange={e => handleNameChange(e.target.value)}
                   placeholder="VD: Tết, Mùa xuân, Nàng thơ, Cá tính, Sexy..."
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none"
                 />
               </div>
               <div>
@@ -345,7 +330,7 @@ export default function TagsPage() {
                   value={formData.slug}
                   onChange={e => setFormData({ ...formData, slug: e.target.value })}
                   placeholder="tet, mua-xuan, nang-tho..."
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none"
                 />
                 <p className="mt-1 text-xs text-gray-500">Tự động tạo từ tên, có thể chỉnh sửa</p>
               </div>
@@ -356,7 +341,7 @@ export default function TagsPage() {
                   onChange={e => setFormData({ ...formData, description: e.target.value })}
                   rows={3}
                   placeholder="Mô tả ngắn về tag..."
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none"
                 />
               </div>
               <div className="flex justify-end gap-3">

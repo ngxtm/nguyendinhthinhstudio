@@ -1,14 +1,15 @@
 'use client'
 
-import { Fragment } from 'react'
+import { Fragment, useState } from 'react'
 import { Dialog, Transition } from '@headlessui/react'
 import { AlertTriangle, X } from 'lucide-react'
+import ConfirmDialog from './ConfirmDialog'
 
 interface DeleteConfirmModalProps {
   isOpen: boolean
   onClose: () => void
   onConfirm: () => void
-  onBulkRemove?: () => void
+  onBulkRemove?: () => Promise<boolean>
   title: string
   itemName: string
   itemType: 'category' | 'tag'
@@ -36,10 +37,21 @@ export default function DeleteConfirmModal({
   isLoading = false
 }: DeleteConfirmModalProps) {
   const typeText = itemType === 'category' ? 'danh mục' : 'thẻ'
+  const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false)
+
+  const closeIfIdle = () => {
+    if (!isLoading) onClose()
+  }
+
+  const handleConfirmBulkRemove = async () => {
+    if (!onBulkRemove || isLoading) return
+
+    if (await onBulkRemove()) setBulkConfirmOpen(false)
+  }
 
   return (
     <Transition appear show={isOpen} as={Fragment}>
-      <Dialog as="div" className="relative z-50" onClose={onClose}>
+      <Dialog as="div" className="relative z-50" onClose={closeIfIdle}>
         <Transition.Child
           as={Fragment}
           enter="ease-out duration-300"
@@ -80,8 +92,10 @@ export default function DeleteConfirmModal({
                     </div>
                   </div>
                   <button
-                    onClick={onClose}
-                    className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                    type="button"
+                    disabled={isLoading}
+                    onClick={closeIfIdle}
+                    className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <X size={20} />
                   </button>
@@ -94,17 +108,14 @@ export default function DeleteConfirmModal({
                       {/* Warning Message */}
                       <div className="rounded-lg bg-amber-50 p-4">
                         <p className="text-sm text-amber-800">
-                          <strong>&quot;{itemName}&quot;</strong> đang được sử dụng trong{' '}
-                          <strong>{albumCount}</strong> album. Bạn cần xóa {typeText} khỏi các album
-                          trước khi có thể xóa nó.
+                          <strong>&quot;{itemName}&quot;</strong> đang được sử dụng trong <strong>{albumCount}</strong>{' '}
+                          album. Bạn cần xóa {typeText} khỏi các album trước khi có thể xóa nó.
                         </p>
                       </div>
 
                       {/* Albums List */}
                       <div className="mt-4">
-                        <h4 className="text-sm font-medium text-gray-900">
-                          Các album đang sử dụng {typeText} này:
-                        </h4>
+                        <h4 className="text-sm font-medium text-gray-900">Các album đang sử dụng {typeText} này:</h4>
                         <div className="mt-3 max-h-64 space-y-2 overflow-y-auto rounded-lg border border-gray-200 bg-gray-50 p-3">
                           {albums.map(album => (
                             <div
@@ -113,7 +124,7 @@ export default function DeleteConfirmModal({
                             >
                               <span className="font-medium text-gray-900">{album.title}</span>
                               <a
-                                href={`/admin/albums/${album.id}`}
+                                href={`/admin/albums/${album.slug}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="text-xs text-blue-600 hover:text-blue-800 hover:underline"
@@ -128,21 +139,18 @@ export default function DeleteConfirmModal({
                       {/* Bulk Remove Section */}
                       {onBulkRemove && (
                         <div className="mt-4 rounded-lg border-2 border-red-200 bg-red-50 p-4">
-                          <h4 className="text-sm font-semibold text-red-900">
-                            Xóa hàng loạt (Bulk Remove)
-                          </h4>
+                          <h4 className="text-sm font-semibold text-red-900">Xóa hàng loạt (Bulk Remove)</h4>
                           <p className="mt-1 text-xs text-red-700">
-                            Xóa <strong>&quot;{itemName}&quot;</strong> khỏi tất cả {albumCount} album cùng
-                            lúc. Hành động này không thể hoàn tác.
+                            Xóa <strong>&quot;{itemName}&quot;</strong> khỏi tất cả {albumCount} album cùng lúc. Hành
+                            động này không thể hoàn tác.
                           </p>
                           <button
-                            onClick={onBulkRemove}
+                            type="button"
+                            onClick={() => setBulkConfirmOpen(true)}
                             disabled={isLoading}
                             className="mt-3 w-full rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
                           >
-                            {isLoading
-                              ? 'Đang xóa...'
-                              : `Xóa "${itemName}" khỏi tất cả ${albumCount} album`}
+                            {isLoading ? 'Đang xóa...' : `Xóa "${itemName}" khỏi tất cả ${albumCount} album`}
                           </button>
                         </div>
                       )}
@@ -151,8 +159,8 @@ export default function DeleteConfirmModal({
                     <>
                       {/* Simple Delete Confirmation */}
                       <p className="text-sm text-gray-600">
-                        Bạn có chắc chắn muốn xóa {typeText} <strong>"{itemName}"</strong>? Hành
-                        động này không thể hoàn tác.
+                        Bạn có chắc chắn muốn xóa {typeText} <strong>"{itemName}"</strong>? Hành động này không thể hoàn
+                        tác.
                       </p>
                     </>
                   )}
@@ -161,13 +169,16 @@ export default function DeleteConfirmModal({
                 {/* Actions */}
                 <div className="mt-6 flex justify-end gap-3">
                   <button
-                    onClick={onClose}
-                    className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                    type="button"
+                    disabled={isLoading}
+                    onClick={closeIfIdle}
+                    className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     Hủy
                   </button>
                   {!isUsed && (
                     <button
+                      type="button"
                       onClick={onConfirm}
                       disabled={isLoading}
                       className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
@@ -176,6 +187,22 @@ export default function DeleteConfirmModal({
                     </button>
                   )}
                 </div>
+                {onBulkRemove && (
+                  <ConfirmDialog
+                    open={bulkConfirmOpen}
+                    title={`Xóa ${typeText} khỏi album?`}
+                    description={
+                      <>
+                        Xóa <strong>&quot;{itemName}&quot;</strong> khỏi <strong>{albumCount}</strong> album? Hành động
+                        này không thể hoàn tác.
+                      </>
+                    }
+                    confirmLabel="Xóa hàng loạt"
+                    isPending={isLoading}
+                    onClose={() => setBulkConfirmOpen(false)}
+                    onConfirm={handleConfirmBulkRemove}
+                  />
+                )}
               </Dialog.Panel>
             </Transition.Child>
           </div>

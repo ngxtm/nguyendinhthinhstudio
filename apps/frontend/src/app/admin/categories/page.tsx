@@ -135,27 +135,20 @@ export default function CategoriesPage() {
     }
   }
 
-  async function handleBulkRemove() {
-    if (!deletingCategory) return
-
-    if (
-      !confirm(
-        `Xóa "${deletingCategory.category.name}" khỏi ${deletingCategory.usage.albumCount} album?`
-      )
-    ) {
-      return
-    }
+  async function handleBulkRemove(): Promise<boolean> {
+    if (!deletingCategory) return false
 
     setIsSubmitting(true)
     try {
       const result = await bulkRemoveCategoryFromAlbums(deletingCategory.category.id)
       toast.success(`Đã xóa category khỏi ${result.removed} album!`)
-      // Reload usage info
       const newUsage = await checkCategoryUsage(deletingCategory.category.id)
       setDeletingCategory({ ...deletingCategory, usage: newUsage })
+      return true
     } catch (error: any) {
       console.error('Error:', error)
       toast.error(error.message || 'Không thể xóa hàng loạt')
+      return false
     } finally {
       setIsSubmitting(false)
     }
@@ -171,54 +164,48 @@ export default function CategoriesPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6">
-        {/* Header */}
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Quản lý Categories</h1>
-          <p className="mt-2 text-sm text-gray-600">
-            Quản lý các danh mục album (Wedding, Couple, Family...)
-          </p>
-        </div>
+      {/* Header */}
+      <div>
+        <h1 className="text-3xl font-bold text-gray-900">Quản lý Categories</h1>
+        <p className="mt-2 text-sm text-gray-600">Quản lý các danh mục album (Wedding, Couple, Family...)</p>
+      </div>
 
-        {/* Search & Actions */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="relative w-full sm:max-w-xs md:max-w-sm">
-            <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Tìm kiếm category..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
-            />
-          </div>
-          <button
-            onClick={handleOpenCreateModal}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 sm:w-auto"
-          >
-            <Plus size={18} />
-            Thêm Category
-          </button>
+      {/* Search & Actions */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="relative w-full sm:max-w-xs md:max-w-sm">
+          <Search className="absolute top-1/2 left-3 h-5 w-5 -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Tìm kiếm category..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            className="w-full rounded-lg border border-gray-300 py-2 pr-4 pl-10 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none"
+          />
         </div>
+        <button
+          onClick={handleOpenCreateModal}
+          className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 sm:w-auto"
+        >
+          <Plus size={18} />
+          Thêm Category
+        </button>
+      </div>
 
-        {/* Categories Table */}
-        <div className="rounded-lg bg-white shadow">
-          <div className="overflow-x-auto">
-            <table className="min-w-[720px] w-full divide-y divide-gray-200">
+      {/* Categories Table */}
+      <div className="rounded-lg bg-white shadow">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[720px] divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                  Tên
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                  Slug
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                <th className="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">Tên</th>
+                <th className="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">Slug</th>
+                <th className="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">
                   Parent
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                <th className="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">
                   Số Album / Children
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
+                <th className="px-6 py-3 text-right text-xs font-medium tracking-wider text-gray-500 uppercase">
                   Hành động
                 </th>
               </tr>
@@ -236,15 +223,11 @@ export default function CategoriesPage() {
                     <td className="px-6 py-4">
                       <div>
                         <div className="text-sm font-medium text-gray-900">{category.name}</div>
-                        {category.description && (
-                          <div className="text-xs text-gray-500">{category.description}</div>
-                        )}
+                        {category.description && <div className="text-xs text-gray-500">{category.description}</div>}
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <code className="rounded bg-gray-100 px-2 py-1 text-xs text-gray-700">
-                        {category.slug}
-                      </code>
+                      <code className="rounded bg-gray-100 px-2 py-1 text-xs text-gray-700">{category.slug}</code>
                     </td>
                     <td className="px-6 py-4">
                       {category.parent ? (
@@ -290,8 +273,8 @@ export default function CategoriesPage() {
               )}
             </tbody>
           </table>
-          </div>
         </div>
+      </div>
 
       {/* Create/Edit Modal */}
       {isModalOpen && (
@@ -309,7 +292,7 @@ export default function CategoriesPage() {
                   value={formData.name}
                   onChange={e => handleNameChange(e.target.value)}
                   placeholder="VD: Wedding, Couple, Family..."
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none"
                 />
               </div>
               <div>
@@ -320,7 +303,7 @@ export default function CategoriesPage() {
                   value={formData.slug}
                   onChange={e => setFormData({ ...formData, slug: e.target.value })}
                   placeholder="wedding, couple, family..."
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none"
                 />
                 <p className="mt-1 text-xs text-gray-500">Tự động tạo từ tên, có thể chỉnh sửa</p>
               </div>
@@ -337,11 +320,12 @@ export default function CategoriesPage() {
                           .find(cat => cat.id === formData.parentId) || null
                       : null
                   }
-                  onChange={(option) => setFormData({ ...formData, parentId: option?.id || undefined })}
+                  onChange={option => setFormData({ ...formData, parentId: option?.id || undefined })}
                   placeholder="Tìm kiếm parent category..."
                 />
                 <p className="mt-1 text-xs text-gray-500">
-                  Chọn parent category nếu đây là category con (VD: Cưới truyền thống thuộc Wedding). Bỏ trống nếu đây là category gốc.
+                  Chọn parent category nếu đây là category con (VD: Cưới truyền thống thuộc Wedding). Bỏ trống nếu đây
+                  là category gốc.
                 </p>
               </div>
               <div>
@@ -351,7 +335,7 @@ export default function CategoriesPage() {
                   onChange={e => setFormData({ ...formData, description: e.target.value })}
                   rows={3}
                   placeholder="Mô tả ngắn về category..."
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none"
                 />
               </div>
               <div className="flex justify-end gap-3">

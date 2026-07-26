@@ -13,7 +13,8 @@ const nextConfig = {
         protocol: 'https',
         hostname: 'imagedelivery.net'
       }
-    ]
+    ],
+    qualities: [75, 85]
   },
   // Turbopack configuration
   turbopack: {
