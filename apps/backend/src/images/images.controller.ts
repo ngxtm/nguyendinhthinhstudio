@@ -46,7 +46,6 @@ import {
   type ImageUploadIngressRuntime,
   matchesOperatorSmokeToken,
 } from './image-upload-ingress';
-import { ImageUploadPolicyService } from './image-upload-policy.service';
 import { ImagesService } from './images.service';
 
 export const IMAGE_UPLOAD_CONTROLLER_RUNTIME =
@@ -92,7 +91,6 @@ type SessionRouteService = {
 export class ImagesController {
   constructor(
     private readonly imagesService: ImagesService,
-    private readonly policyService: ImageUploadPolicyService,
     private readonly rateLimit: ImageUploadRateLimitService,
     @Optional()
     @Inject(IMAGE_UPLOAD_CONTROLLER_RUNTIME)
@@ -235,38 +233,14 @@ export class ImagesController {
     return instance;
   }
 
-  @Get('upload-policy')
-  @UseFilters(UploadRouteAuthExceptionFilter)
-  @Roles('admin')
-  getUploadPolicy() {
-    return this.policyService.getPolicy();
-  }
-
   @Post('upload-url')
   @UseFilters(UploadRouteAuthExceptionFilter)
   @HttpCode(200)
   @Roles('admin')
-  @ApiOperation({ summary: 'Get a current-policy upload URL (Admin only)' })
+  @ApiOperation({ summary: 'Get a WebP upload URL (Admin only)' })
   async getUploadUrl(@Body() body: unknown, @Req() request: AdminRequest) {
     this.assertUploadIngress(request, { creation: true });
     const adminId = await this.admit(request, 'upload_url');
-
-    const record =
-      body && typeof body === 'object' && !Array.isArray(body)
-        ? (body as Record<string, unknown>)
-        : {};
-    if (
-      record.clientRequestId === undefined ||
-      record.processedSha256 === undefined ||
-      record.policyVersion === undefined ||
-      record.policyVersion !== this.policyService.policyVersion
-    ) {
-      throw ImagesController.uploadError(
-        409,
-        'policy_refresh_required',
-        'Refresh the upload policy before retrying',
-      );
-    }
 
     const upload = this.validateDto(body, UploadRequestDto);
     if (

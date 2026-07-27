@@ -10,7 +10,6 @@ import { createHmac } from 'crypto';
 import request from 'supertest';
 import * as bodyParser from 'body-parser';
 import { AppModule } from '../src/app.module';
-import { ImageUploadPolicyService } from '../src/images/image-upload-policy.service';
 import {
   ImageUploadRateLimitService,
   UploadRateLimitedException,
@@ -20,7 +19,6 @@ import { PrismaService } from '../src/prisma/prisma.service';
 
 const TEST_JWT_SECRET = 'test-jwt-secret';
 const ADMIN_ID = '00000000-0000-4000-8000-000000000001';
-const POLICY_VERSION = 'policy-v1';
 const SMOKE_TOKEN = 'operator-smoke-token-with-at-least-32-bytes';
 
 function signJwt(role: 'admin' | 'user'): string {
@@ -56,13 +54,6 @@ describe('Images current upload routes (e2e)', () => {
     reorder: jest.fn(),
   };
   const rateLimit = { admit: jest.fn() };
-  const policy = {
-    policyVersion: POLICY_VERSION,
-    getPolicy: jest.fn(() => ({
-      policyVersion: POLICY_VERSION,
-      policy: { maxStoredBytes: 5_242_880 },
-    })),
-  };
 
   async function createApp(): Promise<INestApplication> {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -74,8 +65,6 @@ describe('Images current upload routes (e2e)', () => {
       .useValue(imagesService)
       .overrideProvider(ImageUploadRateLimitService)
       .useValue(rateLimit)
-      .overrideProvider(ImageUploadPolicyService)
-      .useValue(policy)
       .compile();
 
     const created = moduleFixture.createNestApplication({ bodyParser: false });
@@ -110,10 +99,6 @@ describe('Images current upload routes (e2e)', () => {
     imagesService.remove.mockResolvedValue({ id: 'image-id' });
     imagesService.reorder.mockResolvedValue([]);
     rateLimit.admit.mockResolvedValue({ admitted: true });
-    policy.getPolicy.mockReturnValue({
-      policyVersion: POLICY_VERSION,
-      policy: { maxStoredBytes: 5_242_880 },
-    });
 
     app = await createApp();
   });
@@ -137,7 +122,6 @@ describe('Images current upload routes (e2e)', () => {
       contentType: 'image/webp',
       fileSize: 1024,
       processedSha256: 'a'.repeat(64),
-      policyVersion: POLICY_VERSION,
     };
 
     const denied = await request(app.getHttpServer())
@@ -160,7 +144,6 @@ describe('Images current upload routes (e2e)', () => {
   });
 
   it.each([
-    ['GET', '/images/upload-policy'],
     ['POST', '/images/upload-url'],
     ['POST', '/images/confirm-upload'],
     ['GET', '/images/upload-sessions/00000000-0000-4000-8000-000000000030'],
@@ -182,7 +165,6 @@ describe('Images current upload routes (e2e)', () => {
   });
 
   it.each([
-    ['GET', '/images/upload-policy'],
     ['POST', '/images/upload-url'],
     ['POST', '/images/confirm-upload'],
     ['GET', '/images/upload-sessions/00000000-0000-4000-8000-000000000030'],
@@ -204,40 +186,36 @@ describe('Images current upload routes (e2e)', () => {
     );
   });
 
-  it('returns policy to an authenticated admin', async () => {
+  it('returns 404 for the removed upload-policy route', async () => {
     await request(app.getHttpServer())
       .get('/images/upload-policy')
       .set('Authorization', `Bearer ${signJwt('admin')}`)
-      .expect(200)
-      .expect({
-        policyVersion: POLICY_VERSION,
-        policy: { maxStoredBytes: 5_242_880 },
-      });
+      .expect(404);
   });
 
   it.each(['clientRequestId', 'processedSha256', 'policyVersion'])(
-    'admits then returns policy_refresh_required when %s is missing',
+    'admits then rejects %s as upload_invalid_request',
     async (field) => {
       const body: Record<string, unknown> = {
         clientRequestId: '00000000-0000-4000-8000-000000000010',
         albumId: '00000000-0000-4000-8000-000000000020',
-        filename: 'photo.jpg',
-        contentType: 'image/jpeg',
+        filename: 'photo.webp',
+        contentType: 'image/webp',
         fileSize: 1024,
         processedSha256: 'a'.repeat(64),
-        policyVersion: POLICY_VERSION,
       };
       delete body[field];
+      if (field === 'policyVersion') body.policyVersion = 'legacy-policy';
 
       const response = await request(app.getHttpServer())
         .post('/images/upload-url')
         .set('Authorization', `Bearer ${signJwt('admin')}`)
         .send(body)
-        .expect(409);
+        .expect(400);
       expect(response.body).toEqual(
         expect.objectContaining({
-          statusCode: 409,
-          code: 'policy_refresh_required',
+          statusCode: 400,
+          code: 'upload_invalid_request',
         }),
       );
       expect(rateLimit.admit).toHaveBeenCalledWith(ADMIN_ID, 'upload_url');
@@ -269,9 +247,9 @@ describe('Images current upload routes (e2e)', () => {
       .post('/images/upload-url')
       .set('Authorization', token)
       .send({ padding: 'x'.repeat(512 * 1024) })
-      .expect(409);
+      .expect(400);
     expect(below.body).toEqual(
-      expect.objectContaining({ code: 'policy_refresh_required' }),
+      expect.objectContaining({ code: 'upload_invalid_request' }),
     );
 
     await request(app.getHttpServer())
@@ -288,11 +266,10 @@ describe('Images current upload routes (e2e)', () => {
       .send({
         clientRequestId: '00000000-0000-4000-8000-000000000010',
         albumId: '00000000-0000-4000-8000-000000000020',
-        filename: 'photo.jpg',
-        contentType: 'image/jpeg',
+        filename: 'photo.webp',
+        contentType: 'image/webp',
         fileSize: 0,
         processedSha256: 'a'.repeat(64),
-        policyVersion: POLICY_VERSION,
       })
       .expect(400);
     expect(response.body).toEqual(
@@ -312,11 +289,10 @@ describe('Images current upload routes (e2e)', () => {
       .send({
         clientRequestId: '00000000-0000-4000-8000-000000000010',
         albumId: '00000000-0000-4000-8000-000000000020',
-        filename: 'photo.jpg',
-        contentType: 'image/jpeg',
+        filename: 'photo.webp',
+        contentType: 'image/webp',
         fileSize: 1024,
         processedSha256: 'a'.repeat(64),
-        policyVersion: POLICY_VERSION,
       })
       .expect(code === 'upload_not_found' ? 404 : 409);
     expect(response.body).toEqual(expect.objectContaining({ code }));
@@ -382,11 +358,10 @@ describe('Images current upload routes (e2e)', () => {
       .send({
         clientRequestId: '00000000-0000-4000-8000-000000000010',
         albumId: '00000000-0000-4000-8000-000000000020',
-        filename: 'photo.jpg',
-        contentType: 'image/jpeg',
+        filename: 'photo.webp',
+        contentType: 'image/webp',
         fileSize: 1024,
         processedSha256: 'a'.repeat(64),
-        policyVersion: POLICY_VERSION,
       })
       .expect(200);
     expect(rateLimit.admit).toHaveBeenCalledWith(ADMIN_ID, 'upload_url');

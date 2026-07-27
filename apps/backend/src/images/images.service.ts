@@ -20,7 +20,6 @@ import {
   createPresignExpiry,
   truncateToWholeSecond,
 } from './image-upload-presign-expiry';
-import { ImageUploadPolicyService } from './image-upload-policy.service';
 import { ImageUploadPromotionRepository } from './image-upload-promotion.repository';
 import { ImageInspectionSemaphoreService } from './image-inspection-semaphore.service';
 import { StoredImageInspectorService } from './stored-image-inspector.service';
@@ -51,13 +50,9 @@ export class ImagesService {
     private readonly storage: StorageService,
     private readonly imageUrl: ImageUrlService,
     private readonly imagePresenter: ImagePresenterService,
-    private readonly uploadPolicy: ImageUploadPolicyService =
-      new ImageUploadPolicyService(),
-    private readonly promotions?: ImageUploadPromotionRepository,
-    private readonly inspectionSemaphore: ImageInspectionSemaphoreService =
-      new ImageInspectionSemaphoreService(),
-    private readonly storedInspector: StoredImageInspectorService =
-      new StoredImageInspectorService(),
+    private readonly promotions: ImageUploadPromotionRepository,
+    private readonly inspectionSemaphore: ImageInspectionSemaphoreService,
+    private readonly storedInspector: StoredImageInspectorService,
   ) {}
 
   /**
@@ -78,7 +73,6 @@ export class ImagesService {
       canonicalMime,
       fileSize: uploadRequest.fileSize,
       processedSha256: uploadRequest.processedSha256,
-      policyVersion: uploadRequest.policyVersion,
     });
     const candidateUploadId = randomUUID();
     const candidateUploadObjectKey = this.storage.createUploadObjectKey(
@@ -191,8 +185,6 @@ export class ImagesService {
                 status: 'pending',
                 clientRequestId: uploadRequest.clientRequestId,
                 createdByAdminId,
-                policyVersion: uploadRequest.policyVersion,
-                policySnapshot: this.uploadPolicy.getPolicy().policy,
                 processedSha256: uploadRequest.processedSha256,
                 presignExpiresAt,
                 expiresAt: presignExpiresAt,
@@ -578,166 +570,7 @@ export class ImagesService {
     );
   }
 
-  /**
-   * Confirm image upload after R2 direct upload
-   */
   async confirmUpload(confirmDto: UploadConfirmDto, createdByAdminId?: string) {
-    if (this.promotions) {
-      return this.confirmUploadWithInspection(confirmDto, createdByAdminId);
-    }
-    const imageUpload = (this.prisma as any).imageUpload;
-    const session = await imageUpload.findUnique({
-      where: { id: confirmDto.uploadId },
-    });
-    if (!session) throw new NotFoundException('Upload session not found');
-    if (session.status === 'consumed')
-      throw new BadRequestException('Upload session has already been consumed');
-    if (session.status === 'failed')
-      throw new BadRequestException('Upload session has failed');
-    if (session.expiresAt < new Date())
-      throw new BadRequestException('Upload session has expired');
-    const leaseCutoff = new Date(Date.now() - FINALIZATION_LEASE_MS);
-    if (
-      session.status === 'finalizing' &&
-      (!session.finalizationStartedAt ||
-        session.finalizationStartedAt > leaseCutoff)
-    ) {
-      throw new ConflictException('Upload session is already being finalized');
-    }
-    let sourceEtag: string;
-    try {
-      sourceEtag = await this.storage.verifyObject(session.uploadObjectKey, {
-        contentType: session.contentType,
-        fileSize: session.fileSize,
-      });
-    } catch (error) {
-      await imageUpload.update({
-        where: { id: session.id },
-        data: { status: 'failed' },
-      });
-      throw error;
-    }
-    if (session.status === 'finalizing') {
-      if (!session.sourceEtag || session.sourceEtag !== sourceEtag) {
-        await imageUpload.updateMany({
-          where: {
-            id: session.id,
-            status: 'finalizing',
-            sourceEtag: session.sourceEtag,
-          },
-          data: { status: 'failed' },
-        });
-        throw new BadRequestException(
-          'Uploaded object ETag does not match finalizing lease',
-        );
-      }
-      const reclaimed = await imageUpload.updateMany({
-        where: {
-          id: session.id,
-          status: 'finalizing',
-          sourceEtag: session.sourceEtag,
-          finalizationStartedAt: { lte: leaseCutoff },
-        },
-        data: {
-          status: 'pending',
-          sourceEtag: null,
-          finalizationStartedAt: null,
-        },
-      });
-      if (reclaimed.count !== 1) {
-        throw new ConflictException(
-          'Upload session is already being finalized',
-        );
-      }
-    }
-    await runSerializableWithRetry(() =>
-      this.prisma.$transaction(
-        async (tx: any) => {
-          const [images, finalizing] = await Promise.all([
-            tx.image.count({ where: { albumId: session.albumId } }),
-            tx.imageUpload.count({
-              where: { albumId: session.albumId, status: 'finalizing' },
-            }),
-          ]);
-          if (images + finalizing >= 50)
-            throw new BadRequestException(
-              'Album already has maximum number of images (50)',
-            );
-          const claimed = await tx.imageUpload.updateMany({
-            where: { id: session.id, status: 'pending' },
-            data: {
-              status: 'finalizing',
-              sourceEtag,
-              finalizationStartedAt: new Date(),
-            },
-          });
-          if (claimed.count !== 1)
-            throw new ConflictException(
-              'Upload session is already being finalized',
-            );
-        },
-        { isolationLevel: 'Serializable' as any },
-      ),
-    );
-    try {
-      await this.storage.promoteObject(
-        session.uploadObjectKey,
-        session.finalObjectKey,
-        sourceEtag,
-        { contentType: session.contentType, fileSize: session.fileSize },
-      );
-    } catch (error) {
-      await imageUpload.update({
-        where: { id: session.id },
-        data: { status: 'failed' },
-      });
-      throw error;
-    }
-    const variantUrls = this.imageUrl.getVariantUrls(session.finalObjectKey);
-    const image = await runSerializableWithRetry(() =>
-      this.prisma.$transaction(
-        async (tx: any) => {
-          const lastImage = await tx.image.findFirst({
-            where: { albumId: session.albumId },
-            orderBy: { orderIndex: 'desc' },
-            select: { orderIndex: true },
-          });
-          const created = await tx.image.create({
-            data: {
-              albumId: session.albumId,
-              filename: session.filename,
-              r2ObjectKey: session.finalObjectKey,
-              uploadStatus: 'completed',
-              ...variantUrls,
-              orderIndex: (lastImage?.orderIndex ?? 0) + 1,
-              fileSizeKb: Math.round(session.fileSize / 1024),
-            },
-          });
-          await tx.album.update({
-            where: { id: session.albumId },
-            data: { imageCount: { increment: 1 } },
-          });
-          await tx.imageUpload.update({
-            where: { id: session.id },
-            data: { status: 'consumed', consumedAt: new Date() },
-          });
-          return created;
-        },
-        { isolationLevel: 'Serializable' as any },
-      ),
-    );
-    await this.storage
-      .deleteObject(session.uploadObjectKey)
-      .catch(() => undefined);
-
-    this.logger.log(`Image uploaded successfully: ${image.id}`);
-
-    return image;
-  }
-
-  /** Current tokenized confirmation path. The legacy branch above remains only
-   * for isolated callers that construct ImagesService without module wiring. */
-  private async confirmUploadWithInspection(confirmDto: UploadConfirmDto, createdByAdminId?: string) {
     const upload = await (this.prisma as any).imageUpload.findUnique({
       where: { id: confirmDto.uploadId },
     });
@@ -777,6 +610,17 @@ export class ImagesService {
             current.finalizationStartedAt.getTime() > now.getTime() - FINALIZATION_LEASE_MS) {
           throw new ConflictException('Upload session is already being finalized');
         }
+        const [images, finalizing] = await Promise.all([
+          tx.image.count({ where: { albumId: current.albumId } }),
+          tx.imageUpload.count({
+            where: { albumId: current.albumId, status: 'finalizing' },
+          }),
+        ]);
+        if (images + finalizing >= 50) {
+          throw new BadRequestException(
+            'Album already has maximum number of images (50)',
+          );
+        }
         const changed = await tx.imageUpload.updateMany({
           where: { id: current.id, createdByAdminId: current.createdByAdminId, status: current.status, ...(current.status === 'finalizing' ? { finalizationStartedAt: current.finalizationStartedAt, sourceEtag: current.sourceEtag } : {}) },
           data: { status: 'finalizing', sourceEtag, finalizationStartedAt: now, finalizationLeaseToken: leaseToken },
@@ -795,18 +639,22 @@ export class ImagesService {
         { operationTimeoutMs: 15_000 },
         sourceEtag,
       );
-      inspected = await this.storedInspector.inspect(bytes, this.uploadPolicy.policy, upload.contentType);
+      inspected = await this.storedInspector.inspect(bytes, new AbortController().signal);
       if (upload.processedSha256 && inspected.digestSha256 !== upload.processedSha256) {
         throw Object.assign(new BadRequestException('Uploaded object digest does not match'), { failureCode: 'upload_digest_mismatch' });
       }
     } catch (error) {
-      await this.terminalizeCurrentFailure(upload, 'finalizing', leaseToken, (error as any)?.failureCode ?? 'upload_decode_failed', new Date());
-      throw error;
+      const failureCode = (error as any)?.failureCode ?? 'upload_decode_failed';
+      await this.terminalizeCurrentFailure(upload, 'finalizing', leaseToken, failureCode, new Date());
+      return this.renderSessionStatus(
+        { ...upload, status: 'failed', failureCode, terminalAt: new Date() },
+        new Date(),
+      );
     } finally {
       release();
     }
 
-    const dispatched = await this.promotions!.createDispatchedPromotion({
+    const dispatched = await this.promotions.createDispatchedPromotion({
       uploadId: upload.id,
       albumId: upload.albumId,
       finalizationLeaseToken: leaseToken,
@@ -820,7 +668,6 @@ export class ImagesService {
       canonicalMime: inspected.facts.mime,
       inspectedWidth: inspected.facts.width,
       inspectedHeight: inspected.facts.height,
-      policyVersion: upload.policyVersion ?? this.uploadPolicy.policyVersion,
       now,
       reconcileGraceMs: 30_000,
     });
@@ -837,7 +684,6 @@ export class ImagesService {
         inspectedSha256: inspected.digestSha256,
         inspectedWidth: inspected.facts.width,
         inspectedHeight: inspected.facts.height,
-        policyVersion: upload.policyVersion ?? this.uploadPolicy.policyVersion,
       }, { operationTimeoutMs: 30_000 }));
     } catch (error) {
       // Dispatch is already durable; response loss is intentionally ambiguous.
@@ -850,7 +696,7 @@ export class ImagesService {
     const imageId = randomUUID();
     const variants = this.imageUrl.getVariantUrls(upload.finalObjectKey);
     const last = await (this.prisma as any).image.findFirst({ where: { albumId: upload.albumId }, orderBy: { orderIndex: 'desc' }, select: { orderIndex: true } });
-    await this.promotions!.settleCopyResponseAndCommit({
+    await this.promotions.settleCopyResponseAndCommit({
       uploadId: upload.id,
       createdByAdminId: upload.createdByAdminId,
       finalizationLeaseToken: leaseToken,

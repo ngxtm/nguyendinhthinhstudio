@@ -8,7 +8,6 @@ import { StorageService } from './storage.service';
 import { ImageDeletionService } from './image-deletion.service';
 import { UploadCleanupService } from './upload-cleanup.service';
 import { ImageUploadPromotionRepository } from './image-upload-promotion.repository';
-import { ImageUploadPolicyService } from './image-upload-policy.service';
 import { ImageUploadRateLimitService } from './image-upload-rate-limit.service';
 import { ImageInspectionSemaphoreService } from './image-inspection-semaphore.service';
 import { StoredImageInspectorService } from './stored-image-inspector.service';
@@ -32,7 +31,6 @@ import { AuthModule } from '../auth/auth.module';
     ImageDeletionService,
     UploadCleanupService,
     ImageUploadPromotionRepository,
-    ImageUploadPolicyService,
     ImageUploadRateLimitService,
     ImageInspectionSemaphoreService,
     StoredImageInspectorService,
@@ -52,7 +50,6 @@ import { AuthModule } from '../auth/auth.module';
     ImagePresenterService,
     UploadCleanupService,
     ImageUploadPromotionRepository,
-    ImageUploadPolicyService,
     ImageUploadRateLimitService,
     ImageInspectionSemaphoreService,
     StoredImageInspectorService,
