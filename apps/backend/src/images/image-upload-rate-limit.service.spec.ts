@@ -10,7 +10,7 @@ describe('ImageUploadRateLimitService', () => {
 
   it('defines the exact closed route scopes and operational limits', () => {
     expect(IMAGE_UPLOAD_ROUTE_LIMITS).toEqual({
-      upload_url: { limit: 20, windowMs: 600_000 },
+      upload_url: { limit: 60, windowMs: 600_000 },
       confirm_upload: { limit: 60, windowMs: 600_000 },
       upload_status: { limit: 120, windowMs: 60_000 },
       abandon_upload: { limit: 30, windowMs: 600_000 },
@@ -55,7 +55,7 @@ describe('ImageUploadRateLimitService', () => {
     const oldest = new Date('2026-07-19T09:51:00.000Z');
     const tx = {
       $executeRawUnsafe: jest.fn().mockResolvedValue(1),
-      $queryRawUnsafe: jest.fn().mockResolvedValue([{ count: 20n, oldest }]),
+      $queryRawUnsafe: jest.fn().mockResolvedValue([{ count: 60n, oldest }]),
     };
     const prisma = {
       $transaction: jest.fn((work: (tx: unknown) => unknown) => work(tx)),

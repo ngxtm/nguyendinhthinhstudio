@@ -14,7 +14,7 @@ export type ImageUploadRouteScope =
   | 'abandon_upload';
 
 export const IMAGE_UPLOAD_ROUTE_LIMITS = Object.freeze({
-  upload_url: Object.freeze({ limit: 20, windowMs: 10 * 60 * 1000 }),
+  upload_url: Object.freeze({ limit: 60, windowMs: 10 * 60 * 1000 }),
   confirm_upload: Object.freeze({ limit: 60, windowMs: 10 * 60 * 1000 }),
   upload_status: Object.freeze({ limit: 120, windowMs: 60 * 1000 }),
   abandon_upload: Object.freeze({ limit: 30, windowMs: 10 * 60 * 1000 }),

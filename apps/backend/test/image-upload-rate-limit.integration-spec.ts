@@ -72,18 +72,18 @@ describe('image upload rate ledger (PostgreSQL)', () => {
     const a = service(first);
     const b = service(second);
     const results = await Promise.allSettled(
-      Array.from({ length: 24 }, (_, index) =>
+      Array.from({ length: 64 }, (_, index) =>
         (index % 2 === 0 ? a : b).admit('admin-concurrent', 'upload_url'),
       ),
     );
 
     expect(
       results.filter((result) => result.status === 'fulfilled'),
-    ).toHaveLength(20);
+    ).toHaveLength(60);
     expect(
       results.filter((result) => result.status === 'rejected'),
     ).toHaveLength(4);
-    expect(await count('admin-concurrent', 'upload_url')).toBe(20);
+    expect(await count('admin-concurrent', 'upload_url')).toBe(60);
   });
 
   it('uses a strict window boundary and returns the oldest plus window reset', async () => {
@@ -94,7 +94,7 @@ describe('image upload rate ledger (PostgreSQL)', () => {
        VALUES ('admin-boundary', 'upload_url', $1)`,
       boundary,
     );
-    for (let index = 0; index < 20; index += 1) {
+    for (let index = 0; index < 60; index += 1) {
       await first.$executeRawUnsafe(
         `INSERT INTO "ImageUploadRateLimitEvent" ("createdByAdminId", "routeScope", "occurredAt")
          VALUES ('admin-boundary', 'upload_url', $1)`,
@@ -110,7 +110,7 @@ describe('image upload rate ledger (PostgreSQL)', () => {
         retryAfter: new Date(oldestInside.getTime() + 600_000).toISOString(),
       },
     });
-    expect(await count('admin-boundary', 'upload_url')).toBe(21);
+    expect(await count('admin-boundary', 'upload_url')).toBe(61);
 
     await expect(
       service(first, new Date(oldestInside.getTime() + 600_000)).admit(
@@ -123,7 +123,7 @@ describe('image upload rate ledger (PostgreSQL)', () => {
   it('isolates immutable admins and exact route scopes', async () => {
     const limiter = service(first);
     await Promise.all(
-      Array.from({ length: 20 }, () => limiter.admit('admin-a', 'upload_url')),
+      Array.from({ length: 60 }, () => limiter.admit('admin-a', 'upload_url')),
     );
 
     await expect(limiter.admit('admin-b', 'upload_url')).resolves.toBeDefined();
