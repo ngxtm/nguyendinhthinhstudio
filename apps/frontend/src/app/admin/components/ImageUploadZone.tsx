@@ -3,79 +3,78 @@
  * Optimized upload với queue, retry, pause/resume
  */
 
-'use client';
+'use client'
 
-import { useState, useRef, useCallback } from 'react';
-import { Upload, X, FileImage, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
-import { toast } from 'sonner';
-import { uploadImage } from '@/lib/api';
-import { runUploadQueue } from '@/lib/image-upload/upload-queue';
-import { ImageUploadProgress } from './ImageUploadProgress';
+import { useState, useRef, useCallback } from 'react'
+import { Upload, X, FileImage, CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
+import { toast } from 'sonner'
+import { UploadApiError, uploadImage } from '@/lib/api/images'
 import {
-  IMAGE_NORMALIZATION_MESSAGE,
-  ImageUploadErrors,
-} from './ImageUploadErrors';
+  ACCEPTED_SOURCE_MIME_TYPES,
+  MAX_BATCH_FILES,
+  MAX_SOURCE_BYTES,
+  UPLOAD_CONCURRENCY
+} from '@/lib/image-upload/upload-constants'
+import { runUploadQueue } from '@/lib/image-upload/upload-queue'
+import { ImageUploadProgress } from './ImageUploadProgress'
+import { IMAGE_NORMALIZATION_MESSAGE, ImageUploadErrors } from './ImageUploadErrors'
 
 interface Props {
-  albumId: string;
-  onUploadComplete: () => void | Promise<void>;
+  albumId: string
+  onUploadComplete: () => void | Promise<void>
 }
 
-type UploadStatus = 'pending' | 'uploading' | 'success' | 'error' | 'paused';
+type UploadStatus = 'pending' | 'uploading' | 'success' | 'error' | 'paused'
 
 interface FileWithProgress {
-  file: File;
-  preview: string | null;
-  progress: number;
-  status: UploadStatus;
-  error?: string;
-  retryCount: number;
-  statusText?: string; // "Đang lấy URL...", "Đang upload...", "Đang lưu vào DB..."
+  file: File
+  preview: string | null
+  progress: number
+  status: UploadStatus
+  error?: string
+  retryAfter?: string
+  retryCount: number
+  statusText?: string // "Đang lấy URL...", "Đang upload...", "Đang lưu vào DB..."
 }
 
 export default function ImageUploadZone({ albumId, onUploadComplete }: Props) {
-  const [files, setFiles] = useState<FileWithProgress[]>([]);
-  const [uploading, setUploading] = useState(false);
-  const [dragActive, setDragActive] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const uploadControllerRef = useRef<{ cancel: boolean }>({ cancel: false });
-
-  const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
-  const MAX_FILES = 50;
-  const CONCURRENT_UPLOADS = 2; // Upload 2 ảnh đồng thời
-  const ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+  const [files, setFiles] = useState<FileWithProgress[]>([])
+  const [uploading, setUploading] = useState(false)
+  const [dragActive, setDragActive] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const uploadControllerRef = useRef<{ cancel: boolean }>({ cancel: false })
 
   function validateFile(file: File): string | null {
-    if (!ALLOWED_TYPES.includes(file.type)) {
-      return 'Chỉ hỗ trợ file ảnh (JPG, PNG, WebP, GIF)';
+    if (!ACCEPTED_SOURCE_MIME_TYPES.includes(file.type as never)) {
+      return 'Chỉ hỗ trợ file ảnh JPG, PNG hoặc WebP'
     }
-    if (file.size > MAX_FILE_SIZE) {
-      return 'File quá lớn (tối đa 100MB)';
+    if (file.size > MAX_SOURCE_BYTES) {
+      return 'File quá lớn (tối đa 100 MB)'
     }
-    return null;
+    return null
   }
 
   function formatFileSize(bytes: number): string {
-    if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    if (bytes < 1024) return bytes + ' B'
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
   }
 
   async function handleFiles(newFiles: FileList | null) {
-    if (!newFiles || newFiles.length === 0) return;
+    if (!newFiles || newFiles.length === 0) return
 
-    if (files.length + newFiles.length > MAX_FILES) {
-      toast.error(`Chỉ có thể upload tối đa ${MAX_FILES} ảnh/lần`);
-      return;
+    if (files.length + newFiles.length > MAX_BATCH_FILES) {
+      toast.error(`Chỉ có thể upload tối đa ${MAX_BATCH_FILES} ảnh/lần`)
+      return
     }
 
-    const validFiles: FileWithProgress[] = [];
-    const filesToProcess = Array.from(newFiles);
+    const validFiles: FileWithProgress[] = []
+    const filesToProcess = Array.from(newFiles)
 
     // Stage 07 owns optimization and previews; this legacy surface must never
     // perform iterative compression or retain an original-file preview.
     for (const file of filesToProcess) {
-      const error = validateFile(file);
+      const error = validateFile(file)
 
       if (error) {
         validFiles.push({
@@ -84,9 +83,9 @@ export default function ImageUploadZone({ albumId, onUploadComplete }: Props) {
           progress: 0,
           status: 'error',
           error: error,
-          retryCount: 0,
-        });
-        continue;
+          retryCount: 0
+        })
+        continue
       }
 
       validFiles.push({
@@ -95,194 +94,185 @@ export default function ImageUploadZone({ albumId, onUploadComplete }: Props) {
         progress: 0,
         status: 'pending',
         error: undefined,
-        retryCount: 0,
-      });
+        retryCount: 0
+      })
     }
 
-    setFiles((prev) => [...prev, ...validFiles]);
+    setFiles(prev => [...prev, ...validFiles])
 
     if (validFiles.length > 0) {
-      toast.success(
-        `Đã chọn ${validFiles.length} ảnh. Bấm nút Upload bên dưới để bắt đầu.`,
-      );
+      toast.success(`Đã chọn ${validFiles.length} ảnh. Bấm nút Upload bên dưới để bắt đầu.`)
     }
   }
 
   function handleDrag(e: React.DragEvent) {
-    e.preventDefault();
-    e.stopPropagation();
+    e.preventDefault()
+    e.stopPropagation()
 
     if (e.type === 'dragenter' || e.type === 'dragover') {
-      setDragActive(true);
+      setDragActive(true)
     } else if (e.type === 'dragleave') {
-      setDragActive(false);
+      setDragActive(false)
     }
   }
 
   function handleDrop(e: React.DragEvent) {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
+    e.preventDefault()
+    e.stopPropagation()
+    setDragActive(false)
 
-    handleFiles(e.dataTransfer.files);
+    handleFiles(e.dataTransfer.files)
   }
 
   function handleFileInput(e: React.ChangeEvent<HTMLInputElement>) {
-    handleFiles(e.target.files);
+    handleFiles(e.target.files)
   }
 
   function removeFile(index: number) {
-    setFiles((prev) => {
-      const newFiles = [...prev];
+    setFiles(prev => {
+      const newFiles = [...prev]
       if (newFiles[index].preview) {
-        URL.revokeObjectURL(newFiles[index].preview!);
+        URL.revokeObjectURL(newFiles[index].preview!)
       }
-      newFiles.splice(index, 1);
-      return newFiles;
-    });
+      newFiles.splice(index, 1)
+      return newFiles
+    })
   }
 
-  const uploadSingleFile = useCallback(async (
-    fileItem: FileWithProgress,
-    index: number
-  ): Promise<void> => {
-    // Check if cancelled
-    if (uploadControllerRef.current.cancel) {
-      throw new Error('Upload cancelled');
-    }
+  const uploadSingleFile = useCallback(
+    async (fileItem: FileWithProgress, index: number): Promise<void> => {
+      // Check if cancelled
+      if (uploadControllerRef.current.cancel) {
+        throw new Error('Upload cancelled')
+      }
 
-    // Update status to uploading
-    setFiles((prev) => {
-      const newFiles = [...prev];
-      newFiles[index].status = 'uploading';
-      newFiles[index].progress = 0;
-      newFiles[index].error = undefined;
-      newFiles[index].statusText = IMAGE_NORMALIZATION_MESSAGE;
-      return newFiles;
-    });
+      // Update status to uploading
+      setFiles(prev => {
+        const newFiles = [...prev]
+        newFiles[index].status = 'uploading'
+        newFiles[index].progress = 0
+        newFiles[index].error = undefined
+        newFiles[index].retryAfter = undefined
+        newFiles[index].statusText = IMAGE_NORMALIZATION_MESSAGE
+        return newFiles
+      })
 
-    try {
-      await uploadImage(
-        albumId,
-        fileItem.file,
-        (progress) => {
-          setFiles((prev) => {
-            const newFiles = [...prev];
-            newFiles[index].progress = progress;
+      try {
+        await uploadImage(albumId, fileItem.file, progress => {
+          setFiles(prev => {
+            const newFiles = [...prev]
+            newFiles[index].progress = progress
             newFiles[index].statusText =
-              progress < 10
-                ? IMAGE_NORMALIZATION_MESSAGE
-                : progress < 90
-                  ? 'Đang upload'
-                  : 'Đang hoàn tất';
-            return newFiles;
-          });
-        }
-      );
+              progress < 10 ? IMAGE_NORMALIZATION_MESSAGE : progress < 90 ? 'Đang upload' : 'Đang hoàn tất'
+            return newFiles
+          })
+        })
 
-      // Success
-      setFiles((prev) => {
-        const newFiles = [...prev];
-        newFiles[index].status = 'success';
-        newFiles[index].progress = 100;
-        return newFiles;
-      });
-    } catch (error: any) {
-      // Set error state - NO AUTO RETRY
-      setFiles((prev) => {
-        const newFiles = [...prev];
-        newFiles[index].status = 'error';
-        newFiles[index].error = error.message || 'Upload thất bại';
-        return newFiles;
-      });
-      throw error;
-    }
-  }, [albumId]);
+        // Success
+        setFiles(prev => {
+          const newFiles = [...prev]
+          newFiles[index].status = 'success'
+          newFiles[index].progress = 100
+          return newFiles
+        })
+      } catch (error: unknown) {
+        // Set error state - NO AUTO RETRY
+        const uploadError = error instanceof UploadApiError ? error : undefined
+        setFiles(prev => {
+          const newFiles = [...prev]
+          newFiles[index].status = 'error'
+          newFiles[index].error = uploadError?.code ?? 'upload_failed'
+          newFiles[index].retryAfter = uploadError?.retryAfter
+          return newFiles
+        })
+        throw error
+      }
+    },
+    [albumId]
+  )
 
   async function handleUpload() {
-    const validFiles = files.filter((f) => !f.error && f.status !== 'success');
+    const validFiles = files.filter(f => !f.error && f.status !== 'success')
 
     if (validFiles.length === 0) {
-      toast.error('Không có file hợp lệ để upload');
-      return;
+      toast.error('Không có file hợp lệ để upload')
+      return
     }
 
     try {
-      setUploading(true);
-      uploadControllerRef.current.cancel = false;
+      setUploading(true)
+      uploadControllerRef.current.cancel = false
 
-      toast.info(`Bắt đầu upload ${validFiles.length} ảnh...`);
+      toast.info(`Bắt đầu upload ${validFiles.length} ảnh...`)
 
       // Upload với concurrency (2 ảnh cùng lúc)
-      const queue = [...files.map((f, i) => ({ file: f, index: i })).filter(({ file }) =>
-        !file.error && file.status !== 'success'
-      )];
+      const queue = [
+        ...files.map((f, i) => ({ file: f, index: i })).filter(({ file }) => !file.error && file.status !== 'success')
+      ]
 
-      const { completed, failed } = await runUploadQueue(
-        queue,
-        CONCURRENT_UPLOADS,
-        async ({ file, index }) => {
-          if (uploadControllerRef.current.cancel) {
-            throw new Error('Upload cancelled');
-          }
-          await uploadSingleFile(file, index);
-        },
-      );
+      const { completed, failed } = await runUploadQueue(queue, UPLOAD_CONCURRENCY, async ({ file, index }) => {
+        if (uploadControllerRef.current.cancel) {
+          throw new Error('Upload cancelled')
+        }
+        await uploadSingleFile(file, index)
+      })
 
       // Summary
       if (uploadControllerRef.current.cancel) {
-        toast.warning('Upload đã bị hủy');
+        toast.warning('Upload đã bị hủy')
       } else if (failed > 0) {
-        toast.warning(`Upload hoàn thành: ${completed} thành công, ${failed} thất bại. Bấm nút Retry để thử lại.`);
+        toast.warning(`Upload hoàn thành: ${completed} thành công, ${failed} thất bại. Bấm nút Retry để thử lại.`)
       } else {
-        toast.success(`Upload thành công ${completed} ảnh!`);
+        toast.success(`Upload thành công ${completed} ảnh!`)
       }
 
       // Clean up successful files
-      setFiles((prev) => prev.filter(f => f.status !== 'success'));
+      setFiles(prev => prev.filter(f => f.status !== 'success'))
 
       // Reload album if any success
       if (completed > 0) {
-        await onUploadComplete();
+        await onUploadComplete()
       }
     } catch (error: any) {
-      console.error('Upload failed:', error);
-      toast.error('Có lỗi xảy ra khi upload');
+      console.error('Upload failed:', error)
+      toast.error('Có lỗi xảy ra khi upload')
     } finally {
-      setUploading(false);
-      uploadControllerRef.current.cancel = false;
+      setUploading(false)
+      uploadControllerRef.current.cancel = false
     }
   }
 
   // Retry single failed file
   async function handleRetryFile(index: number) {
-    const fileItem = files[index];
-    if (fileItem.status !== 'error') return;
+    const fileItem = files[index]
+    if (fileItem.status !== 'error') return
 
     try {
-      await uploadSingleFile(fileItem, index);
-      toast.success(`Upload thành công ${fileItem.file.name}!`);
+      await uploadSingleFile(fileItem, index)
+      toast.success(`Upload thành công ${fileItem.file.name}!`)
 
       // Remove from list if success
-      setFiles((prev) => prev.filter((_, i) => i !== index));
-      await onUploadComplete();
+      setFiles(prev => prev.filter((_, i) => i !== index))
+      await onUploadComplete()
     } catch (error) {
-      toast.error(`Upload thất bại ${fileItem.file.name}`);
+      toast.error(`Upload thất bại ${fileItem.file.name}`)
     }
   }
 
   function handleCancelUpload() {
-    uploadControllerRef.current.cancel = true;
-    setUploading(false);
+    uploadControllerRef.current.cancel = true
+    setUploading(false)
 
     // Reset all uploading files to pending
-    setFiles((prev) => prev.map(f => ({
-      ...f,
-      status: f.status === 'uploading' ? 'pending' : f.status,
-      progress: f.status === 'uploading' ? 0 : f.progress,
-    })));
+    setFiles(prev =>
+      prev.map(f => ({
+        ...f,
+        status: f.status === 'uploading' ? 'pending' : f.status,
+        progress: f.status === 'uploading' ? 0 : f.progress
+      }))
+    )
 
-    toast.warning('Đã hủy upload');
+    toast.warning('Đã hủy upload')
   }
 
   const stats = {
@@ -290,8 +280,8 @@ export default function ImageUploadZone({ albumId, onUploadComplete }: Props) {
     pending: files.filter(f => f.status === 'pending').length,
     uploading: files.filter(f => f.status === 'uploading').length,
     success: files.filter(f => f.status === 'success').length,
-    error: files.filter(f => f.status === 'error').length,
-  };
+    error: files.filter(f => f.status === 'error').length
+  }
 
   return (
     <div>
@@ -302,31 +292,24 @@ export default function ImageUploadZone({ albumId, onUploadComplete }: Props) {
         onDragLeave={handleDrag}
         onDrop={handleDrop}
         onClick={() => !uploading && fileInputRef.current?.click()}
-        className={`relative border-2 border-dashed rounded-lg p-12 text-center cursor-pointer transition-colors ${
-          dragActive
-            ? 'border-blue-500 bg-blue-50'
-            : 'border-gray-300 hover:border-gray-400 bg-white'
-        } ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}
+        className={`relative cursor-pointer rounded-lg border-2 border-dashed p-12 text-center transition-colors ${
+          dragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300 bg-white hover:border-gray-400'
+        } ${uploading ? 'cursor-not-allowed opacity-50' : ''}`}
       >
-        <Upload
-          size={48}
-          className={`mx-auto mb-4 ${dragActive ? 'text-blue-500' : 'text-gray-400'}`}
-        />
-        <p className="text-lg font-medium text-gray-700 mb-2">
+        <Upload size={48} className={`mx-auto mb-4 ${dragActive ? 'text-blue-500' : 'text-gray-400'}`} />
+        <p className="mb-2 text-lg font-medium text-gray-700">
           {dragActive ? 'Thả file vào đây' : 'Kéo thả hoặc click để chọn ảnh'}
         </p>
         <p className="text-sm text-gray-500">
-          Hỗ trợ: JPG, PNG, WebP - Tối đa 100MB/ảnh
+          Hỗ trợ: JPG, PNG, WebP - Tối đa {MAX_SOURCE_BYTES / (1024 * 1024)} MB/ảnh
         </p>
-        <p className="text-xs text-gray-400 mt-1">
-          Ảnh sẽ được kiểm tra và tối ưu theo policy trước khi upload
-        </p>
+        <p className="mt-1 text-xs text-gray-400">Mỗi ảnh sẽ được nén một lần sang WebP trước khi upload</p>
 
         <input
           ref={fileInputRef}
           type="file"
           multiple
-          accept={ALLOWED_TYPES.join(',')}
+          accept={ACCEPTED_SOURCE_MIME_TYPES.join(',')}
           onChange={handleFileInput}
           disabled={uploading}
           className="hidden"
@@ -337,30 +320,26 @@ export default function ImageUploadZone({ albumId, onUploadComplete }: Props) {
       {files.length > 0 && (
         <div className="mt-6">
           {/* Stats Bar */}
-          <div className="flex items-center justify-between mb-4 p-4 bg-gray-50 rounded-lg">
+          <div className="mb-4 flex items-center justify-between rounded-lg bg-gray-50 p-4">
             <div className="flex items-center gap-6 text-sm">
               <span className="text-gray-700">
                 <span className="font-semibold">{stats.total}</span> ảnh tổng
               </span>
-              {stats.pending > 0 && (
-                <span className="text-gray-500">
-                  {stats.pending} sẵn sàng
-                </span>
-              )}
+              {stats.pending > 0 && <span className="text-gray-500">{stats.pending} sẵn sàng</span>}
               {stats.uploading > 0 && (
-                <span className="text-blue-600 flex items-center gap-1">
+                <span className="flex items-center gap-1 text-blue-600">
                   <Loader2 size={14} className="animate-spin" />
                   {stats.uploading} đang upload
                 </span>
               )}
               {stats.success > 0 && (
-                <span className="text-green-600 flex items-center gap-1">
+                <span className="flex items-center gap-1 text-green-600">
                   <CheckCircle size={14} />
                   {stats.success} thành công
                 </span>
               )}
               {stats.error > 0 && (
-                <span className="text-red-600 flex items-center gap-1">
+                <span className="flex items-center gap-1 text-red-600">
                   <AlertCircle size={14} />
                   {stats.error} thất bại
                 </span>
@@ -370,10 +349,10 @@ export default function ImageUploadZone({ albumId, onUploadComplete }: Props) {
             {!uploading && (
               <button
                 onClick={() => {
-                  files.forEach((f) => f.preview && URL.revokeObjectURL(f.preview));
-                  setFiles([]);
+                  files.forEach(f => f.preview && URL.revokeObjectURL(f.preview))
+                  setFiles([])
                 }}
-                className="text-sm text-red-600 hover:text-red-700 font-medium"
+                className="text-sm font-medium text-red-600 hover:text-red-700"
               >
                 Xóa tất cả
               </button>
@@ -381,62 +360,56 @@ export default function ImageUploadZone({ albumId, onUploadComplete }: Props) {
           </div>
 
           {/* Files List */}
-          <div className="space-y-3 max-h-96 overflow-y-auto">
+          <div className="max-h-96 space-y-3 overflow-y-auto">
             {files.map((fileItem, index) => (
               <div
                 key={index}
-                className={`flex items-center gap-4 p-4 rounded-lg border ${
+                className={`flex items-center gap-4 rounded-lg border p-4 ${
                   fileItem.status === 'success'
-                    ? 'bg-green-50 border-green-200'
+                    ? 'border-green-200 bg-green-50'
                     : fileItem.status === 'error'
-                    ? 'bg-red-50 border-red-200'
-                    : fileItem.status === 'uploading'
-                    ? 'bg-blue-50 border-blue-200'
-                    : 'bg-white border-gray-200'
+                      ? 'border-red-200 bg-red-50'
+                      : fileItem.status === 'uploading'
+                        ? 'border-blue-200 bg-blue-50'
+                        : 'border-gray-200 bg-white'
                 }`}
               >
                 {/* Preview or Icon */}
-                <div className="flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden bg-gray-100">
+                <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg bg-gray-100">
                   {fileItem.preview ? (
-                    <img
-                      src={fileItem.preview}
-                      alt={fileItem.file.name}
-                      className="w-full h-full object-cover"
-                    />
+                    <img src={fileItem.preview} alt={fileItem.file.name} className="h-full w-full object-cover" />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center">
+                    <div className="flex h-full w-full items-center justify-center">
                       <FileImage size={32} className="text-gray-400" />
                     </div>
                   )}
                 </div>
 
                 {/* File Info */}
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-gray-900 truncate">
-                    {fileItem.file.name}
-                  </p>
-                  <p className="text-sm text-gray-500">
-                    {formatFileSize(fileItem.file.size)}
-                  </p>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-medium text-gray-900">{fileItem.file.name}</p>
+                  <p className="text-sm text-gray-500">{formatFileSize(fileItem.file.size)}</p>
 
                   {/* Status Text - Simple */}
                   {fileItem.status === 'uploading' && (
-                    <p className="mt-1 text-sm text-blue-600 font-medium">
-                      Đang xử lý...
-                    </p>
+                    <p className="mt-1 text-sm font-medium text-blue-600">Đang xử lý...</p>
                   )}
                   {(fileItem.status === 'pending' || fileItem.status === 'uploading') && (
                     <ImageUploadProgress
                       progress={fileItem.progress}
-                      state={
-                        fileItem.statusText ??
-                        (fileItem.status === 'uploading' ? 'Đang upload' : 'Sẵn sàng')
-                      }
+                      state={fileItem.statusText ?? (fileItem.status === 'uploading' ? 'Đang upload' : 'Sẵn sàng')}
                     />
                   )}
 
                   {/* Error Message */}
-                  {fileItem.error && <ImageUploadErrors code={fileItem.error} onRetry={() => handleRetryFile(index)} onRemove={() => removeFile(index)} />}
+                  {fileItem.error && (
+                    <ImageUploadErrors
+                      code={fileItem.error}
+                      retryAfter={fileItem.retryAfter}
+                      onRetry={() => handleRetryFile(index)}
+                      onRemove={() => removeFile(index)}
+                    />
+                  )}
                 </div>
 
                 {/* Status Icon */}
@@ -460,12 +433,12 @@ export default function ImageUploadZone({ albumId, onUploadComplete }: Props) {
 
                 {/* Action Buttons */}
                 {!uploading && (
-                  <div className="flex-shrink-0 flex gap-2">
+                  <div className="flex flex-shrink-0 gap-2">
                     {/* Retry button for failed files */}
                     {fileItem.status === 'error' && (
                       <button
                         onClick={() => handleRetryFile(index)}
-                        className="px-3 py-1.5 text-sm bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors font-medium"
+                        className="rounded-lg bg-orange-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-orange-700"
                         title="Thử lại"
                       >
                         Retry
@@ -476,7 +449,7 @@ export default function ImageUploadZone({ albumId, onUploadComplete }: Props) {
                     {fileItem.status !== 'success' && (
                       <button
                         onClick={() => removeFile(index)}
-                        className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors"
+                        className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
                         title="Xóa file"
                       >
                         <X size={20} />
@@ -494,18 +467,18 @@ export default function ImageUploadZone({ albumId, onUploadComplete }: Props) {
               <>
                 <button
                   onClick={handleUpload}
-                  disabled={files.every((f) => f.error || f.status === 'success')}
-                  className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  disabled={files.every(f => f.error || f.status === 'success')}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-blue-600 px-6 py-3 font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Upload size={20} />
-                  Upload {files.filter((f) => !f.error && f.status !== 'success').length} ảnh
+                  Upload {files.filter(f => !f.error && f.status !== 'success').length} ảnh
                 </button>
                 <button
                   onClick={() => {
-                    files.forEach((f) => f.preview && URL.revokeObjectURL(f.preview));
-                    setFiles([]);
+                    files.forEach(f => f.preview && URL.revokeObjectURL(f.preview))
+                    setFiles([])
                   }}
-                  className="px-6 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                  className="rounded-lg border border-gray-300 px-6 py-3 font-medium transition-colors hover:bg-gray-50"
                 >
                   Hủy
                 </button>
@@ -513,7 +486,7 @@ export default function ImageUploadZone({ albumId, onUploadComplete }: Props) {
             ) : (
               <button
                 onClick={handleCancelUpload}
-                className="flex-1 px-6 py-3 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition-colors font-medium"
+                className="flex-1 rounded-lg border border-red-300 px-6 py-3 font-medium text-red-600 transition-colors hover:bg-red-50"
               >
                 Hủy upload
               </button>
@@ -522,12 +495,12 @@ export default function ImageUploadZone({ albumId, onUploadComplete }: Props) {
 
           {/* Upload Tips */}
           {uploading && (
-            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700">
+            <div className="mt-4 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-700">
               💡 <strong>Tip:</strong> Upload đang chạy. Bạn có thể đóng tab này và quay lại sau.
             </div>
           )}
         </div>
       )}
     </div>
-  );
+  )
 }

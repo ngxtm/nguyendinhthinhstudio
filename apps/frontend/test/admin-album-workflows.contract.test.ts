@@ -1,8 +1,8 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { INITIAL_IMAGE_UPLOAD_POLICY } from '@ndt/image-upload-policy'
 import * as imagesApi from '../src/lib/api/images'
+import { getImageUploadErrorMessage } from '../src/app/admin/components/ImageUploadErrors'
 
 test('admin album list always requests the authenticated admin collection', () => {
   const source = readFileSync(new URL('../src/app/admin/albums/page.tsx', import.meta.url), 'utf8')
@@ -20,15 +20,15 @@ test('admin album forms load taxonomy through the authenticated client', () => {
   }
 })
 
-test('browser upload uses the current policy request and waits for consumption', async () => {
-  const runCurrentPolicyUpload = (
+test('browser upload sends a WebP-only presign request without policyVersion', async () => {
+  const runAdminImageUpload = (
     imagesApi as typeof imagesApi & {
-      runCurrentPolicyUpload?: (...args: any[]) => Promise<void>
+      runAdminImageUpload?: (...args: any[]) => Promise<void>
     }
-  ).runCurrentPolicyUpload
+  ).runAdminImageUpload
 
-  assert.equal(typeof runCurrentPolicyUpload, 'function')
-  if (!runCurrentPolicyUpload) return
+  assert.equal(typeof runAdminImageUpload, 'function')
+  if (!runAdminImageUpload) return
 
   const file = new File(['image'], 'testing.jpg', { type: 'image/jpeg' })
   const processedSha256 = 'a'.repeat(64)
@@ -38,45 +38,16 @@ test('browser upload uses the current policy request and waits for consumption',
   let presignInput: Record<string, unknown> | undefined
   let statusCalls = 0
 
-  await runCurrentPolicyUpload('00000000-0000-4000-8000-000000000003', file, (value: number) => progress.push(value), {
-    loadPolicy: async () => ({
-      policyVersion: 'web-v1-test',
-      policy: INITIAL_IMAGE_UPLOAD_POLICY
-    }),
-    probeCapability: async () => ({
-      outcome: 'supported',
-      chromiumMajor: 136,
-      orientationMode: 'display',
-      targetSizeDecode: true,
-      webpEncode: true,
-      srgbOutput: true
-    }),
-    createRegistry: () => ({
-      reserve: () => ({
-        itemId: 'testing.jpg',
-        kind: 'output-blob',
-        token: Symbol('testing.jpg'),
-        owner: 'testing.jpg'
-      }),
-      transfer: (lease: any) => lease,
-      release: () => undefined,
-      snapshot: () => ({
-        decodedOrVisibleSurfaces: 0,
-        residentOutputBlobs: 0,
-        total: 0,
-        leases: []
-      })
-    }),
+  await runAdminImageUpload('00000000-0000-4000-8000-000000000003', file, (value: number) => progress.push(value), {
+    probeCapability: async () => ({ outcome: 'supported' }),
     optimize: async () => ({
-      blob: file,
-      filename: file.name,
-      contentType: 'image/jpeg',
-      fileSize: file.size,
+      blob: new Blob(['webp'], { type: 'image/webp' }),
+      filename: 'testing.webp',
+      contentType: 'image/webp',
+      fileSize: 4,
       processedSha256,
       width: 1,
-      height: 1,
-      policyVersion: 'web-v1-test',
-      disposition: 'passed-through'
+      height: 1
     }),
     createClientRequestId: () => clientRequestId,
     presign: async (input: Record<string, unknown>) => {
@@ -101,7 +72,7 @@ test('browser upload uses the current policy request and waits for consumption',
       retryAfter: new Date(Date.now() - 1).toISOString()
     }),
     status: async () => {
-      statusCalls++
+      statusCalls += 1
       return {
         outcome: 'consumed',
         statusCode: 200,
@@ -118,12 +89,21 @@ test('browser upload uses the current policy request and waits for consumption',
   assert.deepEqual(presignInput, {
     clientRequestId,
     albumId: '00000000-0000-4000-8000-000000000003',
-    filename: 'testing.jpg',
-    contentType: 'image/jpeg',
-    fileSize: file.size,
-    processedSha256,
-    policyVersion: 'web-v1-test'
+    filename: 'testing.webp',
+    contentType: 'image/webp',
+    fileSize: 4,
+    processedSha256
   })
   assert.equal(statusCalls, 1)
   assert.equal(progress.at(-1), 100)
+})
+
+test('upload UI shows retryAfter for 429 and has no ICC/parser copy', () => {
+  const retryAfter = '2099-01-01T00:00:00.000Z'
+  const message = getImageUploadErrorMessage('upload_rate_limited', retryAfter)
+  assert.match(message, /Thử lại sau/)
+
+  const source = readFileSync(new URL('../src/app/admin/components/ImageUploadErrors.tsx', import.meta.url), 'utf8')
+  assert.doesNotMatch(source, /image_invalid_icc|image_bad_crc|image_metadata_budget_exceeded/)
+  assert.match(source, /retryAfter/)
 })
