@@ -145,6 +145,10 @@ describe('backend Docker runner', () => {
     expect(dockerfile).toContain(`test -f ${artifact}`);
   });
 
+  it('does not package the removed cutover entrypoint', () => {
+    expect(dockerfile).not.toContain('image-upload-cutover.js');
+  });
+
   it('uses the lockfile-pinned tsc-alias binary without an install fallback', () => {
     expect(backendPackage.devDependencies?.['tsc-alias']).toBeDefined();
     expect(dockerfile).toContain(
@@ -271,6 +275,10 @@ describe('Compose image-upload process roles', () => {
     ]) {
       expect(backend).not.toContain(secret);
     }
+  });
+
+  it('does not bind the removed upload policy environment', () => {
+    expect(compose).not.toContain('IMAGE_UPLOAD_POLICY_VERSION');
   });
 
   it('binds ingress mode everywhere but exposes the smoke token only to API', () => {

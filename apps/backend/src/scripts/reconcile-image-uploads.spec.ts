@@ -4,7 +4,6 @@ import {
   initializeDedicatedHeartbeat,
   registerLockConnectionAbort,
 } from './reconcile-image-uploads';
-import { INITIAL_IMAGE_UPLOAD_POLICY_VERSION } from '@ndt/image-upload-policy';
 
 const reconcilerEnvironment = {
   NODE_ENV: 'production',
@@ -17,7 +16,6 @@ const reconcilerEnvironment = {
   IMAGE_UPLOAD_PRESIGN_ENABLED: 'false',
   IMAGE_UPLOAD_PRESIGN_CLOCK_SKEW_SECONDS: '60',
   IMAGE_UPLOAD_RATE_LIMIT_CLEANUP_BATCH: '1000',
-  IMAGE_UPLOAD_POLICY_VERSION: INITIAL_IMAGE_UPLOAD_POLICY_VERSION,
   IMAGE_UPLOAD_R2_ENDPOINT: 'https://account.r2.cloudflarestorage.com',
   IMAGE_UPLOAD_R2_BUCKET: 'ndt-production-images',
   IMAGE_UPLOAD_CANONICAL_PREFIX: 'albums/',
@@ -38,12 +36,10 @@ describe('reconcile image uploads entrypoint', () => {
 
   it.each([
     ['IMAGE_UPLOAD_API_R2_ACCESS_KEY_ID', 'api-access-key'],
-    ['IMAGE_UPLOAD_CUTOVER_QUEUE_TOKEN', 'cutover-token'],
     ['IMAGE_UPLOAD_QUEUE_TOKEN', 'queue-token'],
     ['NDT_STAGING_EVENT_RULE_ID', 'event-rule'],
-    ['IMAGE_UPLOAD_OPERATOR_TOKEN', 'operator-token'],
     ['IMGPROXY_KEY', 'api-imgproxy-key'],
-  ])('rejects the API/cutover-only variable %s', (key, value) => {
+  ])('rejects the API-only or obsolete variable %s', (key, value) => {
     expect(() =>
       assertReconcilerEnvironment({
         ...reconcilerEnvironment,

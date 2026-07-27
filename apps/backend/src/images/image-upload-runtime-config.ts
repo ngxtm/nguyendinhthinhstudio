@@ -1,22 +1,16 @@
 import { isIP } from 'node:net';
 import {
-  INITIAL_IMAGE_UPLOAD_POLICY_HASH,
-  INITIAL_IMAGE_UPLOAD_POLICY_VERSION,
-} from '@ndt/image-upload-policy';
-import {
   type ImageUploadIngressMode,
   type ImageUploadIngressRuntime,
   parseImageUploadIngress,
 } from './image-upload-ingress';
 
-export type ImageUploadProcessRole = 'api' | 'reconciler' | 'cutover';
+export type ImageUploadProcessRole = 'api' | 'reconciler';
 
 type Environment = Readonly<Record<string, string | undefined>>;
 
 type RuntimeFingerprint = Readonly<{
   role: ImageUploadProcessRole;
-  policyVersion: string;
-  policyHash: string;
   processCount: number;
   decodePermitsPerProcess: number;
   r2ControlTimeoutSeconds: number;
@@ -46,7 +40,6 @@ export type ImageUploadRuntimeConfig = Readonly<{
   rateLimitCleanupBatch: number;
   reconcileGraceMs: number;
   reconcileCadenceMs: number;
-  policyVersion: string;
   r2Endpoint: string;
   r2Bucket: string;
   canonicalPrefix: string;
@@ -55,7 +48,7 @@ export type ImageUploadRuntimeConfig = Readonly<{
   fingerprint: RuntimeFingerprint;
 }>;
 
-const roles = new Set<ImageUploadProcessRole>(['api', 'reconciler', 'cutover']);
+const roles = new Set<ImageUploadProcessRole>(['api', 'reconciler']);
 
 const commonRequired = [
   'DATABASE_URL',
@@ -66,7 +59,6 @@ const commonRequired = [
   'IMAGE_UPLOAD_PRESIGN_ENABLED',
   'IMAGE_UPLOAD_PRESIGN_CLOCK_SKEW_SECONDS',
   'IMAGE_UPLOAD_RATE_LIMIT_CLEANUP_BATCH',
-  'IMAGE_UPLOAD_POLICY_VERSION',
   'IMAGE_UPLOAD_R2_ENDPOINT',
   'IMAGE_UPLOAD_R2_BUCKET',
   'IMAGE_UPLOAD_CANONICAL_PREFIX',
@@ -87,19 +79,7 @@ const roleRequired = {
     'IMAGE_UPLOAD_RECONCILE_GRACE_MS',
     'IMAGE_UPLOAD_RECONCILE_CADENCE_MS',
   ],
-  cutover: [
-    'IMAGE_UPLOAD_CUTOVER_R2_ACCESS_KEY_ID',
-    'IMAGE_UPLOAD_CUTOVER_R2_SECRET_ACCESS_KEY',
-    'IMAGE_UPLOAD_CUTOVER_R2_CONFIG_READ_ACCESS_KEY_ID',
-    'IMAGE_UPLOAD_CUTOVER_R2_CONFIG_READ_SECRET_ACCESS_KEY',
-    'IMAGE_UPLOAD_OPERATOR_TOKEN',
-  ],
 } as const satisfies Record<ImageUploadProcessRole, readonly string[]>;
-
-const parentOnlyVariables = [
-  'NDT_STAGING_OPERATOR_TOKEN',
-  'NDT_STAGING_CF_READ_TOKEN',
-] as const;
 
 const obsoleteVariables = [
   'IMAGE_UPLOAD_QUEUE_ID',
@@ -107,9 +87,7 @@ const obsoleteVariables = [
   'IMAGE_UPLOAD_SOURCE_CONSUMER_ID',
   'IMAGE_UPLOAD_DLQ_CONSUMER_ID',
   'IMAGE_UPLOAD_QUEUE_TOKEN',
-  'IMAGE_UPLOAD_CUTOVER_QUEUE_TOKEN',
   'NDT_STAGING_QUEUE_TOKEN',
-  'NDT_STAGING_CUTOVER_QUEUE_TOKEN',
   'NDT_STAGING_EVENT_RULE_ID',
   'NDT_PRODUCTION_EVENT_RULE_ID',
 ] as const;
@@ -117,42 +95,16 @@ const obsoleteVariables = [
 const roleForbidden = {
   api: [
     'IMAGE_UPLOAD_QUEUE_TOKEN',
-    'IMAGE_UPLOAD_CUTOVER_QUEUE_TOKEN',
-    'IMAGE_UPLOAD_OPERATOR_TOKEN',
     'IMAGE_UPLOAD_RECONCILER_R2_ACCESS_KEY_ID',
     'IMAGE_UPLOAD_RECONCILER_R2_SECRET_ACCESS_KEY',
-    'IMAGE_UPLOAD_CUTOVER_R2_ACCESS_KEY_ID',
-    'IMAGE_UPLOAD_CUTOVER_R2_SECRET_ACCESS_KEY',
-    'IMAGE_UPLOAD_CUTOVER_R2_CONFIG_READ_ACCESS_KEY_ID',
-    'IMAGE_UPLOAD_CUTOVER_R2_CONFIG_READ_SECRET_ACCESS_KEY',
-    ...parentOnlyVariables,
   ],
   reconciler: [
-    'IMAGE_UPLOAD_CUTOVER_QUEUE_TOKEN',
-    'IMAGE_UPLOAD_OPERATOR_TOKEN',
     'IMAGE_UPLOAD_API_R2_ACCESS_KEY_ID',
     'IMAGE_UPLOAD_API_R2_SECRET_ACCESS_KEY',
     'IMGPROXY_BASE_URL',
     'IMGPROXY_KEY',
     'IMGPROXY_SALT',
-    'IMAGE_UPLOAD_CUTOVER_R2_ACCESS_KEY_ID',
-    'IMAGE_UPLOAD_CUTOVER_R2_SECRET_ACCESS_KEY',
-    'IMAGE_UPLOAD_CUTOVER_R2_CONFIG_READ_ACCESS_KEY_ID',
-    'IMAGE_UPLOAD_CUTOVER_R2_CONFIG_READ_SECRET_ACCESS_KEY',
     'IMAGE_UPLOAD_OPERATOR_SMOKE_TOKEN',
-    ...parentOnlyVariables,
-  ],
-  cutover: [
-    'IMAGE_UPLOAD_QUEUE_TOKEN',
-    'IMAGE_UPLOAD_API_R2_ACCESS_KEY_ID',
-    'IMAGE_UPLOAD_API_R2_SECRET_ACCESS_KEY',
-    'IMGPROXY_BASE_URL',
-    'IMGPROXY_KEY',
-    'IMGPROXY_SALT',
-    'IMAGE_UPLOAD_RECONCILER_R2_ACCESS_KEY_ID',
-    'IMAGE_UPLOAD_RECONCILER_R2_SECRET_ACCESS_KEY',
-    'IMAGE_UPLOAD_OPERATOR_SMOKE_TOKEN',
-    ...parentOnlyVariables,
   ],
 } as const satisfies Record<ImageUploadProcessRole, readonly string[]>;
 
@@ -324,13 +276,6 @@ export function parseImageUploadRuntimeConfig(
       ? integer(env, 'IMAGE_UPLOAD_RECONCILE_CADENCE_MS', 5_000, 5_000)
       : 5_000;
 
-  const policyVersion = required(env, 'IMAGE_UPLOAD_POLICY_VERSION');
-  if (policyVersion !== INITIAL_IMAGE_UPLOAD_POLICY_VERSION) {
-    throw new TypeError(
-      'IMAGE_UPLOAD_POLICY_VERSION does not match current policy',
-    );
-  }
-
   const environmentBoundKeys = [
     'DATABASE_URL',
     'IMAGE_UPLOAD_R2_ENDPOINT',
@@ -354,8 +299,6 @@ export function parseImageUploadRuntimeConfig(
 
   const fingerprint: RuntimeFingerprint = Object.freeze({
     role,
-    policyVersion,
-    policyHash: INITIAL_IMAGE_UPLOAD_POLICY_HASH,
     processCount,
     decodePermitsPerProcess,
     r2ControlTimeoutSeconds,
@@ -386,7 +329,6 @@ export function parseImageUploadRuntimeConfig(
     rateLimitCleanupBatch,
     reconcileGraceMs,
     reconcileCadenceMs,
-    policyVersion,
     r2Endpoint: values.IMAGE_UPLOAD_R2_ENDPOINT,
     r2Bucket: values.IMAGE_UPLOAD_R2_BUCKET,
     canonicalPrefix,

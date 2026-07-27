@@ -1,4 +1,3 @@
-import { INITIAL_IMAGE_UPLOAD_POLICY_VERSION } from '@ndt/image-upload-policy';
 import {
   type ImageUploadProcessRole,
   parseImageUploadRuntimeConfig,
@@ -14,7 +13,6 @@ const common = {
   IMAGE_UPLOAD_PRESIGN_ENABLED: 'false',
   IMAGE_UPLOAD_PRESIGN_CLOCK_SKEW_SECONDS: '60',
   IMAGE_UPLOAD_RATE_LIMIT_CLEANUP_BATCH: '1000',
-  IMAGE_UPLOAD_POLICY_VERSION: INITIAL_IMAGE_UPLOAD_POLICY_VERSION,
   IMAGE_UPLOAD_R2_ENDPOINT: 'https://account.r2.cloudflarestorage.com',
   IMAGE_UPLOAD_R2_BUCKET: 'ndt-production-images',
   IMAGE_UPLOAD_CANONICAL_PREFIX: 'albums/',
@@ -40,23 +38,10 @@ const reconciler = {
   IMAGE_UPLOAD_RECONCILE_CADENCE_MS: '5000',
 };
 
-const cutover = {
-  ...common,
-  IMAGE_UPLOAD_PROCESS_ROLE: 'cutover',
-  IMAGE_UPLOAD_CUTOVER_R2_ACCESS_KEY_ID: 'cutover-access-key',
-  IMAGE_UPLOAD_CUTOVER_R2_SECRET_ACCESS_KEY: 'cutover-secret-key',
-  IMAGE_UPLOAD_CUTOVER_R2_CONFIG_READ_ACCESS_KEY_ID:
-    'cutover-config-read-access-key',
-  IMAGE_UPLOAD_CUTOVER_R2_CONFIG_READ_SECRET_ACCESS_KEY:
-    'cutover-config-read-secret-key',
-  IMAGE_UPLOAD_OPERATOR_TOKEN: 'operator-token',
-};
-
 describe('parseImageUploadRuntimeConfig', () => {
   it.each([
     ['api', api],
     ['reconciler', reconciler],
-    ['cutover', cutover],
   ] satisfies [ImageUploadProcessRole, Record<string, string>][])(
     'accepts the exact %s role contract and exposes a sanitized fingerprint',
     (role, env) => {
@@ -69,9 +54,6 @@ describe('parseImageUploadRuntimeConfig', () => {
       });
       expect(config.fingerprint).toMatchObject({
         role,
-        policyVersion: INITIAL_IMAGE_UPLOAD_POLICY_VERSION,
-        policyHash:
-          '18da64f64a7d4a645b549c56ebc5dce84ed830f69defdf8b6d7f2b8d9659baef',
         processCount: 1,
         decodePermitsPerProcess: 2,
         r2ControlTimeoutSeconds: 30,
@@ -83,7 +65,13 @@ describe('parseImageUploadRuntimeConfig', () => {
         ...(role === 'api' ? { trustedProxyCount: 2 } : {}),
       });
       expect(JSON.stringify(config.fingerprint)).not.toMatch(
-        /secret|token|access-key/i,
+        /secret|token|access-key|policy|cutover/i,
+      );
+      expect(Object.keys(config.values)).not.toEqual(
+        expect.arrayContaining([
+          'IMAGE_UPLOAD_POLICY_VERSION',
+          expect.stringMatching(/^IMAGE_UPLOAD_CUTOVER/),
+        ]),
       );
     },
   );
@@ -172,19 +160,11 @@ describe('parseImageUploadRuntimeConfig', () => {
       'IMAGE_UPLOAD_SOURCE_CONSUMER_ID',
       'IMAGE_UPLOAD_DLQ_CONSUMER_ID',
       'IMAGE_UPLOAD_QUEUE_TOKEN',
-      'IMAGE_UPLOAD_CUTOVER_QUEUE_TOKEN',
       'NDT_STAGING_EVENT_RULE_ID',
       'NDT_PRODUCTION_EVENT_RULE_ID',
-      'IMAGE_UPLOAD_OPERATOR_TOKEN',
       'IMAGE_UPLOAD_RECONCILER_R2_ACCESS_KEY_ID',
       'IMAGE_UPLOAD_RECONCILER_R2_SECRET_ACCESS_KEY',
-      'IMAGE_UPLOAD_CUTOVER_R2_ACCESS_KEY_ID',
-      'IMAGE_UPLOAD_CUTOVER_R2_SECRET_ACCESS_KEY',
-      'IMAGE_UPLOAD_CUTOVER_R2_CONFIG_READ_ACCESS_KEY_ID',
-      'IMAGE_UPLOAD_CUTOVER_R2_CONFIG_READ_SECRET_ACCESS_KEY',
       'NDT_STAGING_QUEUE_TOKEN',
-      'NDT_STAGING_CUTOVER_QUEUE_TOKEN',
-      'NDT_STAGING_CF_READ_TOKEN',
     ],
     reconciler: [
       'IMAGE_UPLOAD_QUEUE_ID',
@@ -192,37 +172,11 @@ describe('parseImageUploadRuntimeConfig', () => {
       'IMAGE_UPLOAD_SOURCE_CONSUMER_ID',
       'IMAGE_UPLOAD_DLQ_CONSUMER_ID',
       'IMAGE_UPLOAD_QUEUE_TOKEN',
-      'IMAGE_UPLOAD_CUTOVER_QUEUE_TOKEN',
-      'NDT_STAGING_EVENT_RULE_ID',
-      'NDT_PRODUCTION_EVENT_RULE_ID',
-      'IMAGE_UPLOAD_OPERATOR_TOKEN',
-      'IMAGE_UPLOAD_API_R2_ACCESS_KEY_ID',
-      'IMAGE_UPLOAD_API_R2_SECRET_ACCESS_KEY',
-      'IMAGE_UPLOAD_CUTOVER_R2_ACCESS_KEY_ID',
-      'IMAGE_UPLOAD_CUTOVER_R2_SECRET_ACCESS_KEY',
-      'IMAGE_UPLOAD_CUTOVER_R2_CONFIG_READ_ACCESS_KEY_ID',
-      'IMAGE_UPLOAD_CUTOVER_R2_CONFIG_READ_SECRET_ACCESS_KEY',
-      'NDT_STAGING_QUEUE_TOKEN',
-      'NDT_STAGING_CUTOVER_QUEUE_TOKEN',
-      'NDT_STAGING_CF_READ_TOKEN',
-      'IMAGE_UPLOAD_OPERATOR_SMOKE_TOKEN',
-    ],
-    cutover: [
-      'IMAGE_UPLOAD_QUEUE_ID',
-      'IMAGE_UPLOAD_DLQ_ID',
-      'IMAGE_UPLOAD_SOURCE_CONSUMER_ID',
-      'IMAGE_UPLOAD_DLQ_CONSUMER_ID',
-      'IMAGE_UPLOAD_QUEUE_TOKEN',
-      'IMAGE_UPLOAD_CUTOVER_QUEUE_TOKEN',
       'NDT_STAGING_EVENT_RULE_ID',
       'NDT_PRODUCTION_EVENT_RULE_ID',
       'IMAGE_UPLOAD_API_R2_ACCESS_KEY_ID',
       'IMAGE_UPLOAD_API_R2_SECRET_ACCESS_KEY',
-      'IMAGE_UPLOAD_RECONCILER_R2_ACCESS_KEY_ID',
-      'IMAGE_UPLOAD_RECONCILER_R2_SECRET_ACCESS_KEY',
       'NDT_STAGING_QUEUE_TOKEN',
-      'NDT_STAGING_CUTOVER_QUEUE_TOKEN',
-      'NDT_STAGING_CF_READ_TOKEN',
       'IMAGE_UPLOAD_OPERATOR_SMOKE_TOKEN',
     ],
   } as const;
@@ -232,8 +186,7 @@ describe('parseImageUploadRuntimeConfig', () => {
       keys.map((key) => [role, key] as const),
     ),
   )('rejects %s role forbidden variable %s', (role, key) => {
-    const base =
-      role === 'api' ? api : role === 'reconciler' ? reconciler : cutover;
+    const base = role === 'api' ? api : reconciler;
     expect(() =>
       parseImageUploadRuntimeConfig(
         { ...base, [key]: 'must-not-cross-role-boundaries' },
@@ -244,6 +197,7 @@ describe('parseImageUploadRuntimeConfig', () => {
 
   it.each([
     [{ ...api, IMAGE_UPLOAD_PROCESS_ROLE: 'worker' }, 'unknown role'],
+    [{ ...api, IMAGE_UPLOAD_PROCESS_ROLE: 'cutover' }, 'unknown role'],
     [
       { ...api, IMAGE_UPLOAD_PROCESS_ROLE: 'reconciler' },
       'forbidden for reconciler',
@@ -291,13 +245,6 @@ describe('parseImageUploadRuntimeConfig', () => {
     ['api', api, 'IMAGE_UPLOAD_TRUSTED_PROXY_ALLOWLIST'],
     ['reconciler', reconciler, 'IMAGE_UPLOAD_RECONCILE_GRACE_MS'],
     ['reconciler', reconciler, 'IMAGE_UPLOAD_RECONCILE_CADENCE_MS'],
-    ['cutover', cutover, 'IMAGE_UPLOAD_OPERATOR_TOKEN'],
-    ['cutover', cutover, 'IMAGE_UPLOAD_CUTOVER_R2_CONFIG_READ_ACCESS_KEY_ID'],
-    [
-      'cutover',
-      cutover,
-      'IMAGE_UPLOAD_CUTOVER_R2_CONFIG_READ_SECRET_ACCESS_KEY',
-    ],
   ] as const)('requires %s variable %s', (role, env, key) => {
     const missing = { ...env };
     delete (missing as Record<string, string | undefined>)[key];

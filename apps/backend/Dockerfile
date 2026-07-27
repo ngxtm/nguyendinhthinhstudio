@@ -40,7 +40,6 @@ RUN mkdir -p runtime-dist/src runtime-dist/scripts && \
     test -f runtime-dist/src/main.js && \
     test -f runtime-dist/scripts/reconcile-image-uploads.js && \
     test -f runtime-dist/scripts/resolve-image-upload-promotion-conflict.js && \
-    test -f runtime-dist/scripts/image-upload-cutover.js && \
     ! grep -R -n '"src/' runtime-dist && \
     ! grep -R -n "'src/" runtime-dist
 
@@ -71,7 +70,6 @@ COPY --from=builder --chown=nestjs:nodejs /app/apps/backend/prisma ./prisma
 RUN test -f /app/dist/src/main.js && \
     test -f /app/dist/scripts/reconcile-image-uploads.js && \
     test -f /app/dist/scripts/resolve-image-upload-promotion-conflict.js && \
-    test -f /app/dist/scripts/image-upload-cutover.js && \
     test -f /app/apps/backend/package.json && \
     test -f /app/packages/image-upload-policy/package.json && \
     test -f /app/packages/image-upload-policy/dist/esm/index.js && \

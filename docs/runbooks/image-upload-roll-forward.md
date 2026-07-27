@@ -1,14 +1,12 @@
 # Image Upload Production Cold Cutover and Roll-Forward
 
+> **Superseded:** ADR 0002 and the simplified Admin image-upload specification replace this procedure. The material retained below is historical context only; do not execute the deleted cutover CLI or stop services manually. Current deployment is the migration plus matching frontend, backend, and reconciler containers.
+
 This runbook implements the polling-only production cutover in the canonical image-upload spec. It does not provision or use R2 Event Notifications, Cloudflare Queues, a DLQ, provider-event receipts, or a generic outbox.
 
-## Safety contract
+## Historical safety notes
 
-- Run one bounded maintenance window. Stop the old upload generation before starting the new API or reconciler.
-- Keep `IMAGE_UPLOAD_PRESIGN_ENABLED=false` through drain, audit, migration, bridge apply, post-bridge backup, and read-only startup checks.
-- Never start an old backend, cleanup process, or scheduler after migration. Recover only by deploying a corrected forward build.
-- Store backups, receipts, approvals, and dispositions outside the repository with owner-only permissions. Never put credentials, presigned URLs, full object keys, ETags, filenames, or image bytes in evidence.
-- Commands that mutate production require the explicit approval named in that section. Preparation and read-only inspection do not authorize migration, R2 deletion, presign enablement, or ingress changes.
+The former maintenance-window and manual service-shutdown requirements are retired. The remaining sections document the previous rollout design and are not current operating instructions.
 
 ## 1. Preparation before maintenance
 
@@ -28,102 +26,9 @@ The API, reconciler, cutover, and imgproxy R2 data-plane fingerprints must all d
 
 An early rehearsal backup is non-authoritative. It cannot authorize audit, migration, or apply.
 
-## 2. Establish the no-new-upload boundary and drain old work
+## 2-5. Retired manual cutover procedure
 
-The standard path is a production ingress mutation and requires the maintenance-start approval. The approved initial-cutover exception avoids that mutation but still requires a protected maintenance-start evidence record.
-
-Choose exactly one boundary:
-
-1. **Standard:** block every upload-creation route at ingress, set old API presign disabled, and verify `503 upload_presign_disabled`.
-2. **Approved initial-cutover exception — `maintenance_route_absent`:** do not provision a new maintenance Worker/rule. Record that the public frontend is in maintenance mode; inventory every deployed API generation and prove no upload-creation route is registered; run an authenticated admin canary against every known creation path and prove fail-closed behavior with no new upload/session; and prove the route/deployment state remained unchanged for at least the maximum legacy signed-PUT lifetime plus clock skew. Record the start of that stable interval as `presignDisabledAt`. Any missing, reachable, successful, ambiguous, or drifted evidence requires the standard path.
-
-The exception waives only the new ingress Worker/rule. It does not waive the drain deadline, stopping writers, backups, audit, migration approval, new-generation presign-disabled startup, operator smoke, or zero gates.
-
-3. Keep only old confirm, status, and abandon routes during the bounded drain. Stop old scheduled cleanup, deletion, migration, and scheduler jobs.
-4. Record the conservative latest outstanding signed-PUT deadline. Use legacy `expiresAt` only when the legacy signer contract proves it equals the signed URL expiry; otherwise use `presignDisabledAt` plus the maximum legacy PUT lifetime. Add configured clock skew.
-5. Wait past that deadline and every active confirm/R2/finalization deadline.
-6. Block confirm and abandon, stop every old API instance, and verify zero old ready replicas, zero scheduler processes, no lease renewal across two lease cadences, no in-flight R2 mutation, and a late-PUT canary that cannot mutate R2.
-
-Never restart an old process after this point.
-
-## 3. Authoritative quiesced backup
-
-This production database backup requires the backup approval.
-
-Create one encrypted full logical backup after all old writers are quiesced. Include schema, data, migration history, and required ownership/role metadata. Restore it into a disposable PostgreSQL instance; verify `Image`/`ImageUpload` counts and digests; then destroy the restore.
-
-Write the protected backup receipt and a distinct protected approval. Bind both canonical path hashes, receipt/approval digests, ciphertext digest, database identity digest, restore evidence, operator fingerprint, and quiesced time. The quiesced time is the conservative outstanding-PUT deadline used by the bridge.
-
-## 4. Pre-migration read-only audit
-
-Audit is database- and R2-object-read-only. It may run after the authoritative backup approval, but it does not authorize migration.
-
-```powershell
-$env:IMAGE_UPLOAD_PROCESS_ROLE = "cutover"
-$env:IMAGE_UPLOAD_PRESIGN_ENABLED = "false"
-
-$auditReceipt = $env:IMAGE_UPLOAD_CUTOVER_AUDIT_RECEIPT
-$auditApproval = $env:IMAGE_UPLOAD_CUTOVER_AUDIT_APPROVAL
-$backupReceipt = $env:IMAGE_UPLOAD_QUIESCED_BACKUP_RECEIPT
-$backupApproval = $env:IMAGE_UPLOAD_QUIESCED_BACKUP_APPROVAL
-$dispositions = @()
-
-$auditArgs = @(
-  "/app/dist/scripts/image-upload-cutover.js", "audit",
-  "--receipt", $auditReceipt,
-  "--backup-receipt", $backupReceipt,
-  "--backup-approval", $backupApproval
-)
-foreach ($path in $dispositions) { $auditArgs += @("--disposition", $path) }
-node @auditArgs
-```
-
-The command always writes a protected diagnostic receipt. It exits nonzero while any row remains `legacy_ambiguous`. Audit selects only legacy-schema columns, reads exact `Image` references and R2 HEAD evidence, and performs no database write or R2 PUT/COPY/DELETE.
-
-For each reported ambiguous row, independently inspect sanitized evidence and create exactly one disposition:
-
-```powershell
-node /app/dist/scripts/image-upload-cutover.js disposition `
-  --audit-receipt $auditReceipt `
-  --upload-id $env:IMAGE_UPLOAD_LEGACY_DISPOSITION_UPLOAD_ID `
-  --decision $env:IMAGE_UPLOAD_LEGACY_DISPOSITION_DECISION `
-  --evidence-receipt $env:IMAGE_UPLOAD_LEGACY_DISPOSITION_EVIDENCE `
-  --output $env:IMAGE_UPLOAD_LEGACY_DISPOSITION_OUTPUT `
-  --operator-fingerprint $env:IMAGE_UPLOAD_OPERATOR_FINGERPRINT
-```
-
-The decision is closed to `committed_authorized | cleanup_authorized`. Append every distinct output path to `$dispositions`, rerun audit with repeated `--disposition` arguments, and require `unresolvedAmbiguous=0`. Then independently review the canonical audit hash and create its distinct approval:
-
-```powershell
-node /app/dist/scripts/image-upload-cutover.js approve `
-  --receipt $auditReceipt `
-  --approval $auditApproval
-```
-
-Any path, digest, ACL, backup, disposition, row, Image, source HEAD, or destination HEAD drift invalidates approval and keeps maintenance active.
-
-## 5. Migration and one-shot apply
-
-Migration and apply mutate production and require a separate migration/apply approval referencing the exact zero-ambiguity audit and authoritative backup.
-
-```powershell
-npx prisma migrate deploy --schema apps/backend/prisma/schema.prisma
-npx prisma validate --schema apps/backend/prisma/schema.prisma
-
-$applyArgs = @(
-  "/app/dist/scripts/image-upload-cutover.js", "apply",
-  "--receipt", $auditReceipt,
-  "--approval", $auditApproval,
-  "--backup-receipt", $backupReceipt,
-  "--backup-approval", $backupApproval
-)
-foreach ($path in $dispositions) { $applyArgs += @("--disposition", $path) }
-node @applyArgs
-```
-
-Apply must preflight the migrated schema before any R2 mutation. It terminalizes proven pre-dispatch rows as `failed/upload_cutover_aborted` without a promotion, preserves exact existing Image authority, creates a committed `legacy_bridge` only from exact dispatch/destination evidence and a pre-existing Image, writes compact idempotency evidence for committed bridges, enters durable temporary cleanup before DELETE, uses bounded quoted `If-Match`, and requires final absent HEAD.
-
-Rerun apply with the same evidence until all retained temporary sources are absent. Never change or replace an approved receipt to force progress.
+The previous stop/drain/audit/apply sequence depended on the removed cutover runtime and has been deleted. It is not a deployment or release gate; consult Git history only if historical investigation is required.
 
 ## 6. Post-bridge backup, pre-deploy snapshots, and startup approval
 
