@@ -9,13 +9,11 @@ describe('ImagesService deletion guard and queue', () => {
   it('rejects a new presigned upload when its album is deleting', async () => {
     const prisma: any = {
       album: {
-        findUnique: jest
-          .fn()
-          .mockResolvedValue({
-            id: 'album-1',
-            deleteStatus: 'deleting',
-            _count: { images: 0 },
-          }),
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'album-1',
+          deleteStatus: 'deleting',
+          _count: { images: 0 },
+        }),
       },
     };
     prisma.$transaction = jest.fn(
@@ -23,14 +21,17 @@ describe('ImagesService deletion guard and queue', () => {
     );
     prisma.$executeRawUnsafe = jest.fn();
     const storage = {
-      createUploadObjectKey: jest.fn().mockReturnValue('uploads/id/x.jpg'),
-      createFinalObjectKey: jest.fn().mockReturnValue('albums/album-1/x.jpg'),
+      createUploadObjectKey: jest.fn().mockReturnValue('uploads/id/x.webp'),
+      createFinalObjectKey: jest.fn().mockReturnValue('albums/album-1/x.webp'),
     };
     const service = new ImagesService(
       prisma,
       storage as any,
       {} as any,
       imagePresenter as any,
+      {} as any,
+      {} as any,
+      {} as any,
     );
 
     await expect(
@@ -38,11 +39,10 @@ describe('ImagesService deletion guard and queue', () => {
         {
           clientRequestId: '00000000-0000-4000-8000-000000000001',
           albumId: 'album-1',
-          filename: 'x.jpg',
-          contentType: 'image/jpeg',
+          filename: 'x.webp',
+          contentType: 'image/webp',
           fileSize: 1,
           processedSha256: 'a'.repeat(64),
-          policyVersion: 'web-v1-policy',
         },
         '00000000-0000-4000-8000-000000000002',
       ),
@@ -62,14 +62,12 @@ describe('ImagesService deletion guard and queue', () => {
     };
     const prisma: any = {
       image: {
-        findUnique: jest
-          .fn()
-          .mockResolvedValue({
-            id: 'image-1',
-            albumId: 'album-1',
-            r2ObjectKey: 'albums/album-1/photo.jpg',
-            album: { coverImageId: 'image-1' },
-          }),
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'image-1',
+          albumId: 'album-1',
+          r2ObjectKey: 'albums/album-1/photo.jpg',
+          album: { coverImageId: 'image-1' },
+        }),
       },
       $transaction: jest.fn(async (work: (client: typeof tx) => unknown) =>
         work(tx),
@@ -81,6 +79,9 @@ describe('ImagesService deletion guard and queue', () => {
       storage,
       {} as any,
       imagePresenter as any,
+      {} as any,
+      {} as any,
+      {} as any,
     );
 
     await service.remove('image-1');
@@ -144,6 +145,9 @@ describe('ImagesService deletion guard and queue', () => {
       { deleteObject: jest.fn() } as any,
       {} as any,
       imagePresenter as any,
+      {} as any,
+      {} as any,
+      {} as any,
     );
     await service.remove('image-1');
 

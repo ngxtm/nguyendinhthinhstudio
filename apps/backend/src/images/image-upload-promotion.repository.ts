@@ -2,6 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { runSerializableWithRetry } from '../prisma/serializable-retry';
 
 export type PromotionRecord = Record<string, unknown>;
 export type PromotionConflictRecord = Record<string, unknown>;
@@ -50,7 +51,6 @@ type ImageCommitInput = {
     mediumUrl: string;
     largeUrl: string;
     xlargeUrl: string;
-    orderIndex: number;
   };
   resultRetentionExpiresAt: Date;
   temporaryCleanupNextAttemptAt: Date;
@@ -78,9 +78,7 @@ export type OpenDestinationConflictInput = {
   observedDestinationBytes: number | null;
   observedDestinationMime: string | null;
   destinationMetadataSha256: string;
-  mismatchReason:
-    | 'destination_etag_mismatch'
-    | 'destination_metadata_mismatch';
+  mismatchReason: 'destination_etag_mismatch' | 'destination_metadata_mismatch';
   observedAt: Date;
 };
 
@@ -122,7 +120,10 @@ export type DispatchRejectedNotCreatedInput = {
   now: Date;
 };
 
-function requireNonEmpty(value: string | null | undefined, name: string): string {
+function requireNonEmpty(
+  value: string | null | undefined,
+  name: string,
+): string {
   if (typeof value !== 'string' || value.length === 0) {
     throw new Error(`${name} is required`);
   }
@@ -215,85 +216,105 @@ async function settleAndCommit(
     data: Record<string, unknown>;
   },
 ): Promise<PromotionRecord> {
-  return prisma.$transaction(async (rawTransaction) => {
-    const transaction = rawTransaction as TransactionClient;
-    const promotion = await transaction.imageUploadPromotion.findUnique({
-      where: { uploadId: input.uploadId },
-    });
-    if (
-      !promotion ||
-      promotion.finalizationLeaseToken !== input.finalizationLeaseToken ||
-      !['dispatched', 'provider_settled'].includes(promotion.copyState) ||
-      (promotion.copyResponseEtag && promotion.copyResponseEtag !== evidence.etag) ||
-      (promotion.destinationHeadEtag &&
-        promotion.destinationHeadEtag !== evidence.etag)
-    ) {
-      throw new Error('settlement evidence does not match promotion authority');
-    }
-    if (
-      promotion.disposition === 'committed' &&
-      promotion.committedResultImageId
-    ) {
-      return promotion;
-    }
+  return runSerializableWithRetry(
+    () =>
+      prisma.$transaction(async (rawTransaction) => {
+        const transaction = rawTransaction as TransactionClient;
+        const promotion = await transaction.imageUploadPromotion.findUnique({
+          where: { uploadId: input.uploadId },
+        });
+        if (
+          !promotion ||
+          promotion.finalizationLeaseToken !== input.finalizationLeaseToken ||
+          !['dispatched', 'provider_settled'].includes(promotion.copyState) ||
+          (promotion.copyResponseEtag &&
+            promotion.copyResponseEtag !== evidence.etag) ||
+          (promotion.destinationHeadEtag &&
+            promotion.destinationHeadEtag !== evidence.etag)
+        ) {
+          throw new Error(
+            'settlement evidence does not match promotion authority',
+          );
+        }
+        if (
+          promotion.disposition === 'committed' &&
+          promotion.committedResultImageId
+        ) {
+          return promotion;
+        }
 
-    // Promotion-committed images are fully materialized in R2 with variants,
-    // so they must be visible to public reads (which filter uploadStatus =
-    // 'completed'). The legacy default 'pending' would hide them, so force it.
-    const image = await transaction.image.create({
-      data: { ...input.image, uploadStatus: 'completed' },
-    });
-    await transaction.album.updateMany({
-      where: { id: input.image.albumId },
-      data: { imageCount: { increment: 1 } },
-    });
-    const upload = await transaction.imageUpload.updateMany({
-      where: {
-        id: input.uploadId,
-        createdByAdminId: input.createdByAdminId,
-        status: 'finalizing',
-        finalizationLeaseToken: input.finalizationLeaseToken,
-      },
-      data: {
-        status: 'consumed',
-        consumedAt: input.observedAt,
-        terminalAt: input.observedAt,
-        resultImageId: image.id,
-        resultRetentionExpiresAt: input.resultRetentionExpiresAt,
-        temporaryCleanupState: 'pending',
-        temporaryCleanupNextAttemptAt: input.temporaryCleanupNextAttemptAt,
-      },
-    });
-    if (upload.count !== 1) throw new Error('upload terminal CAS lost');
-    const idempotency = await transaction.imageUploadIdempotency.updateMany({
-      where: { uploadId: input.uploadId },
-      data: {
-        terminalOutcome: 'consumed',
-        resultImageId: image.id,
-        terminalAt: input.observedAt,
-        resultRetentionExpiresAt: input.resultRetentionExpiresAt,
-      },
-    });
-    if (idempotency.count !== 1) {
-      throw new Error('idempotency terminal CAS lost');
-    }
-    const settled = await transaction.imageUploadPromotion.updateMany({
-      where: {
-        uploadId: input.uploadId,
-        finalizationLeaseToken: input.finalizationLeaseToken,
-        copyState: { in: ['dispatched', 'provider_settled'] },
-      },
-      data: {
-        copyState: 'provider_settled',
-        disposition: 'committed',
-        committedResultImageId: image.id,
-        providerSettlementObservedAt: input.observedAt,
-        ...evidence.data,
-      },
-    });
-    if (settled.count !== 1) throw new Error('promotion settlement CAS lost');
-    return rereadPromotion(transaction, input.uploadId);
-  }, SERIALIZABLE) as Promise<PromotionRecord>;
+        // Promotion-committed images are fully materialized in R2 with variants,
+        // so they must be visible to public reads (which filter uploadStatus =
+        // 'completed'). The legacy default 'pending' would hide them, so force it.
+        // Assign order inside this serializable transaction so retries observe the
+        // latest committed image rather than reusing a stale caller-side value.
+        const lastImage = await transaction.image.findFirst({
+          where: { albumId: input.image.albumId },
+          orderBy: { orderIndex: 'desc' },
+          select: { orderIndex: true },
+        });
+        const image = await transaction.image.create({
+          data: {
+            ...input.image,
+            orderIndex: (lastImage?.orderIndex ?? 0) + 1,
+            uploadStatus: 'completed',
+          },
+        });
+        await transaction.album.updateMany({
+          where: { id: input.image.albumId },
+          data: { imageCount: { increment: 1 } },
+        });
+        const upload = await transaction.imageUpload.updateMany({
+          where: {
+            id: input.uploadId,
+            createdByAdminId: input.createdByAdminId,
+            status: 'finalizing',
+            finalizationLeaseToken: input.finalizationLeaseToken,
+          },
+          data: {
+            status: 'consumed',
+            consumedAt: input.observedAt,
+            terminalAt: input.observedAt,
+            resultImageId: image.id,
+            resultRetentionExpiresAt: input.resultRetentionExpiresAt,
+            temporaryCleanupState: 'pending',
+            temporaryCleanupNextAttemptAt: input.temporaryCleanupNextAttemptAt,
+          },
+        });
+        if (upload.count !== 1) throw new Error('upload terminal CAS lost');
+        const idempotency = await transaction.imageUploadIdempotency.updateMany(
+          {
+            where: { uploadId: input.uploadId },
+            data: {
+              terminalOutcome: 'consumed',
+              resultImageId: image.id,
+              terminalAt: input.observedAt,
+              resultRetentionExpiresAt: input.resultRetentionExpiresAt,
+            },
+          },
+        );
+        if (idempotency.count !== 1) {
+          throw new Error('idempotency terminal CAS lost');
+        }
+        const settled = await transaction.imageUploadPromotion.updateMany({
+          where: {
+            uploadId: input.uploadId,
+            finalizationLeaseToken: input.finalizationLeaseToken,
+            copyState: { in: ['dispatched', 'provider_settled'] },
+          },
+          data: {
+            copyState: 'provider_settled',
+            disposition: 'committed',
+            committedResultImageId: image.id,
+            providerSettlementObservedAt: input.observedAt,
+            ...evidence.data,
+          },
+        });
+        if (settled.count !== 1)
+          throw new Error('promotion settlement CAS lost');
+        return rereadPromotion(transaction, input.uploadId);
+      }, SERIALIZABLE) as Promise<PromotionRecord>,
+  );
 }
 
 @Injectable()
@@ -372,8 +393,7 @@ export class ImageUploadPromotionRepository {
         destinationHeadEtag: input.destinationHeadEtag,
         destinationHeadBytes: input.destinationHeadBytes,
         destinationHeadMime: input.destinationHeadMime,
-        destinationHeadMetadataSha256:
-          input.destinationHeadMetadataSha256,
+        destinationHeadMetadataSha256: input.destinationHeadMetadataSha256,
       },
     });
   }
@@ -381,9 +401,15 @@ export class ImageUploadPromotionRepository {
   async openDestinationConflict(
     input: OpenDestinationConflictInput,
   ): Promise<PromotionConflictRecord> {
-    requireCanonicalEtag(input.expectedDestinationEtag, 'expectedDestinationEtag');
+    requireCanonicalEtag(
+      input.expectedDestinationEtag,
+      'expectedDestinationEtag',
+    );
     if (input.observedDestinationEtag) {
-      requireCanonicalEtag(input.observedDestinationEtag, 'observedDestinationEtag');
+      requireCanonicalEtag(
+        input.observedDestinationEtag,
+        'observedDestinationEtag',
+      );
     }
     requireSha256(input.sourceObjectKeyHash, 'sourceObjectKeyHash');
     requireSha256(input.destinationObjectKeyHash, 'destinationObjectKeyHash');
@@ -391,7 +417,9 @@ export class ImageUploadPromotionRepository {
     const evidenceHash = conflictEvidenceSha256(input);
     return this.prisma.$transaction(
       (rawTransaction) =>
-        (rawTransaction as TransactionClient).imageUploadPromotionConflict.upsert({
+        (
+          rawTransaction as TransactionClient
+        ).imageUploadPromotionConflict.upsert({
           where: { promotionId: input.promotionId },
           create: {
             id: randomUUID(),
@@ -421,9 +449,10 @@ export class ImageUploadPromotionRepository {
   ): Promise<PromotionConflictRecord> {
     return this.prisma.$transaction(async (rawTransaction) => {
       const transaction = rawTransaction as TransactionClient;
-      const conflict = await transaction.imageUploadPromotionConflict.findUnique({
-        where: { id: input.id },
-      });
+      const conflict =
+        await transaction.imageUploadPromotionConflict.findUnique({
+          where: { id: input.id },
+        });
       if (!conflict || conflict.state !== input.expectedState) {
         throw new Error('promotion conflict is not open');
       }
@@ -443,24 +472,28 @@ export class ImageUploadPromotionRepository {
           | 'destination_metadata_mismatch',
         observedAt: conflict.openedAt,
       };
-      if (conflictEvidenceSha256(snapshot) !== conflict.conflictEvidenceSha256) {
+      if (
+        conflictEvidenceSha256(snapshot) !== conflict.conflictEvidenceSha256
+      ) {
         throw new Error('promotion conflict snapshot hash mismatch');
       }
-      const updated = await transaction.imageUploadPromotionConflict.updateMany({
-        where: {
-          id: input.id,
-          state: input.expectedState,
-          conflictEvidenceSha256: conflict.conflictEvidenceSha256,
+      const updated = await transaction.imageUploadPromotionConflict.updateMany(
+        {
+          where: {
+            id: input.id,
+            state: input.expectedState,
+            conflictEvidenceSha256: conflict.conflictEvidenceSha256,
+          },
+          data: {
+            state: 'resolved',
+            resolution: input.resolution,
+            operatorIdentityFingerprint: input.operatorIdentityFingerprint,
+            approvalDigest: input.approvalDigest,
+            finalAbsentVerifiedAt: input.finalAbsentVerifiedAt,
+            resolvedAt: input.resolvedAt,
+          },
         },
-        data: {
-          state: 'resolved',
-          resolution: input.resolution,
-          operatorIdentityFingerprint: input.operatorIdentityFingerprint,
-          approvalDigest: input.approvalDigest,
-          finalAbsentVerifiedAt: input.finalAbsentVerifiedAt,
-          resolvedAt: input.resolvedAt,
-        },
-      });
+      );
       if (updated.count !== 1) throw new Error('conflict resolution CAS lost');
       return transaction.imageUploadPromotionConflict.findUnique({
         where: { id: input.id },
@@ -560,7 +593,8 @@ export class ImageUploadPromotionRepository {
       throw new Error('destination absence evidence is incomplete');
     }
     if (
-      (input.reason === 'source_missing' && input.observedSourceEtag !== null) ||
+      (input.reason === 'source_missing' &&
+        input.observedSourceEtag !== null) ||
       (input.reason === 'source_etag_mismatch' &&
         (input.observedSourceEtag === null ||
           input.observedSourceEtag === input.sourceEtag))

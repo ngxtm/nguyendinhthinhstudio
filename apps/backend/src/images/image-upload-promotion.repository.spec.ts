@@ -88,9 +88,10 @@ describe('ImageUploadPromotionRepository', () => {
         dispatchAttempts: 1,
       }),
     });
-    expect((promotion.create.mock.calls[0][0] as { data: Record<string, unknown> }).data).not.toHaveProperty(
-      'policyVersion',
-    );
+    expect(
+      (promotion.create.mock.calls[0][0] as { data: Record<string, unknown> })
+        .data,
+    ).not.toHaveProperty('policyVersion');
   });
 
   it('settles an exact destination HEAD with all identity evidence', async () => {
@@ -104,7 +105,10 @@ describe('ImageUploadPromotionRepository', () => {
         copyResponseEtag: null,
         destinationHeadEtag: null,
       })
-      .mockResolvedValueOnce({ uploadId: 'upload-1', disposition: 'committed' });
+      .mockResolvedValueOnce({
+        uploadId: 'upload-1',
+        disposition: 'committed',
+      });
 
     const repository = new ImageUploadPromotionRepository(prisma as never);
     await repository.settleDestinationHeadAndCommit({
@@ -116,7 +120,9 @@ describe('ImageUploadPromotionRepository', () => {
     });
 
     expect(tx.imageUploadPromotion.updateMany).toHaveBeenCalledWith({
-      where: expect.objectContaining({ copyState: { in: ['dispatched', 'provider_settled'] } }),
+      where: expect.objectContaining({
+        copyState: { in: ['dispatched', 'provider_settled'] },
+      }),
       data: expect.objectContaining({
         copyState: 'provider_settled',
         destinationHeadEtag: 'destination-etag',
@@ -125,6 +131,65 @@ describe('ImageUploadPromotionRepository', () => {
         destinationHeadMetadataSha256: 'b'.repeat(64),
       }),
     });
+  });
+
+  it('assigns an image order inside the serializable settlement transaction', async () => {
+    const { prisma, tx, promotion } = harness();
+    tx.image.findFirst.mockResolvedValue({ orderIndex: 7 });
+    promotion.findUnique
+      .mockResolvedValueOnce({
+        uploadId: 'upload-1',
+        finalizationLeaseToken: base.finalizationLeaseToken,
+        copyState: 'dispatched',
+        disposition: 'pending',
+        copyResponseEtag: null,
+        destinationHeadEtag: null,
+      })
+      .mockResolvedValueOnce({
+        uploadId: 'upload-1',
+        disposition: 'committed',
+      });
+
+    const repository = new ImageUploadPromotionRepository(prisma as never);
+
+    await repository.settleCopyResponseAndCommit({
+      ...imageCommit,
+      copyResponseEtag: 'destination-etag',
+    });
+
+    expect(tx.image.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ orderIndex: 8 }),
+    });
+  });
+
+  it('retries a serializable conflict while settling a copy response', async () => {
+    const { prisma, promotion } = harness();
+    prisma.$transaction.mockRejectedValueOnce(
+      Object.assign(new Error('write conflict'), { code: 'P2034' }),
+    );
+    promotion.findUnique
+      .mockResolvedValueOnce({
+        uploadId: 'upload-1',
+        finalizationLeaseToken: base.finalizationLeaseToken,
+        copyState: 'dispatched',
+        disposition: 'pending',
+        copyResponseEtag: null,
+        destinationHeadEtag: null,
+      })
+      .mockResolvedValueOnce({
+        uploadId: 'upload-1',
+        disposition: 'committed',
+      });
+
+    const repository = new ImageUploadPromotionRepository(prisma as never);
+
+    await expect(
+      repository.settleCopyResponseAndCommit({
+        ...imageCommit,
+        copyResponseEtag: 'destination-etag',
+      }),
+    ).resolves.toEqual(expect.objectContaining({ disposition: 'committed' }));
+    expect(prisma.$transaction).toHaveBeenCalledTimes(2);
   });
 
   it('opens a destination conflict without performing an R2 mutation', async () => {
@@ -159,17 +224,23 @@ describe('ImageUploadPromotionRepository', () => {
   });
 
   it('exports only the polling promotion mutation surface', () => {
-    expect(Object.getOwnPropertyNames(ImageUploadPromotionRepository.prototype).sort()).toEqual([
-      'constructor',
-      'createDispatchedPromotion',
-      'markCommitted',
-      'markDispatchRejectedNotCreated',
-      'markVerifiedDeleted',
-      'openDestinationConflict',
-      'requireCleanup',
-      'resolveDestinationConflict',
-      'settleCopyResponseAndCommit',
-      'settleDestinationHeadAndCommit',
-    ].sort());
+    expect(
+      Object.getOwnPropertyNames(
+        ImageUploadPromotionRepository.prototype,
+      ).sort(),
+    ).toEqual(
+      [
+        'constructor',
+        'createDispatchedPromotion',
+        'markCommitted',
+        'markDispatchRejectedNotCreated',
+        'markVerifiedDeleted',
+        'openDestinationConflict',
+        'requireCleanup',
+        'resolveDestinationConflict',
+        'settleCopyResponseAndCommit',
+        'settleDestinationHeadAndCommit',
+      ].sort(),
+    );
   });
 });

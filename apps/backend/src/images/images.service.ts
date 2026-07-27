@@ -256,10 +256,7 @@ export class ImagesService {
         signingAt,
       );
       if (terminalized) {
-        return this.failedPresignResponse(
-          session.id,
-          'upload_presign_failed',
-        );
+        return this.failedPresignResponse(session.id, 'upload_presign_failed');
       }
       const winner = await (this.prisma as any).imageUpload.findUnique({
         where: { id: session.id },
@@ -353,7 +350,9 @@ export class ImagesService {
           },
         });
         if (idempotency.count !== 1) {
-          throw new Error('Upload idempotency terminal outcome invariant failed');
+          throw new Error(
+            'Upload idempotency terminal outcome invariant failed',
+          );
         }
         return true;
       },
@@ -574,7 +573,10 @@ export class ImagesService {
     const upload = await (this.prisma as any).imageUpload.findUnique({
       where: { id: confirmDto.uploadId },
     });
-    if (!upload || (createdByAdminId && upload.createdByAdminId !== createdByAdminId)) {
+    if (
+      !upload ||
+      (createdByAdminId && upload.createdByAdminId !== createdByAdminId)
+    ) {
       throw new NotFoundException('Upload session not found');
     }
     if (upload.status === 'consumed' || upload.status === 'failed') {
@@ -588,48 +590,109 @@ export class ImagesService {
       });
     } catch (error) {
       if (error instanceof BadRequestException) {
-        await this.terminalizeCurrentFailure(upload, 'pending', null, 'upload_source_changed', new Date());
+        await this.terminalizeCurrentFailure(
+          upload,
+          'pending',
+          null,
+          'upload_source_changed',
+          new Date(),
+        );
       }
       throw error;
+    }
+    if (
+      upload.status === 'finalizing' &&
+      upload.sourceEtag &&
+      upload.sourceEtag !== sourceEtag
+    ) {
+      await this.terminalizeCurrentFailure(
+        upload,
+        'finalizing',
+        upload.finalizationLeaseToken ?? null,
+        'upload_source_changed',
+        new Date(),
+      );
+      throw new BadRequestException(
+        'Uploaded object ETag does not match finalizing lease',
+      );
     }
     const now = new Date();
     const leaseToken = randomUUID();
     const claimed = await runSerializableWithRetry(() =>
-      (this.prisma as any).$transaction(async (tx: any) => {
-        const current = await tx.imageUpload.findUnique({ where: { id: upload.id } });
-        if (!current) throw new NotFoundException('Upload session not found');
-        if (createdByAdminId && current.createdByAdminId !== createdByAdminId) {
-          throw new NotFoundException('Upload session not found');
-        }
-        if (current.status === 'consumed') return current;
-        if (current.status !== 'pending' && current.status !== 'finalizing') {
-          throw new ConflictException('Upload session is not confirmable');
-        }
-        if (current.expiresAt <= now) throw new BadRequestException('Upload session has expired');
-        if (current.status === 'finalizing' && current.finalizationStartedAt &&
-            current.finalizationStartedAt.getTime() > now.getTime() - FINALIZATION_LEASE_MS) {
-          throw new ConflictException('Upload session is already being finalized');
-        }
-        const [images, finalizing] = await Promise.all([
-          tx.image.count({ where: { albumId: current.albumId } }),
-          tx.imageUpload.count({
-            where: { albumId: current.albumId, status: 'finalizing' },
-          }),
-        ]);
-        if (images + finalizing >= 50) {
-          throw new BadRequestException(
-            'Album already has maximum number of images (50)',
-          );
-        }
-        const changed = await tx.imageUpload.updateMany({
-          where: { id: current.id, createdByAdminId: current.createdByAdminId, status: current.status, ...(current.status === 'finalizing' ? { finalizationStartedAt: current.finalizationStartedAt, sourceEtag: current.sourceEtag } : {}) },
-          data: { status: 'finalizing', sourceEtag, finalizationStartedAt: now, finalizationLeaseToken: leaseToken },
-        });
-        if (changed.count !== 1) throw new ConflictException('Upload session is already being finalized');
-        return { ...current, status: 'finalizing', sourceEtag, finalizationLeaseToken: leaseToken };
-      }, { isolationLevel: 'Serializable' as any }),
+      (this.prisma as any).$transaction(
+        async (tx: any) => {
+          const current = await tx.imageUpload.findUnique({
+            where: { id: upload.id },
+          });
+          if (!current) throw new NotFoundException('Upload session not found');
+          if (
+            createdByAdminId &&
+            current.createdByAdminId !== createdByAdminId
+          ) {
+            throw new NotFoundException('Upload session not found');
+          }
+          if (current.status === 'consumed') return current;
+          if (current.status !== 'pending' && current.status !== 'finalizing') {
+            throw new ConflictException('Upload session is not confirmable');
+          }
+          if (current.expiresAt <= now)
+            throw new BadRequestException('Upload session has expired');
+          if (
+            current.status === 'finalizing' &&
+            current.finalizationStartedAt &&
+            current.finalizationStartedAt.getTime() >
+              now.getTime() - FINALIZATION_LEASE_MS
+          ) {
+            throw new ConflictException(
+              'Upload session is already being finalized',
+            );
+          }
+          const [images, finalizing] = await Promise.all([
+            tx.image.count({ where: { albumId: current.albumId } }),
+            tx.imageUpload.count({
+              where: { albumId: current.albumId, status: 'finalizing' },
+            }),
+          ]);
+          if (images + finalizing >= 50) {
+            throw new BadRequestException(
+              'Album already has maximum number of images (50)',
+            );
+          }
+          const changed = await tx.imageUpload.updateMany({
+            where: {
+              id: current.id,
+              createdByAdminId: current.createdByAdminId,
+              status: current.status,
+              ...(current.status === 'finalizing'
+                ? {
+                    finalizationStartedAt: current.finalizationStartedAt,
+                    sourceEtag: current.sourceEtag,
+                  }
+                : {}),
+            },
+            data: {
+              status: 'finalizing',
+              sourceEtag,
+              finalizationStartedAt: now,
+              finalizationLeaseToken: leaseToken,
+            },
+          });
+          if (changed.count !== 1)
+            throw new ConflictException(
+              'Upload session is already being finalized',
+            );
+          return {
+            ...current,
+            status: 'finalizing',
+            sourceEtag,
+            finalizationLeaseToken: leaseToken,
+          };
+        },
+        { isolationLevel: 'Serializable' as any },
+      ),
     );
-    if ((claimed as any).status === 'consumed') return this.renderSessionStatus(claimed, new Date());
+    if ((claimed as any).status === 'consumed')
+      return this.renderSessionStatus(claimed, new Date());
 
     const release = await this.inspectionSemaphore.acquire();
     let inspected;
@@ -639,13 +702,25 @@ export class ImagesService {
         { operationTimeoutMs: 15_000 },
         sourceEtag,
       );
-      inspected = await this.storedInspector.inspect(bytes, new AbortController().signal);
-      if (upload.processedSha256 && inspected.digestSha256 !== upload.processedSha256) {
-        throw Object.assign(new BadRequestException('Uploaded object digest does not match'), { failureCode: 'upload_digest_mismatch' });
+      inspected = await this.storedInspector.inspect(bytes);
+      if (
+        upload.processedSha256 &&
+        inspected.digestSha256 !== upload.processedSha256
+      ) {
+        throw Object.assign(
+          new BadRequestException('Uploaded object digest does not match'),
+          { failureCode: 'upload_digest_mismatch' },
+        );
       }
     } catch (error) {
       const failureCode = (error as any)?.failureCode ?? 'upload_decode_failed';
-      await this.terminalizeCurrentFailure(upload, 'finalizing', leaseToken, failureCode, new Date());
+      await this.terminalizeCurrentFailure(
+        upload,
+        'finalizing',
+        leaseToken,
+        failureCode,
+        new Date(),
+      );
       return this.renderSessionStatus(
         { ...upload, status: 'failed', failureCode, terminalAt: new Date() },
         new Date(),
@@ -658,8 +733,14 @@ export class ImagesService {
       uploadId: upload.id,
       albumId: upload.albumId,
       finalizationLeaseToken: leaseToken,
-      accountId: process.env.IMAGE_UPLOAD_CLOUDFLARE_ACCOUNT_ID ?? process.env.CLOUDFLARE_ACCOUNT_ID ?? 'unknown',
-      bucket: process.env.IMAGE_UPLOAD_R2_BUCKET ?? process.env.CLOUDFLARE_R2_BUCKET_NAME ?? 'unknown',
+      accountId:
+        process.env.IMAGE_UPLOAD_CLOUDFLARE_ACCOUNT_ID ??
+        process.env.CLOUDFLARE_ACCOUNT_ID ??
+        'unknown',
+      bucket:
+        process.env.IMAGE_UPLOAD_R2_BUCKET ??
+        process.env.CLOUDFLARE_R2_BUCKET_NAME ??
+        'unknown',
       sourceObjectKey: upload.uploadObjectKey,
       sourceEtag,
       destinationObjectKey: upload.finalObjectKey,
@@ -674,37 +755,63 @@ export class ImagesService {
 
     let responseEtag: string;
     try {
-    responseEtag = canonicalizeEtag(await this.storage.promoteObject({
-        promotionId: String((dispatched as { id: string }).id),
-        destinationObjectKey: upload.finalObjectKey,
-        sourceObjectKey: upload.uploadObjectKey,
-        sourceEtag,
-        canonicalMime: inspected.facts.mime,
-        inspectedByteSize: inspected.byteSize,
-        inspectedSha256: inspected.digestSha256,
-        inspectedWidth: inspected.facts.width,
-        inspectedHeight: inspected.facts.height,
-      }, { operationTimeoutMs: 30_000 }));
+      responseEtag = canonicalizeEtag(
+        await this.storage.promoteObject(
+          {
+            promotionId: String((dispatched as { id: string }).id),
+            destinationObjectKey: upload.finalObjectKey,
+            sourceObjectKey: upload.uploadObjectKey,
+            sourceEtag,
+            canonicalMime: inspected.facts.mime,
+            inspectedByteSize: inspected.byteSize,
+            inspectedSha256: inspected.digestSha256,
+            inspectedWidth: inspected.facts.width,
+            inspectedHeight: inspected.facts.height,
+          },
+          { operationTimeoutMs: 30_000 },
+        ),
+      );
     } catch (error) {
       // Dispatch is already durable; response loss is intentionally ambiguous.
-      if (error instanceof Error && /CopyObject response ETag|ETag must/.test(error.message)) {
-        return this.renderPresignWinner({ ...upload, status: 'finalizing', finalizationStartedAt: now });
+      if (
+        error instanceof Error &&
+        /CopyObject response ETag|ETag must/.test(error.message)
+      ) {
+        return this.renderPresignWinner({
+          ...upload,
+          status: 'finalizing',
+          finalizationStartedAt: now,
+        });
       }
       throw error;
     }
 
     const imageId = randomUUID();
     const variants = this.imageUrl.getVariantUrls(upload.finalObjectKey);
-    const last = await (this.prisma as any).image.findFirst({ where: { albumId: upload.albumId }, orderBy: { orderIndex: 'desc' }, select: { orderIndex: true } });
     await this.promotions.settleCopyResponseAndCommit({
       uploadId: upload.id,
       createdByAdminId: upload.createdByAdminId,
       finalizationLeaseToken: leaseToken,
       copyResponseEtag: responseEtag,
       observedAt: new Date(),
-      image: { id: imageId, albumId: upload.albumId, filename: upload.filename, r2ObjectKey: upload.finalObjectKey, width: inspected.facts.width, height: inspected.facts.height, fileSizeBytes: inspected.byteSize, ...variants, orderIndex: (last?.orderIndex ?? 0) + 1 },
+      image: {
+        id: imageId,
+        albumId: upload.albumId,
+        filename: upload.filename,
+        r2ObjectKey: upload.finalObjectKey,
+        width: inspected.facts.width,
+        height: inspected.facts.height,
+        fileSizeBytes: inspected.byteSize,
+        ...variants,
+      },
       resultRetentionExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-      temporaryCleanupNextAttemptAt: new Date(Math.max(Date.now(), new Date(upload.presignExpiresAt ?? upload.expiresAt).getTime() + 5 * 60 * 1000)),
+      temporaryCleanupNextAttemptAt: new Date(
+        Math.max(
+          Date.now(),
+          new Date(upload.presignExpiresAt ?? upload.expiresAt).getTime() +
+            5 * 60 * 1000,
+        ),
+      ),
     });
     return this.getUploadStatus(upload.id, upload.createdByAdminId);
   }
@@ -716,26 +823,46 @@ export class ImagesService {
     failureCode: string,
     terminalAt: Date,
   ): Promise<boolean> {
-    const resultRetentionExpiresAt = new Date(terminalAt.getTime() + 30 * 24 * 60 * 60 * 1000);
-    return (this.prisma as any).$transaction(async (tx: any) => {
-      const changed = await tx.imageUpload.updateMany({
-        where: {
-          id: upload.id,
-          createdByAdminId: upload.createdByAdminId,
-          status: expectedStatus,
-          ...(leaseToken ? { finalizationLeaseToken: leaseToken } : {}),
-          ...(expectedStatus === 'pending' ? { presignExpiresAt: { gt: terminalAt } } : {}),
-        },
-        data: { status: 'failed', failureCode, terminalAt, resultRetentionExpiresAt, temporaryCleanupState: 'pending', temporaryCleanupNextAttemptAt: terminalAt },
-      });
-      if (changed.count !== 1) return false;
-      const outcome = await tx.imageUploadIdempotency.updateMany({
-        where: { uploadId: upload.id, terminalOutcome: null },
-        data: { terminalOutcome: 'failed', failureCode, terminalAt, resultRetentionExpiresAt },
-      });
-      if (outcome.count !== 1) throw new Error('upload failure idempotency CAS failed');
-      return true;
-    }, { isolationLevel: 'Serializable' as any });
+    const resultRetentionExpiresAt = new Date(
+      terminalAt.getTime() + 30 * 24 * 60 * 60 * 1000,
+    );
+    return (this.prisma as any).$transaction(
+      async (tx: any) => {
+        const changed = await tx.imageUpload.updateMany({
+          where: {
+            id: upload.id,
+            createdByAdminId: upload.createdByAdminId,
+            status: expectedStatus,
+            ...(leaseToken ? { finalizationLeaseToken: leaseToken } : {}),
+            ...(expectedStatus === 'pending'
+              ? { presignExpiresAt: { gt: terminalAt } }
+              : {}),
+          },
+          data: {
+            status: 'failed',
+            failureCode,
+            terminalAt,
+            resultRetentionExpiresAt,
+            temporaryCleanupState: 'pending',
+            temporaryCleanupNextAttemptAt: terminalAt,
+          },
+        });
+        if (changed.count !== 1) return false;
+        const outcome = await tx.imageUploadIdempotency.updateMany({
+          where: { uploadId: upload.id, terminalOutcome: null },
+          data: {
+            terminalOutcome: 'failed',
+            failureCode,
+            terminalAt,
+            resultRetentionExpiresAt,
+          },
+        });
+        if (outcome.count !== 1)
+          throw new Error('upload failure idempotency CAS failed');
+        return true;
+      },
+      { isolationLevel: 'Serializable' as any },
+    );
   }
 
   /**
@@ -811,13 +938,12 @@ export class ImagesService {
         const objectKeyHash = createHash('sha256')
           .update(image.r2ObjectKey)
           .digest('hex');
-        const committedPromotion =
-          await tx.imageUploadPromotion.findFirst({
-            where: {
-              committedResultImageId: image.id,
-              disposition: 'committed',
-            },
-          });
+        const committedPromotion = await tx.imageUploadPromotion.findFirst({
+          where: {
+            committedResultImageId: image.id,
+            disposition: 'committed',
+          },
+        });
         const authority = committedPromotion
           ? 'current_result'
           : provider === 'r2'
@@ -850,15 +976,13 @@ export class ImagesService {
             authority,
             objectKeyHash,
             legacyImageSnapshotSha256,
-            providerDisposition:
-              provider === 'r2' ? null : 'legacy_deferred',
+            providerDisposition: provider === 'r2' ? null : 'legacy_deferred',
           },
           update: {
             authority,
             objectKeyHash,
             legacyImageSnapshotSha256,
-            providerDisposition:
-              provider === 'r2' ? null : 'legacy_deferred',
+            providerDisposition: provider === 'r2' ? null : 'legacy_deferred',
           },
         });
         if (committedPromotion) {

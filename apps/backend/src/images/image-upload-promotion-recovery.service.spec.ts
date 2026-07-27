@@ -33,6 +33,7 @@ const exactDestination = {
     bytes: '1024',
     width: '100',
     height: '80',
+    policy: 'web-v1-legacy',
   },
 };
 
@@ -123,7 +124,7 @@ describe('ImageUploadPromotionRecoveryService', () => {
     );
   });
 
-  it('settles and commits exact destination HEAD evidence without another COPY', async () => {
+  it('settles and commits exact destination HEAD evidence with historical policy metadata without another COPY', async () => {
     const h = harness();
     h.storage.headObjectIdentity.mockReset();
     h.storage.headObjectIdentity.mockResolvedValue(exactDestination);
@@ -144,7 +145,6 @@ describe('ImageUploadPromotionRecoveryService', () => {
         destinationHeadMime: 'image/webp',
         image: expect.objectContaining({
           r2ObjectKey: promotion.destinationObjectKey,
-          orderIndex: 3,
         }),
       }),
     );
@@ -204,7 +204,10 @@ describe('ImageUploadPromotionRecoveryService', () => {
 
   it('terminalizes only after two absent destination observations at least 30 seconds apart', async () => {
     const firstAbsentAt = new Date(now.getTime() - 30_000);
-    const h = harness({ ...promotion, firstDestinationAbsentAt: firstAbsentAt });
+    const h = harness({
+      ...promotion,
+      firstDestinationAbsentAt: firstAbsentAt,
+    });
     h.storage.headObjectIdentity.mockReset();
     h.storage.headObjectIdentity
       .mockResolvedValueOnce(null)

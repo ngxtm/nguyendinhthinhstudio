@@ -196,7 +196,13 @@ describe('image confirmation concurrency (PostgreSQL)', () => {
       imagePresenter as any,
       new ImageUploadPromotionRepository(prismaClient),
       { acquire: jest.fn().mockResolvedValue(jest.fn()) } as any,
-      { inspect: jest.fn().mockResolvedValue({ digestSha256: PROCESSED_SHA256, byteSize: FILE_SIZE, facts: { mime: 'image/webp', width: 10, height: 20 } }) } as any,
+      {
+        inspect: jest.fn().mockResolvedValue({
+          digestSha256: PROCESSED_SHA256,
+          byteSize: FILE_SIZE,
+          facts: { mime: 'image/webp', width: 10, height: 20 },
+        }),
+      } as any,
     );
     return { service, storage };
   }
@@ -403,7 +409,6 @@ describe('image confirmation concurrency (PostgreSQL)', () => {
       service.confirmUpload({ uploadId: first.id }),
       service.confirmUpload({ uploadId: second.id }),
     ]);
-
     expect(results.every((result) => result.status === 'fulfilled')).toBe(true);
     const images = await prisma.image.findMany({
       where: { albumId: album.id },
