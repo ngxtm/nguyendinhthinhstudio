@@ -1,17 +1,10 @@
-import type {
-  CanonicalImageMime,
-  ImageUploadPolicy,
-  StoredImageErrorCode,
-} from '@ndt/image-upload-policy';
-
 export type UploadPresignRequest = {
   clientRequestId: string;
   albumId: string;
   filename: string;
-  contentType: CanonicalImageMime;
+  contentType: 'image/webp';
   fileSize: number;
   processedSha256: string;
-  policyVersion: string;
 };
 
 export type PublicImageResponse = {
@@ -28,13 +21,7 @@ export type PublicImageResponse = {
   orderIndex: number;
 };
 
-export type PolicyResponse = {
-  policyVersion: string;
-  policy: Readonly<ImageUploadPolicy>;
-};
-
 export type UploadFailureCode =
-  | StoredImageErrorCode
   | 'upload_abandoned'
   | 'upload_expired'
   | 'upload_presign_failed'
@@ -192,7 +179,7 @@ export type UploadErrorResponse =
     }
   | {
       statusCode: 409;
-      code: 'policy_refresh_required' | 'upload_capacity_exceeded' | 'album_cleanup_pending';
+      code: 'upload_capacity_exceeded' | 'album_cleanup_pending';
       message: string;
     }
   | {

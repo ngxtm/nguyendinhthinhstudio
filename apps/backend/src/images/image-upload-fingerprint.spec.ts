@@ -8,14 +8,39 @@ const input = {
   canonicalMime: 'image/webp' as const,
   fileSize: 1_234_567,
   processedSha256: 'a'.repeat(64),
-  policyVersion: 'web-v1-policy',
 };
+
+const fingerprintChangingInputs = [
+  [
+    'client request ID',
+    {
+      ...input,
+      clientRequestId: '00000000-0000-4000-8000-000000000004',
+    },
+  ],
+  [
+    'admin',
+    {
+      ...input,
+      createdByAdminId: '00000000-0000-4000-8000-000000000005',
+    },
+  ],
+  [
+    'album',
+    {
+      ...input,
+      albumId: '00000000-0000-4000-8000-000000000006',
+    },
+  ],
+  ['filename', { ...input, normalizedFilename: 'ảnh lễ cưới.webp' }],
+  ['bytes', { ...input, fileSize: input.fileSize + 1 }],
+  ['digest', { ...input, processedSha256: 'b'.repeat(64) }],
+] as const;
 
 describe('createImageUploadRequestFingerprint', () => {
   it('hashes the exact canonical owner-bound request facts deterministically', () => {
     const first = createImageUploadRequestFingerprint(input);
     const reordered = createImageUploadRequestFingerprint({
-      policyVersion: input.policyVersion,
       processedSha256: input.processedSha256,
       fileSize: input.fileSize,
       canonicalMime: input.canonicalMime,
@@ -29,25 +54,30 @@ describe('createImageUploadRequestFingerprint', () => {
     expect(reordered).toBe(first);
   });
 
-  it.each(Object.keys(input) as Array<keyof typeof input>)(
+  it.each(fingerprintChangingInputs)(
     'changes when %s changes',
-    (key) => {
-      const changed = {
-        ...input,
-        [key]:
-          key === 'canonicalMime'
-            ? 'image/png'
-            : typeof input[key] === 'number'
-              ? (input[key] as number) + 1
-              : `${input[key]}-changed`,
-      };
-      expect(
-        createImageUploadRequestFingerprint(changed as typeof input),
-      ).not.toBe(createImageUploadRequestFingerprint(input));
+    (_fact, changed) => {
+      expect(createImageUploadRequestFingerprint(changed)).not.toBe(
+        createImageUploadRequestFingerprint(input),
+      );
     },
   );
 
-  it('rejects missing, unknown, non-normalized, and non-canonical facts', () => {
+  it('requires the canonical browser-produced WebP MIME fact', () => {
+    expect(() =>
+      createImageUploadRequestFingerprint({
+        ...input,
+        canonicalMime: 'image/png' as never,
+      }),
+    ).toThrow('canonicalMime is invalid');
+
+    const { canonicalMime: _canonicalMime, ...withoutCanonicalMime } = input;
+    expect(() =>
+      createImageUploadRequestFingerprint(withoutCanonicalMime as never),
+    ).toThrow('missing fingerprint field: canonicalMime');
+  });
+
+  it('rejects stale policy, unknown, and non-normalized facts', () => {
     expect(() =>
       createImageUploadRequestFingerprint({
         ...input,
@@ -57,9 +87,9 @@ describe('createImageUploadRequestFingerprint', () => {
     expect(() =>
       createImageUploadRequestFingerprint({
         ...input,
-        canonicalMime: 'image/jpg' as never,
-      }),
-    ).toThrow('canonicalMime');
+        policyVersion: 'web-v1-policy',
+      } as never),
+    ).toThrow('unexpected fingerprint field: policyVersion');
     expect(() =>
       createImageUploadRequestFingerprint({ ...input, extra: true } as never),
     ).toThrow('unexpected');

@@ -5,10 +5,9 @@ export type ImageUploadFingerprintInput = Readonly<{
   createdByAdminId: string;
   albumId: string;
   normalizedFilename: string;
-  canonicalMime: 'image/jpeg' | 'image/png' | 'image/webp';
+  canonicalMime: 'image/webp';
   fileSize: number;
   processedSha256: string;
-  policyVersion: string;
 }>;
 
 const keys = [
@@ -19,7 +18,6 @@ const keys = [
   'canonicalMime',
   'fileSize',
   'processedSha256',
-  'policyVersion',
 ] as const satisfies readonly (keyof ImageUploadFingerprintInput)[];
 
 export function createImageUploadRequestFingerprint(
@@ -45,11 +43,7 @@ export function createImageUploadRequestFingerprint(
   ) {
     throw new TypeError('normalizedFilename must be trimmed NFC');
   }
-  if (
-    !(['image/jpeg', 'image/png', 'image/webp'] as const).includes(
-      input.canonicalMime,
-    )
-  ) {
+  if (input.canonicalMime !== 'image/webp') {
     throw new TypeError('canonicalMime is invalid');
   }
   if (!Number.isSafeInteger(input.fileSize) || input.fileSize <= 0) {

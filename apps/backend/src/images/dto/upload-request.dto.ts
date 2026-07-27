@@ -31,16 +31,11 @@ export class UploadRequestDto {
   @Max(5_242_880)
   fileSize!: number;
 
-  @ApiProperty({ enum: ['image/jpeg', 'image/png', 'image/webp'] })
-  @IsIn(['image/jpeg', 'image/png', 'image/webp'])
-  contentType!: 'image/jpeg' | 'image/png' | 'image/webp';
+  @ApiProperty({ enum: ['image/webp'] })
+  @IsIn(['image/webp'])
+  contentType!: 'image/webp';
 
   @ApiProperty({ pattern: '^[0-9a-f]{64}$' })
   @Matches(/^[0-9a-f]{64}$/)
   processedSha256!: string;
-
-  @ApiProperty()
-  @IsString()
-  @IsNotEmpty()
-  policyVersion!: string;
 }

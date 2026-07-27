@@ -11,11 +11,10 @@ import type {
 const validRequest: UploadPresignRequest = {
   clientRequestId: '00000000-0000-4000-8000-000000000001',
   albumId: '00000000-0000-4000-8000-000000000002',
-  filename: 'photo.jpg',
-  contentType: 'image/jpeg',
+  filename: 'photo.webp',
+  contentType: 'image/webp',
   fileSize: 1024,
   processedSha256: 'a'.repeat(64),
-  policyVersion: 'web-v1-hash',
 };
 void validRequest;
 
@@ -33,12 +32,19 @@ const missingProcessedSha256: UploadPresignRequest = {
 };
 void missingProcessedSha256;
 
-const missingPolicyVersion: UploadPresignRequest = {
+const stalePolicyVersion: UploadPresignRequest = {
   ...validRequest,
-  // @ts-expect-error current requests always require policyVersion
-  policyVersion: undefined,
+  // @ts-expect-error simplified requests no longer accept policyVersion
+  policyVersion: 'web-v1-hash',
 };
-void missingPolicyVersion;
+void stalePolicyVersion;
+
+const nonWebpRequest: UploadPresignRequest = {
+  ...validRequest,
+  // @ts-expect-error browser-produced storage only uses WebP
+  contentType: 'image/jpeg',
+};
+void nonWebpRequest;
 
 // @ts-expect-error legacy request variants are forbidden
 const legacyRequest: UploadPresignRequest = {
@@ -102,7 +108,6 @@ function handleError(error: UploadErrorResponse): string {
     case 'upload_operator_smoke_required':
     case 'upload_not_found':
     case 'upload_request_conflict':
-    case 'policy_refresh_required':
     case 'upload_capacity_exceeded':
     case 'album_cleanup_pending':
     case 'upload_rate_limited':
@@ -116,23 +121,6 @@ function handleError(error: UploadErrorResponse): string {
 
 function handleFailure(code: UploadFailureCode): string {
   switch (code) {
-    case 'image_truncated':
-    case 'image_bad_length':
-    case 'image_bad_crc':
-    case 'image_bad_padding':
-    case 'image_illegal_order':
-    case 'image_duplicate_record':
-    case 'image_animation_not_allowed':
-    case 'image_multiple_pages_not_allowed':
-    case 'image_unknown_record':
-    case 'image_metadata_budget_exceeded':
-    case 'image_trailing_bytes':
-    case 'image_unsupported_format':
-    case 'image_invalid_dimensions':
-    case 'image_source_dimension_exceeded':
-    case 'image_source_pixels_exceeded':
-    case 'image_invalid_icc':
-    case 'image_metadata_not_allowed':
     case 'upload_abandoned':
     case 'upload_expired':
     case 'upload_presign_failed':
