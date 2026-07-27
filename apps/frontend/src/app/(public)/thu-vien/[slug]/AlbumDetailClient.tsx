@@ -7,7 +7,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Eye, Calendar } from 'lucide-react'
+import { ArrowLeft, Eye, Calendar, Image as ImageIcon } from 'lucide-react'
 import { type Album, normalizeAlbumTags, normalizeAlbumCategories, incrementAlbumView } from '@/lib/api'
 import { formatCompactCount } from '@/lib/format'
 import Masonry from 'react-masonry-css'
@@ -219,13 +219,15 @@ export default function AlbumDetailClient({ album, relatedAlbums }: Props) {
                 )}
 
                 {/* Stats */}
-                <div className="flex items-center gap-3 border-t border-neutral-200 pt-3 text-xs text-neutral-500 md:gap-4 md:pt-4 md:text-sm">
-                  <span className="flex items-center gap-1">
-                    <Eye size={14} className="md:h-4 md:w-4" />
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-neutral-200 pt-3 text-xs text-neutral-500 md:gap-x-4 md:pt-4 md:text-sm">
+                  <span className="inline-flex items-center gap-1 whitespace-nowrap">
+                    <ImageIcon size={14} className="md:h-4 md:w-4" />
                     {album.imageCount} ảnh
                   </span>
-                  <span>•</span>
-                  <span>{formatCompactCount(album.viewCount)} lượt xem</span>
+                  <span className="inline-flex items-center gap-1 whitespace-nowrap">
+                    <Eye size={14} className="md:h-4 md:w-4" />
+                    {formatCompactCount(album.viewCount)} lượt xem
+                  </span>
                 </div>
 
                 {/* Category Badges */}
