@@ -123,8 +123,9 @@ function assertOutput(blob: Blob): Blob {
 }
 
 function outputFilename(filename: string): string {
-  const basename = filename.replace(/\.[^.]+$/, '')
-  return `${basename || filename}.webp`
+  const normalizedFilename = filename.normalize('NFC')
+  const basename = normalizedFilename.replace(/\.[^.]+$/, '')
+  return `${basename || normalizedFilename}.webp`
 }
 
 export async function optimizeImage(

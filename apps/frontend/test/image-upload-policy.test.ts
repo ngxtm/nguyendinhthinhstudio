@@ -70,6 +70,18 @@ test('accepts each supported source type and always encodes it once to WebP', as
   }
 })
 
+test('normalizes the output filename to Unicode NFC', async () => {
+  const result = await optimizeImage(
+    new File(['source'], 'Chu\u0323p Ma\u0302\u0303u4328.JPG', {
+      type: 'image/jpeg'
+    }),
+    browserEnvironment()
+  )
+
+  assert.equal(result.filename, 'Ch\u1ee5p M\u1eabu4328.webp')
+  assert.equal(result.filename, result.filename.normalize('NFC'))
+})
+
 test('rejects an unsupported source MIME before decoding', async () => {
   let decodeCalls = 0
   await assert.rejects(
