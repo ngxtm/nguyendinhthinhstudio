@@ -1,189 +1,193 @@
 import {
-  classifySource,
-  createImageUploadPolicyVersion,
-  preflightImage,
-  validateStored,
-  type ImageUploadPolicy
-} from '@ndt/image-upload-policy'
-import type { UploadCapability, OptimizedImage } from './types'
-import type { ImageResourceRegistry } from './resource-registry'
-import { encodeWebpOnce } from './optimizer.worker'
+  ACCEPTED_SOURCE_MIME_TYPES,
+  MAX_OUTPUT_BYTES,
+  MAX_OUTPUT_EDGE,
+  MAX_SOURCE_BYTES,
+  type AcceptedSourceMime
+} from './upload-constants'
+import { ImageEncoderError, canvasToBlobOnce, encodeWebpOnce } from './optimizer.worker'
+import type { OptimizedImage } from './types'
 
 export class ImageOptimizationError extends Error {
-  constructor(readonly code: string) {
-    super(code)
+  constructor(
+    readonly code: string,
+    options?: ErrorOptions
+  ) {
+    super(code, options)
+    this.name = 'ImageOptimizationError'
   }
 }
 
-async function* chunks(bytes: Uint8Array): AsyncIterable<Uint8Array> {
-  yield bytes
+type DecodedSource = {
+  image: CanvasImageSource
+  width: number
+  height: number
+  close: () => void
 }
-async function digest(bytes: Uint8Array): Promise<string> {
+
+type DrawingSurface = {
+  drawImage(image: CanvasImageSource, dx: number, dy: number, dw: number, dh: number): void
+  encode(signal?: AbortSignal): Promise<Blob>
+}
+
+export type OptimizerEnvironment = Partial<{
+  decode(file: File, signal?: AbortSignal): Promise<DecodedSource>
+  createSurface(width: number, height: number): Pick<DrawingSurface, 'drawImage'>
+  encode(surface: Pick<DrawingSurface, 'drawImage'>, signal?: AbortSignal): Promise<Blob>
+}>
+
+function abortError(message: string): Error {
+  return Object.assign(new Error(message), { name: 'AbortError' })
+}
+
+function isAcceptedSourceMime(value: string): value is AcceptedSourceMime {
+  return (ACCEPTED_SOURCE_MIME_TYPES as readonly string[]).includes(value)
+}
+
+async function digest(blob: Blob): Promise<string> {
+  const bytes = new Uint8Array(await blob.arrayBuffer())
   const result = await globalThis.crypto.subtle.digest('SHA-256', bytes)
   return [...new Uint8Array(result)].map(byte => byte.toString(16).padStart(2, '0')).join('')
 }
 
-export type OptimizerEnvironment = {
-  normalize?: (
-    file: File,
-    width: number,
-    height: number,
-    policy: ImageUploadPolicy,
-    signal?: AbortSignal
-  ) => Promise<{ blob: Blob; width: number; height: number }>
+export function computeTargetDimensions(width: number, height: number): { width: number; height: number } {
+  const scale = Math.min(1, MAX_OUTPUT_EDGE / Math.max(width, height))
+  return {
+    width: Math.max(1, Math.round(width * scale)),
+    height: Math.max(1, Math.round(height * scale))
+  }
 }
 
-export function computeTargetDimensions(
-  sourceWidth: number,
-  sourceHeight: number,
-  policy: ImageUploadPolicy
-): { width: number; height: number } {
-  const scale = Math.min(
-    1,
-    policy.maxWidth / sourceWidth,
-    policy.maxHeight / sourceHeight,
-    Math.sqrt(policy.maxDecodedPixels / (sourceWidth * sourceHeight))
-  )
-  return {
-    width: Math.max(1, Math.floor(sourceWidth * scale)),
-    height: Math.max(1, Math.floor(sourceHeight * scale))
+async function decodeWithBrowser(file: File, signal?: AbortSignal): Promise<DecodedSource> {
+  if (typeof globalThis.createImageBitmap !== 'function') {
+    throw new ImageOptimizationError('image_decoder_unavailable')
   }
+  if (signal?.aborted) throw abortError('Optimization aborted')
+
+  try {
+    const image = await globalThis.createImageBitmap(file, {
+      imageOrientation: 'from-image',
+      colorSpaceConversion: 'default'
+    })
+    if (signal?.aborted) {
+      image.close()
+      throw abortError('Optimization aborted')
+    }
+    return {
+      image,
+      width: image.width,
+      height: image.height,
+      close: () => image.close()
+    }
+  } catch (error) {
+    if (error instanceof ImageOptimizationError || (error as Error)?.name === 'AbortError') {
+      throw error
+    }
+    throw new ImageOptimizationError('image_decode_failed', { cause: error })
+  }
+}
+
+function createBrowserSurface(width: number, height: number): DrawingSurface {
+  if (typeof OffscreenCanvas !== 'undefined') {
+    const canvas = new OffscreenCanvas(width, height)
+    const context = canvas.getContext('2d')
+    if (!context) throw new ImageOptimizationError('canvas_unavailable')
+    return {
+      drawImage: (image, dx, dy, dw, dh) => context.drawImage(image, dx, dy, dw, dh),
+      encode: signal => encodeWebpOnce(canvas, signal)
+    }
+  }
+
+  if (typeof document === 'undefined' || typeof document.createElement !== 'function') {
+    throw new ImageOptimizationError('canvas_unavailable')
+  }
+  const canvas = document.createElement('canvas')
+  canvas.width = width
+  canvas.height = height
+  const context = canvas.getContext('2d')
+  if (!context) throw new ImageOptimizationError('canvas_unavailable')
+  return {
+    drawImage: (image, dx, dy, dw, dh) => context.drawImage(image, dx, dy, dw, dh),
+    encode: signal => canvasToBlobOnce(canvas, signal)
+  }
+}
+
+function assertOutput(blob: Blob): Blob {
+  if (blob.type !== 'image/webp' || blob.size === 0) {
+    throw new ImageOptimizationError('image_encode_failed')
+  }
+  if (blob.size > MAX_OUTPUT_BYTES) {
+    throw new ImageOptimizationError('image_output_bytes_exceeded')
+  }
+  return blob
+}
+
+function outputFilename(filename: string): string {
+  const basename = filename.replace(/\.[^.]+$/, '')
+  return `${basename || filename}.webp`
 }
 
 export async function optimizeImage(
   file: File,
-  policy: ImageUploadPolicy,
-  capability: Extract<UploadCapability, { outcome: 'supported' }>,
-  registry: ImageResourceRegistry,
-  signal?: AbortSignal,
-  environment: OptimizerEnvironment = {}
+  environment: OptimizerEnvironment = {},
+  signal?: AbortSignal
 ): Promise<OptimizedImage> {
-  if (signal?.aborted) throw Object.assign(new Error('Optimization aborted'), { name: 'AbortError' })
-  if (file.size > policy.maxSourceBytes) throw new ImageOptimizationError('image_source_bytes_exceeded')
-  const bytes = new Uint8Array(await file.arrayBuffer())
-  const preflight = await preflightImage(chunks(bytes), policy, signal)
-  if (preflight.outcome === 'rejected') throw new ImageOptimizationError(preflight.code)
-  const classified = await classifySource(chunks(bytes), policy, signal)
-  if (classified.outcome === 'rejected') throw new ImageOptimizationError(classified.code)
-  const passThrough =
-    file.size <= policy.softTargetBytes && classified.outcome === 'allowed' && file.type === classified.facts.mime
-  if (passThrough) {
-    const stored = await validateStored(chunks(bytes), policy, signal)
-    if (stored.outcome !== 'allowed')
-      throw new ImageOptimizationError(stored.outcome === 'rejected' ? stored.code : 'image_metadata_not_allowed')
-    return {
-      blob: file,
-      filename: file.name,
-      contentType: classified.facts.mime,
-      fileSize: bytes.byteLength,
-      processedSha256: await digest(bytes),
-      width: classified.facts.width,
-      height: classified.facts.height,
-      policyVersion: createImageUploadPolicyVersion(policy),
-      disposition: 'passed-through'
-    }
+  if (signal?.aborted) throw abortError('Optimization aborted')
+  if (!isAcceptedSourceMime(file.type)) {
+    throw new ImageOptimizationError('image_source_unsupported')
   }
-  const { width, height } = computeTargetDimensions(preflight.facts.width, preflight.facts.height, policy)
-  const normalized = environment.normalize
-    ? await environment.normalize(file, width, height, policy, signal)
-    : await normalizeWithCanvas(
-        file,
-        classified.facts.mime,
-        width,
-        height,
-        preflight.facts.width * preflight.facts.height,
-        policy,
-        registry,
-        signal,
-        capability
-      )
-  const outputBytes = new Uint8Array(await normalized.blob.arrayBuffer())
-  const stored = await validateStored(chunks(outputBytes), policy, signal)
-  if (stored.outcome !== 'allowed')
-    throw new ImageOptimizationError(stored.outcome === 'rejected' ? stored.code : 'image_metadata_not_allowed')
-  return {
-    blob: normalized.blob,
-    filename: file.name.replace(/\.[^.]+$/, '') + '.webp',
-    contentType: 'image/webp',
-    fileSize: outputBytes.byteLength,
-    processedSha256: await digest(outputBytes),
-    width: normalized.width,
-    height: normalized.height,
-    policyVersion: createImageUploadPolicyVersion(policy),
-    disposition: 'normalized'
+  if (file.size > MAX_SOURCE_BYTES) {
+    throw new ImageOptimizationError('image_source_bytes_exceeded')
   }
-}
 
-async function normalizeWithCanvas(
-  file: File,
-  sourceMime: 'image/jpeg' | 'image/png' | 'image/webp',
-  width: number,
-  height: number,
-  sourcePixels: number,
-  policy: ImageUploadPolicy,
-  registry: ImageResourceRegistry,
-  signal: AbortSignal | undefined,
-  capability: Extract<UploadCapability, { outcome: 'supported' }>
-) {
-  if (typeof OffscreenCanvas === 'undefined') throw new ImageOptimizationError('srgb_output_unproven')
-  const sourceLease = registry.reserve(file.name, 'image-bitmap')
-  const canvasLease = registry.reserve(file.name, 'canvas')
-  let closeSource: (() => void) | undefined
-  let closeDecoder: (() => void) | undefined
+  let decoded: DecodedSource | undefined
   try {
-    let decoded: CanvasImageSource
-    if (sourcePixels > policy.maxDecodedPixels) {
-      const Decoder = (globalThis as any).ImageDecoder
-      if (typeof Decoder !== 'function' || !capability.targetSizeDecode) {
-        throw new ImageOptimizationError('image_decoder_unavailable')
+    try {
+      decoded = environment.decode ? await environment.decode(file, signal) : await decodeWithBrowser(file, signal)
+    } catch (error) {
+      if (error instanceof ImageOptimizationError || (error as Error)?.name === 'AbortError') {
+        throw error
       }
-      const decoder = new Decoder({
-        data: file.stream(),
-        type: sourceMime,
-        preferAnimation: false,
-        desiredWidth: width,
-        desiredHeight: height
-      })
-      closeDecoder = () => decoder.close()
-      const result = await decoder.decode({
-        frameIndex: 0,
-        completeFramesOnly: true
-      })
-      const frame = result.image as VideoFrame
-      if (
-        frame.displayWidth <= 0 ||
-        frame.displayHeight <= 0 ||
-        frame.displayWidth > width ||
-        frame.displayHeight > height ||
-        frame.displayWidth * frame.displayHeight > policy.maxDecodedPixels
-      ) {
-        frame.close()
-        throw new ImageOptimizationError('image_decoder_unavailable')
-      }
-      decoded = frame
-      closeSource = () => frame.close()
-    } else {
-      if (typeof createImageBitmap !== 'function') {
-        throw new ImageOptimizationError('image_decoder_unavailable')
-      }
-      const bitmap = await createImageBitmap(file, {
-        resizeWidth: width,
-        resizeHeight: height,
-        resizeQuality: 'high'
-      })
-      decoded = bitmap
-      closeSource = () => bitmap.close()
+      throw new ImageOptimizationError('image_decode_failed', { cause: error })
     }
-    if (signal?.aborted) throw Object.assign(new Error('Optimization aborted'), { name: 'AbortError' })
-    const canvas = new OffscreenCanvas(width, height)
-    const context = canvas.getContext('2d', { colorSpace: 'srgb' } as any)
-    if (!context) throw new ImageOptimizationError('srgb_output_unproven')
-    context.drawImage(decoded, 0, 0, width, height)
-    return { blob: await encodeWebpOnce(canvas as any, policy, signal), width, height }
+    if (decoded.width <= 0 || decoded.height <= 0) {
+      throw new ImageOptimizationError('image_decode_failed')
+    }
+    if (signal?.aborted) throw abortError('Optimization aborted')
+
+    const target = computeTargetDimensions(decoded.width, decoded.height)
+    const surface = environment.createSurface
+      ? environment.createSurface(target.width, target.height)
+      : createBrowserSurface(target.width, target.height)
+    surface.drawImage(decoded.image, 0, 0, target.width, target.height)
+
+    let output: Blob
+    try {
+      output = environment.encode
+        ? await environment.encode(surface, signal)
+        : await (surface as DrawingSurface).encode(signal)
+    } catch (error) {
+      if (
+        error instanceof ImageOptimizationError ||
+        error instanceof ImageEncoderError ||
+        (error as Error)?.name === 'AbortError'
+      ) {
+        throw error
+      }
+      throw new ImageOptimizationError('image_encode_failed', { cause: error })
+    }
+
+    output = assertOutput(output)
+    return {
+      blob: output,
+      filename: outputFilename(file.name),
+      contentType: 'image/webp',
+      fileSize: output.size,
+      processedSha256: await digest(output),
+      width: target.width,
+      height: target.height
+    }
   } finally {
-    closeSource?.()
-    closeDecoder?.()
-    registry.release(canvasLease)
-    registry.release(sourceLease)
+    decoded?.close()
   }
 }
