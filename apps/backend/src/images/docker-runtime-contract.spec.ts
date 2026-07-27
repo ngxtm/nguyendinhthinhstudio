@@ -33,7 +33,6 @@ describe.each([
     'apps/backend/Dockerfile',
     [
       'COPY apps/backend/package.json ./apps/backend/',
-      'COPY packages/image-upload-policy/package.json ./packages/image-upload-policy/',
       'COPY packages/types/package.json ./packages/types/',
     ],
     'RUN npm run build --workspace=backend',
@@ -43,7 +42,6 @@ describe.each([
     'apps/frontend/Dockerfile',
     [
       'COPY apps/frontend/package.json ./apps/frontend/',
-      'COPY packages/image-upload-policy/package.json ./packages/image-upload-policy/',
       'COPY packages/types/package.json ./packages/types/',
     ],
     'RUN npm run build --workspace=frontend',
@@ -64,36 +62,10 @@ describe.each([
       }
     });
 
-    it('builds image-upload-policy before compiling the application', () => {
-      expectBefore(
-        dockerfile,
-        'RUN npm run build --workspace=@ndt/image-upload-policy',
-        applicationBuild,
-      );
-    });
-
-    it('packages the compiled policy at its workspace path in the runner', () => {
-      expect(dockerfile).toContain('COPY --from=builder --chown=');
-      expect(dockerfile).toContain(
-        '/app/packages/image-upload-policy/package.json ./packages/image-upload-policy/package.json',
-      );
-      expect(dockerfile).toContain(
-        '/app/packages/image-upload-policy/dist ./packages/image-upload-policy/dist',
-      );
-
-      for (const artifact of [
-        '/app/packages/image-upload-policy/package.json',
-        '/app/packages/image-upload-policy/dist/esm/index.js',
-        '/app/packages/image-upload-policy/dist/cjs/index.js',
-        '/app/packages/image-upload-policy/dist/index.d.ts',
-        '/app/packages/image-upload-policy/dist/cjs/package.json',
-      ]) {
-        expect(dockerfile).toContain(`test -f ${artifact}`);
-      }
-
-      expect(dockerfile).not.toContain(
-        'packages/image-upload-policy/dist/index.js',
-      );
+    it('does not copy, build, or package the removed policy workspace', () => {
+      expect(dockerfile).not.toContain('packages/image-upload-policy');
+      expect(dockerfile).not.toContain('@ndt/image-upload-policy');
+      expect(dockerfile.indexOf(applicationBuild)).toBeGreaterThanOrEqual(0);
     });
   },
 );

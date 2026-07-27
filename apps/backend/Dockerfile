@@ -11,7 +11,6 @@ COPY package.json package-lock.json ./
 COPY apps/backend/package.json ./apps/backend/
 COPY apps/frontend/package.json ./apps/frontend/
 COPY packages/eslint-config/package.json ./packages/eslint-config/
-COPY packages/image-upload-policy/package.json ./packages/image-upload-policy/
 COPY packages/types/package.json ./packages/types/
 COPY packages/typescript-config/package.json ./packages/typescript-config/
 COPY packages/ui/package.json ./packages/ui/
@@ -24,8 +23,7 @@ RUN npm ci
 # Copy all source code
 COPY . .
 
-# Build the workspace dependency before compiling the backend.
-RUN npm run build --workspace=@ndt/image-upload-policy
+# Compile the backend.
 RUN npm run build --workspace=backend
 
 # Replace path aliases with relative paths (critical for runtime)
@@ -61,8 +59,6 @@ RUN addgroup --system --gid 1001 nodejs && \
 # Copy built application
 COPY --from=builder --chown=nestjs:nodejs /app/apps/backend/runtime-dist ./dist
 COPY --from=builder --chown=nestjs:nodejs /app/apps/backend/package.json ./apps/backend/package.json
-COPY --from=builder --chown=nestjs:nodejs /app/packages/image-upload-policy/package.json ./packages/image-upload-policy/package.json
-COPY --from=builder --chown=nestjs:nodejs /app/packages/image-upload-policy/dist ./packages/image-upload-policy/dist
 COPY --from=builder --chown=nestjs:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=nestjs:nodejs /app/apps/backend/prisma ./prisma
 
@@ -70,12 +66,7 @@ COPY --from=builder --chown=nestjs:nodejs /app/apps/backend/prisma ./prisma
 RUN test -f /app/dist/src/main.js && \
     test -f /app/dist/scripts/reconcile-image-uploads.js && \
     test -f /app/dist/scripts/resolve-image-upload-promotion-conflict.js && \
-    test -f /app/apps/backend/package.json && \
-    test -f /app/packages/image-upload-policy/package.json && \
-    test -f /app/packages/image-upload-policy/dist/esm/index.js && \
-    test -f /app/packages/image-upload-policy/dist/cjs/index.js && \
-    test -f /app/packages/image-upload-policy/dist/index.d.ts && \
-    test -f /app/packages/image-upload-policy/dist/cjs/package.json
+    test -f /app/apps/backend/package.json
 
 USER nestjs
 

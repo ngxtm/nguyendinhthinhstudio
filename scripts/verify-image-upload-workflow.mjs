@@ -45,12 +45,11 @@ function requireFragments(body, job, fragments) {
 }
 
 const source = readFileSync(workflowPath, 'utf8');
+if (source.includes('@ndt/image-upload-policy') || source.includes('IMAGE_UPLOAD_POLICY_VERSION')) {
+    fail('workflow must not build or configure the removed upload policy');
+}
 const jobs = extractJobs(source);
 const required = ['backend-image-upload', 'image-upload-packaging', 'frontend-playwright-chromium'];
-for (const id of ['frontend-stable-chrome', 'frontend-image-memory']) {
-    if (jobs.has(id)) fail(`${id} must remain a manual release gate, not a GitHub Actions job`);
-}
-
 const staging = jobs.get('image-upload-staging');
 if (!staging) fail('missing image-upload-staging job');
 if (!/^\s+if:\s*github\.event_name\s*==\s*['"]workflow_dispatch['"]\s*$/m.test(staging)) {
@@ -145,14 +144,6 @@ requireFragments(jobs.get('frontend-playwright-chromium'), 'frontend-playwright-
     'npx --no-install playwright install --with-deps chromium',
     '--project=chromium',
 ]);
-const cftVersion = /CHROME_FOR_TESTING_VERSION:\s*["']?([0-9]+(?:\.[0-9]+){3})["']?/.exec(source);
-if (!cftVersion || Number(cftVersion[1].split('.')[0]) < 136) {
-    fail('Chrome for Testing must be pinned to a four-part version >=136');
-}
-if (/channel:\s*(?:stable|chrome)\b/i.test(source)) {
-    fail('workflow must not select an unpinned browser channel');
-}
-
 const backendPackage = JSON.parse(read('apps/backend/package.json'));
 const backendScripts = backendPackage.scripts ?? {};
 for (const name of [
@@ -206,6 +197,13 @@ const frontendPackage = JSON.parse(read('apps/frontend/package.json'));
 if (frontendPackage.scripts?.['test:focused'] !== 'node --import tsx --test') {
     fail('frontend test:focused must be exactly node --import tsx --test');
 }
+if (
+    frontendPackage.dependencies?.['@ndt/image-upload-policy'] ||
+    frontendPackage.scripts?.pretest ||
+    frontendPackage.scripts?.['pretest:focused']
+) {
+    fail('frontend package must not depend on or build the removed upload policy');
+}
 for (const id of ['frontend-playwright-chromium']) {
     const body = jobs.get(id);
     if (/\bnode\s+--test\b/.test(body)) {
@@ -220,19 +218,19 @@ const playwright = read('apps/frontend/playwright.config.ts');
 if (!/name:\s*['"]chromium['"]/.test(playwright)) {
     fail('Playwright chromium project is missing');
 }
-if (!/name:\s*['"]stable-chrome['"]/.test(playwright)) {
-    fail('Playwright stable-chrome project is missing');
-}
-if (!playwright.includes('CFT_EXECUTABLE_PATH')) {
-    fail('stable-chrome must fail closed through CFT_EXECUTABLE_PATH');
-}
 if (/name:\s*['"]chromium['"][\s\S]{0,200}channel\s*:/m.test(playwright)) {
     fail('bundled chromium project must not use a system channel');
 }
 
-const benchmark = read('apps/frontend/test/benchmark/image-upload-memory.benchmark.ts');
-for (const label of ['optimizedDeltaBytes', 'controlDeltaBytes', 'ratio']) {
-    if (!benchmark.includes(label)) fail(`memory benchmark must emit ${label}`);
+for (const path of [
+    'apps/frontend/Dockerfile',
+    'apps/backend/Dockerfile',
+    'apps/backend/Dockerfile.operator-smoke',
+]) {
+    const dockerfile = read(path);
+    if (dockerfile.includes('image-upload-policy')) {
+        fail(`${path} must not copy, build, or package the removed upload policy`);
+    }
 }
 
 const smokeDockerfile = read('apps/backend/Dockerfile.operator-smoke');

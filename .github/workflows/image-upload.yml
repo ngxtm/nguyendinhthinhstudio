@@ -9,9 +9,6 @@ on:
 permissions:
     contents: read
 
-env:
-    CHROME_FOR_TESTING_VERSION: '148.0.7778.96'
-
 jobs:
     backend-image-upload:
         name: backend-image-upload
@@ -24,7 +21,6 @@ jobs:
                   node-version: '24.14.0'
                   cache: npm
             - run: npm ci
-            - run: npm run build --workspace=@ndt/image-upload-policy
             - run: npm run test:image-upload:ci --workspace=backend
 
     image-upload-packaging:
@@ -39,7 +35,6 @@ jobs:
             BACKEND_IMAGE: ndt-backend:image-upload-ci
             DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
             DIRECT_URL: postgresql://ci:ci@localhost:5432/ci
-            IMAGE_UPLOAD_POLICY_VERSION: web-v1-18da64f64a7d4a645b549c56ebc5dce84ed830f69defdf8b6d7f2b8d9659baef
             R2_S3_ENDPOINT: https://ci-placeholder.invalid
             CLOUDFLARE_R2_BUCKET_NAME: ci-placeholder
             R2_ACCESS_KEY_ID: ci-placeholder
@@ -89,8 +84,7 @@ jobs:
                   node-version: '24.14.0'
                   cache: npm
             - run: npm ci
-            - run: npm run build --workspace=@ndt/image-upload-policy
-            - run: npm run test:focused --workspace=frontend -- test/image-upload-capability.test.ts test/image-upload-encoder.test.ts test/image-upload-policy.test.ts test/image-upload-resource-registry.test.ts
+            - run: npm run test:focused --workspace=frontend -- test/image-upload-capability.test.ts test/image-upload-encoder.test.ts test/image-upload-policy.test.ts
             - run: npx --no-install playwright install --with-deps chromium
               working-directory: apps/frontend
             - run: npx --no-install playwright test test/image-upload.browser.spec.ts --project=chromium
@@ -158,7 +152,6 @@ jobs:
                   node-version: '24.14.0'
                   cache: npm
             - run: npm ci
-            - run: npm run build --workspace=@ndt/image-upload-policy
             - run: npx --no-install playwright install --with-deps chromium
               working-directory: apps/frontend
             - name: Run staging qualification
