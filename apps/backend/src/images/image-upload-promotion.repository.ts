@@ -6,7 +6,7 @@ import { PrismaService } from '../prisma/prisma.service';
 export type PromotionRecord = Record<string, unknown>;
 export type PromotionConflictRecord = Record<string, unknown>;
 
-type CanonicalMime = 'image/jpeg' | 'image/png' | 'image/webp';
+type CanonicalMime = 'image/webp';
 type TransactionClient = Prisma.TransactionClient & Record<string, any>;
 
 const SERIALIZABLE = {
@@ -28,7 +28,6 @@ export type CreateDispatchedPromotionInput = {
   canonicalMime: CanonicalMime;
   inspectedWidth: number;
   inspectedHeight: number;
-  policyVersion: string;
   now: Date;
   reconcileGraceMs: number;
 };
@@ -188,12 +187,11 @@ function assertCurrentDispatch(input: CreateDispatchedPromotionInput): void {
   requireNonEmpty(input.destinationObjectKey, 'destinationObjectKey');
   requireSha256(input.inspectedSha256, 'inspectedSha256');
   requirePositive(input.inspectedByteSize, 'inspectedByteSize');
-  if (!['image/jpeg', 'image/png', 'image/webp'].includes(input.canonicalMime)) {
+  if (input.canonicalMime !== 'image/webp') {
     throw new Error('canonicalMime is invalid');
   }
   requirePositive(input.inspectedWidth, 'inspectedWidth');
   requirePositive(input.inspectedHeight, 'inspectedHeight');
-  requireNonEmpty(input.policyVersion, 'policyVersion');
   requirePositive(input.reconcileGraceMs, 'reconcileGraceMs');
   if (!Number.isFinite(input.now.getTime())) throw new Error('now is invalid');
 }
@@ -328,7 +326,6 @@ export class ImageUploadPromotionRepository {
             canonicalMime: input.canonicalMime,
             inspectedWidth: input.inspectedWidth,
             inspectedHeight: input.inspectedHeight,
-            policyVersion: input.policyVersion,
             copyState: 'dispatched',
             disposition: 'pending',
             copyDispatchedAt: input.now,
@@ -365,7 +362,7 @@ export class ImageUploadPromotionRepository {
       input.destinationHeadMetadataSha256,
       'destinationHeadMetadataSha256',
     );
-    if (!['image/jpeg', 'image/png', 'image/webp'].includes(input.destinationHeadMime)) {
+    if (input.destinationHeadMime !== 'image/webp') {
       throw new Error('destinationHeadMime is invalid');
     }
     return settleAndCommit(this.prisma, input, {

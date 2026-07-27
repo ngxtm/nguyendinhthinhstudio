@@ -38,7 +38,6 @@ export type ImageUploadPromotionCopyFacts = {
   inspectedSha256: string;
   inspectedWidth: number;
   inspectedHeight: number;
-  policyVersion: string;
 };
 
 export type R2ObjectIdentity = Readonly<{
@@ -304,7 +303,6 @@ export class StorageService {
         bytes: String(promotion.inspectedByteSize),
         width: String(promotion.inspectedWidth),
         height: String(promotion.inspectedHeight),
-        policy: promotion.policyVersion,
       },
     });
     command.middlewareStack.addRelativeTo(

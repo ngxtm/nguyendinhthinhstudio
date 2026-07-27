@@ -319,7 +319,6 @@ describe('StorageService', () => {
         inspectedByteSize: 1024,
         inspectedWidth: 1200,
         inspectedHeight: 800,
-        policyVersion: 'web-v1-policy',
       }),
     ).resolves.toBe('DestinationCase');
 
@@ -340,7 +339,6 @@ describe('StorageService', () => {
           bytes: '1024',
           width: '1200',
           height: '800',
-          policy: 'web-v1-policy',
         },
       }),
     );
@@ -376,7 +374,6 @@ describe('StorageService', () => {
           inspectedByteSize: 1024,
           inspectedWidth: 1200,
           inspectedHeight: 800,
-          policyVersion: 'web-v1-policy',
         },
         { operationTimeoutMs: 10 },
       );

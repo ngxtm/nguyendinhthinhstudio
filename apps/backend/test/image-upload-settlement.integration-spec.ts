@@ -20,7 +20,6 @@ describe('image upload response-loss polling restart integration', () => {
       canonicalMime: 'image/webp',
       inspectedWidth: 100,
       inspectedHeight: 80,
-      policyVersion: 'web-v1-test',
       copyState: 'dispatched',
       disposition: 'pending',
       nextReconcileAt: new Date('2026-07-21T00:00:30.000Z'),

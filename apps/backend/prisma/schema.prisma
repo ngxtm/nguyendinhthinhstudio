@@ -176,8 +176,6 @@ model ImageUpload {
 
   clientRequestId                   String?   @unique
   createdByAdminId                  String?
-  policyVersion                     String?
-  policySnapshot                    Json?
   processedSha256                   String?
   presignExpiresAt                  DateTime?
   finalizationLeaseToken            String?
@@ -234,7 +232,6 @@ model ImageUploadPromotion {
   canonicalMime                       String?
   inspectedWidth                      Int?
   inspectedHeight                     Int?
-  policyVersion                       String?
   committedResultImageId              String?
   copyState                           String
   disposition                         String

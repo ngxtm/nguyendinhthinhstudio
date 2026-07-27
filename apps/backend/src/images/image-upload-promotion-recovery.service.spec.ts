@@ -17,7 +17,6 @@ const promotion = {
   canonicalMime: 'image/webp',
   inspectedWidth: 100,
   inspectedHeight: 80,
-  policyVersion: 'web-v1-test',
   copyState: 'dispatched',
   disposition: 'pending',
   nextReconcileAt: new Date(now.getTime() - 1),
@@ -34,7 +33,6 @@ const exactDestination = {
     bytes: '1024',
     width: '100',
     height: '80',
-    policy: 'web-v1-test',
   },
 };
 

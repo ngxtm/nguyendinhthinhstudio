@@ -43,7 +43,6 @@ function metadataSha256(identity: R2ObjectIdentity): string {
         bytes: metadata.bytes ?? '',
         height: metadata.height ?? '',
         'promotion-id': metadata['promotion-id'] ?? '',
-        policy: metadata.policy ?? '',
         sha256: metadata.sha256 ?? '',
         width: metadata.width ?? '',
       }),
@@ -63,7 +62,6 @@ function exactDestination(
     identity.metadata.sha256 === row.inspectedSha256 &&
     identity.metadata.width === String(row.inspectedWidth) &&
     identity.metadata.height === String(row.inspectedHeight) &&
-    identity.metadata.policy === row.policyVersion &&
     metadataSha256(identity) ===
       createHash('sha256')
         .update(
@@ -71,7 +69,6 @@ function exactDestination(
             bytes: String(row.inspectedByteSize),
             height: String(row.inspectedHeight),
             'promotion-id': row.promotionId,
-            policy: row.policyVersion,
             sha256: row.inspectedSha256,
             width: String(row.inspectedWidth),
           }),
@@ -91,7 +88,6 @@ function requirePromotionFacts(row: Record<string, unknown>): PromotionRow {
     'destinationObjectKey',
     'inspectedSha256',
     'canonicalMime',
-    'policyVersion',
   ]) {
     if (typeof row[key] !== 'string' || row[key] === '') {
       throw new Error(`promotion ${key} invariant is invalid`);
@@ -154,7 +150,6 @@ export class ImageUploadPromotionRecoveryService {
           { canonicalMime: null },
           { inspectedWidth: null },
           { inspectedHeight: null },
-          { policyVersion: null },
         ],
       },
     });

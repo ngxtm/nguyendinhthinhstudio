@@ -46,7 +46,6 @@ const base = {
   canonicalMime: 'image/webp' as const,
   inspectedWidth: 640,
   inspectedHeight: 480,
-  policyVersion: 'web-v1-hash',
   now: new Date('2026-07-19T00:00:00.000Z'),
   reconcileGraceMs: 30_000,
 };
@@ -89,6 +88,9 @@ describe('ImageUploadPromotionRepository', () => {
         dispatchAttempts: 1,
       }),
     });
+    expect((promotion.create.mock.calls[0][0] as { data: Record<string, unknown> }).data).not.toHaveProperty(
+      'policyVersion',
+    );
   });
 
   it('settles an exact destination HEAD with all identity evidence', async () => {

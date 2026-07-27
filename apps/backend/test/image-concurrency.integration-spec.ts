@@ -9,10 +9,10 @@ import {
   StartedPostgreSqlContainer,
 } from '@testcontainers/postgresql';
 import { ImagesService } from '../src/images/images.service';
-import { ImageUploadPolicyService } from '../src/images/image-upload-policy.service';
+import { ImageUploadPromotionRepository } from '../src/images/image-upload-promotion.repository';
 
 const execFileAsync = promisify(execFile);
-const CONTENT_TYPE = 'image/jpeg';
+const CONTENT_TYPE = 'image/webp';
 const FILE_SIZE = 1024;
 const ADMIN_ID = '00000000-0000-4000-8000-000000000001';
 const PROCESSED_SHA256 = 'a'.repeat(64);
@@ -126,6 +126,14 @@ describe('image confirmation concurrency (PostgreSQL)', () => {
         expiresAt: new Date(Date.now() + 60 * 60 * 1000),
       },
     });
+    await prisma.imageUploadIdempotency.create({
+      data: {
+        clientRequestId: randomUUID(),
+        createdByAdminId: ADMIN_ID,
+        uploadId: id,
+        requestFingerprint: 'f'.repeat(64),
+      },
+    });
     return { id, uploadObjectKey, finalObjectKey };
   }
 
@@ -164,8 +172,9 @@ describe('image confirmation concurrency (PostgreSQL)', () => {
       signFixedExpiryPut: jest
         .fn()
         .mockResolvedValue('https://r2.test/presigned-upload'),
-      verifyObject: jest.fn().mockResolvedValue('"source-etag"'),
-      promoteObject: jest.fn().mockResolvedValue(undefined),
+      verifyObject: jest.fn().mockResolvedValue('source-etag'),
+      readObjectBytes: jest.fn().mockResolvedValue(new Uint8Array([1, 2, 3])),
+      promoteObject: jest.fn().mockResolvedValue('destination-etag'),
       deleteObject: jest.fn().mockResolvedValue(undefined),
     };
     const imageUrl = {
@@ -180,26 +189,26 @@ describe('image confirmation concurrency (PostgreSQL)', () => {
     const imagePresenter = {
       presentImage: jest.fn((image: unknown) => image),
     };
-    const policy = new ImageUploadPolicyService();
     const service = new ImagesService(
       prismaClient,
       storage as any,
       imageUrl as any,
       imagePresenter as any,
-      policy,
+      new ImageUploadPromotionRepository(prismaClient),
+      { acquire: jest.fn().mockResolvedValue(jest.fn()) } as any,
+      { inspect: jest.fn().mockResolvedValue({ digestSha256: PROCESSED_SHA256, byteSize: FILE_SIZE, facts: { mime: 'image/webp', width: 10, height: 20 } }) } as any,
     );
-    return { service, storage, policy };
+    return { service, storage };
   }
 
   function presignRequest(albumId: string, clientRequestId = randomUUID()) {
     return {
       clientRequestId,
       albumId,
-      filename: 'photo.jpg',
-      contentType: CONTENT_TYPE as 'image/jpeg',
+      filename: 'photo.webp',
+      contentType: CONTENT_TYPE as 'image/webp',
       fileSize: FILE_SIZE,
       processedSha256: PROCESSED_SHA256,
-      policyVersion: new ImageUploadPolicyService().policyVersion,
     };
   }
 
