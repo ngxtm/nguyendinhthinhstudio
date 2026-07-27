@@ -195,7 +195,7 @@ export default function AlbumDetailClient({ album, relatedAlbums }: Props) {
 
                 {/* Tags */}
                 {displayTags.length > 0 && (
-                  <div className="mb-3 flex flex-wrap gap-2 md:mb-4">
+                  <div className="mb-3 flex flex-wrap justify-center gap-2 md:mb-4 md:justify-start">
                     {displayTags.map((tag, index) => (
                       <Link
                         key={tag.id || tag.slug || `tag-${index}`}
@@ -274,7 +274,7 @@ export default function AlbumDetailClient({ album, relatedAlbums }: Props) {
               {/* PhotoSwipe Gallery */}
               <div
                 id="album-gallery"
-                className={`transition-all duration-700 ${
+                className={`mx-auto transition-all duration-700 ${
                   imagesLoaded ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'
                 }`}
                 style={{ display: imagesLoaded ? 'block' : 'none' }}
@@ -290,15 +290,12 @@ export default function AlbumDetailClient({ album, relatedAlbums }: Props) {
                     480: 1 // xs
                   }}
                   className="-ml-4 flex w-auto md:-ml-6"
+                  style={{ maxWidth: 'none' }}
                   columnClassName="pl-4 md:pl-6 bg-clip-padding"
                 >
                   {album.images.map((image, index) => {
                     const highQualityUrl =
-                      image.xlargeUrl ||
-                      image.largeUrl ||
-                      image.mediumUrl ||
-                      image.smallUrl ||
-                      image.thumbnailUrl
+                      image.xlargeUrl || image.largeUrl || image.mediumUrl || image.smallUrl || image.thumbnailUrl
                     // Use real dimensions from state (loaded from image) or fallback to DB values
                     const dimensions = imageDimensions[image.id] || {
                       width: image.width || 3840,
@@ -351,7 +348,11 @@ export default function AlbumDetailClient({ album, relatedAlbums }: Props) {
               <h2 className="mb-6 text-left text-xl font-bold text-neutral-900 md:mb-8 md:text-2xl">KHÁM PHÁ THÊM</h2>
               <div className="grid grid-cols-2 gap-4 md:grid-cols-3 md:gap-6 lg:grid-cols-4">
                 {relatedAlbums.slice(0, 8).map(related => (
-                  <Link key={related.id ?? related.slug} href={`/thu-vien/${related.slug}`} className="group mb-8 block">
+                  <Link
+                    key={related.id ?? related.slug}
+                    href={`/thu-vien/${related.slug}`}
+                    className="group mb-8 block"
+                  >
                     {/* Cover Image */}
                     <div className="relative overflow-hidden rounded-lg bg-neutral-100">
                       {related.coverImage ? (
