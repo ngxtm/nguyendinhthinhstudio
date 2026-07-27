@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto';
 import {
     chmodSync,
     copyFileSync,
+    existsSync,
     mkdtempSync,
     readFileSync,
     readdirSync,
@@ -139,6 +140,17 @@ test('post-start acceptance binds startup approval without circular smoke eviden
         assert.equal(required.has(field), false, `${field} creates circular startup ordering`);
         assert.equal(properties.has(field), false, `${field} must be later smoke evidence`);
     }
+});
+
+test('production evidence contains no policy binding or policy fixture', () => {
+    const schema = JSON.parse(readFileSync(schemaPath, 'utf8'));
+    const passReceipt = JSON.parse(readFileSync(passFixture, 'utf8'));
+
+    for (const field of ['policyVersion', 'policyReadbackSha256', 'policyHash']) {
+        assert.equal(Object.hasOwn(schema.properties.release.properties, field), false);
+        assert.equal(Object.hasOwn(passReceipt.release, field), false);
+    }
+    assert.equal(existsSync(resolve(failFixtureDirectory, 'policy-binding.json')), false);
 });
 
 test('fixture mode is test-only and the pass fixture succeeds', () => {

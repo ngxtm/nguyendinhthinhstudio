@@ -38,10 +38,7 @@
                 "imageCommitSha",
                 "commitSha",
                 "releaseFingerprint",
-                "migrationChecksumSha256",
-                "policyVersion",
-                "policyReadbackSha256",
-                "policyHash"
+                "migrationChecksumSha256"
             ],
             "properties": {
                 "imageReference": {
@@ -55,13 +52,7 @@
                     "type": "string",
                     "pattern": "^sha256:[a-f0-9]{64}$"
                 },
-                "migrationChecksumSha256": { "$ref": "#/$defs/sha256" },
-                "policyVersion": {
-                    "type": "string",
-                    "pattern": "^web-v1-[a-f0-9]{64}$"
-                },
-                "policyReadbackSha256": { "$ref": "#/$defs/sha256" },
-                "policyHash": { "$ref": "#/$defs/sha256" }
+                "migrationChecksumSha256": { "$ref": "#/$defs/sha256" }
             }
         },
         "backups": {

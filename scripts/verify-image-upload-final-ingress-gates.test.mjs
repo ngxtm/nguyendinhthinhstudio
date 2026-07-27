@@ -320,56 +320,16 @@ test('runbooks order both admission phases before evidence-driven cleanup', () =
     }
 });
 
-test('release docs keep memory benchmarking as an optional diagnostic asset', () => {
+test('the superseded browser memory benchmark is absent', () => {
     const repositoryRoot = resolve(scriptsDirectory, '..');
-    const canonicalStatement =
-        'The deterministic fixture, pinned stable Chrome, and memory thresholds remain an optional memory diagnostic. They are not CI, Phase 1, Phase 2, smoke, drill, or ingress gates.';
-    const documentationPaths = [
-        'docs/runbooks/image-upload-roll-forward.md',
-        'docs/superpowers/specs/2026-07-19-admin-web-image-optimization-roll-forward-design.md',
-        'docs/superpowers/plans/2026-07-19-admin-web-image-optimization-roll-forward/README.md',
-        'docs/superpowers/plans/2026-07-19-admin-web-image-optimization-roll-forward/08-packaging-ci-and-staging.md',
-        'docs/superpowers/plans/2026-07-19-admin-web-image-optimization-roll-forward/09-production-cold-cutover-and-roll-forward.md',
-        'docs/superpowers/plans/2026-07-19-admin-web-image-optimization-roll-forward/free-compatible-polling-amendment.md',
-    ];
-    const forbiddenGateLanguage = [
-        /manual (?:stable-Chrome )?release gates?/i,
-        /memory evidence is required for Phase 1/i,
-        /production receipt(?:'s)? memory evidence/i,
-        /memory gate/i,
-        /three browser benchmark contexts pass/i,
-    ];
-
-    for (const relativePath of documentationPaths) {
-        const source = readFileSync(resolve(repositoryRoot, relativePath), 'utf8');
-        assert.ok(
-            source.includes(canonicalStatement),
-            `${relativePath} must identify the benchmark as an optional memory diagnostic`,
-        );
-        for (const pattern of forbiddenGateLanguage) {
-            assert.doesNotMatch(source, pattern, `${relativePath} contains stale gate language`);
-        }
-    }
-
-    for (const relativePath of [
-        'apps/backend/test/generate-image-upload-memory-fixture.ts',
-        'apps/frontend/test/benchmark/image-upload-memory.benchmark.ts',
-    ]) {
-        assert.equal(
-            existsSync(resolve(repositoryRoot, relativePath)),
-            true,
-            `${relativePath} missing`,
-        );
-    }
-
-    const workflowVerifier = readFileSync(
-        resolve(repositoryRoot, 'scripts/verify-image-upload-workflow.mjs'),
-        'utf8',
-    );
-    assert.match(workflowVerifier, /\['frontend-stable-chrome', 'frontend-image-memory'\]/);
-    assert.match(
-        workflowVerifier,
-        /const required = \['backend-image-upload', 'image-upload-packaging', 'frontend-playwright-chromium'\]/,
+    assert.equal(
+        existsSync(
+            resolve(
+                repositoryRoot,
+                'apps/frontend/test/benchmark/image-upload-memory.benchmark.ts',
+            ),
+        ),
+        false,
     );
 });
 

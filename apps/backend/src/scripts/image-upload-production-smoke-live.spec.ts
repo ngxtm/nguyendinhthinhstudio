@@ -99,10 +99,21 @@ describe('production smoke live adapter', () => {
     servers.push(api.server);
     const { adapter } = harness({ apiBaseUrl: api.origin });
 
-    await expect(adapter.getUploadPolicy(SIGNAL)).rejects.toThrow(
-      'production smoke API request failed',
-    );
+    await expect(
+      adapter.createUpload(
+        {
+          clientRequestId: '00000000-0000-4000-8000-000000000000',
+          albumId: 'album-1',
+          filename: 'redirect.webp',
+          contentType: 'image/webp',
+          fileSize: 24,
+          processedSha256: 'a'.repeat(64),
+        },
+        SIGNAL,
+      ),
+    ).rejects.toThrow('production smoke API request failed');
     expect(received).toEqual([]);
+    expect('getUploadPolicy' in adapter).toBe(false);
     expect(() => adapter.resolveApiUrl(`${target.origin}/stolen`)).toThrow(
       'production smoke API path must be relative',
     );
@@ -136,7 +147,6 @@ describe('production smoke live adapter', () => {
       contentType: 'image/webp',
       fileSize: 24,
       processedSha256: 'a'.repeat(64),
-      policyVersion: 'web-v1-hash',
     } as const;
 
     const result = await adapter.proveAbsoluteExpiryRetry(input, SIGNAL);
@@ -194,7 +204,6 @@ describe('production smoke live adapter', () => {
       contentType: 'image/webp',
       fileSize: 24,
       processedSha256: 'a'.repeat(64),
-      policyVersion: 'web-v1-hash',
     } as const;
 
     const upload = await adapter.createUpload(input, SIGNAL);

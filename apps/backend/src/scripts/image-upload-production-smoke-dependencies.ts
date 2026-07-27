@@ -173,7 +173,6 @@ class R2SmokeStore {
     mime: string;
     width: number;
     height: number;
-    policyVersion: string;
     signal: AbortSignal;
   }): Promise<void> {
     const command = new CopyObjectCommand({
@@ -191,7 +190,6 @@ class R2SmokeStore {
         bytes: String(options.bytes),
         width: String(options.width),
         height: String(options.height),
-        policy: options.policyVersion,
       },
     });
     command.middlewareStack.addRelativeTo(
@@ -329,7 +327,6 @@ export async function buildProductionSmokeDependencies(
     .toBuffer();
   const imageSha256 = createHash('sha256').update(imageBytes).digest('hex');
   const state: {
-    policyVersion?: string;
     normal?: ScenarioUpload;
     normalImageId?: string;
     normalDestination?: string;
@@ -410,11 +407,6 @@ export async function buildProductionSmokeDependencies(
     contentType: 'image/webp',
     fileSize: imageBytes.length,
     processedSha256: imageSha256,
-    policyVersion:
-      state.policyVersion ??
-      (() => {
-        throw new Error('production smoke policy is unavailable');
-      })(),
   });
 
   const createScenarioUpload = async (
@@ -481,7 +473,6 @@ export async function buildProductionSmokeDependencies(
         mime: 'image/webp',
         width: 2,
         height: 2,
-        policyVersion: scenario.request.policyVersion,
         signal,
       });
     }
@@ -779,11 +770,6 @@ export async function buildProductionSmokeDependencies(
     preflight: async (context, signal) => {
       activeContext = context;
       await verifyProtectedAdmission(environment);
-      const policy = await live.getUploadPolicy(signal);
-      if (typeof policy.policyVersion !== 'string') {
-        throw new Error('production smoke policy response is invalid');
-      }
-      state.policyVersion = policy.policyVersion;
       await pg.assertRateLimitCapacity(adminId, {
         upload_url: 9,
         confirm_upload: 1,

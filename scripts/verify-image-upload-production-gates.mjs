@@ -288,9 +288,6 @@ function assertSemanticGates(receipt) {
     ) {
         fail('runtimeFingerprintBinding', 'runtime environment/heartbeat binding differs');
     }
-    if (receipt.release.policyVersion !== `web-v1-${receipt.release.policyHash}`) {
-        fail('policyBinding', 'policy version/hash binding differs');
-    }
     for (const backup of Object.values(receipt.backups)) {
         assertTimestampAtMost(createdAt, backup.restoreVerifiedAt, 'backupRestore');
         if (backup.receiptPathSha256 === backup.approvalPathSha256) {

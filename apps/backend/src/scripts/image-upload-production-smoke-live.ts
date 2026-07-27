@@ -11,10 +11,9 @@ export type ProductionSmokeUploadInput = Readonly<{
   clientRequestId: string;
   albumId: string;
   filename: string;
-  contentType: 'image/webp' | 'image/jpeg' | 'image/png';
+  contentType: 'image/webp';
   fileSize: number;
   processedSha256: string;
-  policyVersion: string;
 }>;
 
 export type ProductionSmokeUpload = Readonly<{
@@ -203,10 +202,6 @@ export function createProductionSmokeLiveAdapter(
 
   return Object.freeze({
     resolveApiUrl,
-
-    getUploadPolicy(signal: AbortSignal): Promise<ApiJson> {
-      return apiJson('/images/upload-policy', signal);
-    },
 
     async createUpload(
       input: ProductionSmokeUploadInput,

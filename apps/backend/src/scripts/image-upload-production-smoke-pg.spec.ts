@@ -38,6 +38,22 @@ function harness(
     query: jest.fn(async (text: string, values?: readonly unknown[]) => {
       queries.push({ text, values });
       if (text.includes('FOR UPDATE')) return { rows: [selected], rowCount: 1 };
+      if (text.includes('FROM "ImageUpload"')) {
+        return {
+          rows: [
+            {
+              albumId: 'album-owned',
+              sourceObjectKey: BINDING.sourceObjectKey,
+              destinationObjectKey: BINDING.destinationObjectKey,
+              contentType: 'image/webp',
+              fileSize: 24,
+              processedSha256: 'a'.repeat(64),
+              createdAt: new Date('2026-07-23T08:00:01.000Z'),
+            },
+          ],
+          rowCount: 1,
+        };
+      }
       if (text.includes('ImageUploadRateLimitEvent')) {
         return { rows: rateRows, rowCount: rateRows.length };
       }
@@ -145,6 +161,35 @@ describe('ProductionSmokePgAdapter', () => {
     expect(queries.flatMap((query) => query.values ?? [])).not.toContain(
       'uploads/%',
     );
+  });
+
+  it('does not select or persist policy fields for smoke-owned uploads and promotions', async () => {
+    const { adapter, queries } = harness();
+
+    await adapter.inspectOwnedPendingUpload({
+      uploadId: BINDING.uploadId,
+      adminId: BINDING.adminId,
+      clientRequestId: BINDING.clientRequestId,
+      runStartedAt: BINDING.runStartedAt,
+      releaseFingerprint: BINDING.releaseFingerprint,
+    });
+    await adapter.prepareDispatchedPromotion(BINDING, {
+      sourceEtag: 'source-etag',
+      inspectedSha256: 'a'.repeat(64),
+      inspectedByteSize: 24,
+      canonicalMime: 'image/webp',
+      inspectedWidth: 2,
+      inspectedHeight: 2,
+      accountId: 'account-owned',
+      bucket: 'bucket-owned',
+      leaseToken: '00000000-0000-4000-8000-000000000005',
+      dispatchedAt: '2026-07-23T08:00:03.000Z',
+      nextReconcileAt: '2026-07-23T08:00:33.000Z',
+    });
+
+    const sql = queries.map((query) => query.text).join('\n');
+    expect(sql).not.toContain('policyVersion');
+    expect(sql).not.toContain('policySnapshot');
   });
 
   it('refuses to start when the full run would exceed a route limit', async () => {

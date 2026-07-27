@@ -21,7 +21,6 @@ export type ProductionSmokePendingUpload = Readonly<{
   contentType: string;
   fileSize: number;
   processedSha256: string;
-  policyVersion: string;
   createdAt: Date;
 }>;
 
@@ -237,7 +236,6 @@ export class ProductionSmokePgAdapter {
            "contentType" AS "contentType",
            "fileSize" AS "fileSize",
            "processedSha256" AS "processedSha256",
-           "policyVersion" AS "policyVersion",
            "createdAt" AS "createdAt"
          FROM "ImageUpload"
          WHERE "id" = $1
@@ -261,7 +259,6 @@ export class ProductionSmokePgAdapter {
         typeof row.contentType !== 'string' ||
         typeof row.fileSize !== 'number' ||
         typeof row.processedSha256 !== 'string' ||
-        typeof row.policyVersion !== 'string' ||
         !(row.createdAt instanceof Date)
       ) {
         throw new Error('production smoke pending upload binding is invalid');
@@ -363,14 +360,14 @@ export class ProductionSmokePgAdapter {
            "id", "uploadId", "origin", "albumId", "finalizationLeaseToken",
            "accountId", "bucket", "sourceObjectKey", "sourceEtag",
            "destinationObjectKey", "inspectedSha256", "inspectedByteSize",
-           "canonicalMime", "inspectedWidth", "inspectedHeight", "policyVersion",
+           "canonicalMime", "inspectedWidth", "inspectedHeight",
            "copyState", "disposition", "copyDispatchedAt", "dispatchAttempts",
            "lastDispatchAttemptAt", "nextReconcileAt", "createdAt", "updatedAt"
          )
          SELECT
            $1, upload."id", 'current', upload."albumId", $2,
            $3, $4, upload."uploadObjectKey", $5,
-           upload."finalObjectKey", $6, $7, $8, $9, $10, upload."policyVersion",
+           upload."finalObjectKey", $6, $7, $8, $9, $10,
            'dispatched', 'pending', $11::timestamp, 1,
            $11::timestamp, $12::timestamp, $11::timestamp, $11::timestamp
          FROM "ImageUpload" AS upload
