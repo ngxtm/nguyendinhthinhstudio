@@ -115,16 +115,6 @@
             "corsMismatch": 0
         }
     ],
-    "ci": {
-        "rulesetId": "1234567",
-        "enforcement": "active",
-        "bypassActorCount": 0,
-        "contexts": [
-            "backend-image-upload",
-            "image-upload-packaging",
-            "frontend-playwright-chromium"
-        ]
-    },
     "stagingReceiptPathSha256": "3939393939393939393939393939393939393939393939393939393939393939",
     "stagingReceiptSha256": "3636363636363636363636363636363636363636363636363636363636363636",
     "startupApprovalPathSha256": "4040404040404040404040404040404040404040404040404040404040404040",

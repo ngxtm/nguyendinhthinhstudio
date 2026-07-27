@@ -34,12 +34,6 @@ const ZERO_GATES = [
     'legacyPreDispatchTempPresent',
     'corsMismatch',
 ];
-const REQUIRED_CONTEXTS = [
-    'backend-image-upload',
-    'image-upload-packaging',
-    'frontend-playwright-chromium',
-];
-
 class GateError extends Error {
     constructor(gate, message) {
         super(message);
@@ -365,15 +359,6 @@ function assertSemanticGates(receipt) {
         fail('snapshotBarrier', 'polling snapshots must be at least 30 seconds apart');
     }
 
-    if (JSON.stringify(receipt.ci.contexts) !== JSON.stringify(REQUIRED_CONTEXTS)) {
-        fail('ciContexts', 'required CI contexts are not exact');
-    }
-    if (receipt.ci.enforcement !== 'active') {
-        fail('rulesetEnforcement', 'ruleset enforcement is not active');
-    }
-    if (receipt.ci.bypassActorCount !== 0) {
-        fail('rulesetBypass', 'ruleset bypass actors are present');
-    }
 }
 
 function assertProductionBinding(receipt, receiptBytes, receiptPath, approvalPath) {

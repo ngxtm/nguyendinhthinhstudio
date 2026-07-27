@@ -6,7 +6,7 @@
 
 **Architecture:** The browser owns fixed upload constants and converts every accepted JPEG, PNG, or WebP input into one static WebP. The backend accepts only that WebP and verifies byte size, actual format, full decode, dimensions, and SHA-256 before the current R2 promotion path continues. No policy endpoint/version/hash/snapshot, custom grammar, ICC inspection, or manual cutover program remains.
 
-**Tech Stack:** Next.js 16, React 19, createImageBitmap, Canvas, NestJS 11, Sharp, Prisma/PostgreSQL, Cloudflare R2, Node test runner, Jest, Playwright, Docker Compose, GitHub Actions.
+**Tech Stack:** Next.js 16, React 19, createImageBitmap, Canvas, NestJS 11, Sharp, Prisma/PostgreSQL, Cloudflare R2, Node test runner, Jest, Playwright, Docker Compose.
 
 ---
 
@@ -87,8 +87,6 @@
 - apps/backend/src/images/image-upload-promotion-recovery.service.ts
 - apps/backend/src/images/image-upload-runtime-config.ts
 - docker-compose.yml
-- .github/workflows/image-upload.yml
-- scripts/verify-image-upload-workflow.mjs
 - scripts/verify-image-upload-production-gates.mjs
 - scripts/verify-image-upload-final-ingress-gates.mjs
 - scripts/schemas/image-upload-production-evidence.schema.json
@@ -96,7 +94,7 @@
 - docs/runbooks/image-upload-roll-forward.md
 - package-lock.json
 
-Historical 2026-07-19 documents remain as historical material because ADR 0002 and the approved simplified spec explicitly supersede them.
+The obsolete roll-forward and Stage 09 plans, specs, runbooks, and GitHub Actions workflow are removed rather than retained as operational guidance.
 
 ## Task 1: Replace the shared upload type contract
 
@@ -833,7 +831,7 @@ git commit -m "refactor(upload): remove policy from smoke tooling"
 
 Expected: optional diagnostics pass without being part of cutover.
 
-## Task 9: Remove policy package, Docker, and CI coupling
+## Task 9: Remove policy package and Docker coupling
 
 **Files:**
 
@@ -844,8 +842,6 @@ Expected: optional diagnostics pass without being part of cutover.
 - Modify: apps/frontend/Dockerfile
 - Modify: apps/backend/Dockerfile
 - Modify: apps/backend/Dockerfile.operator-smoke
-- Modify: .github/workflows/image-upload.yml
-- Modify: scripts/verify-image-upload-workflow.mjs
 - Delete: scripts/turbo-build-path-budget.test.mjs
 - Modify: package-lock.json
 
@@ -856,18 +852,16 @@ Make Docker/runtime/workflow contract tests require:
 - frontend/backend builds do not copy or build packages/image-upload-policy;
 - backend runtime has Sharp as a normal production dependency;
 - runtime includes API and reconciler entrypoints but not image-upload-cutover.js;
-- CI runs upload tests and browser tests without a policy build;
+- local upload and browser test commands run without a policy build;
 - no check requires Chromium major at least 136.
 
 - [ ] **Step 2: Verify RED**
 
 Run:
 
-```powershell
-node scripts/verify-image-upload-workflow.mjs
-```
+Run the focused Docker/runtime contract test.
 
-Expected: failure because Dockerfiles and workflow still build/copy the removed package.
+Expected: failure because Dockerfiles still build or copy the removed package.
 
 - [ ] **Step 3: Remove package references and regenerate lock**
 
@@ -879,18 +873,18 @@ Regenerate only the lockfile:
 npm install --package-lock-only --ignore-scripts
 ```
 
-In the GitHub workflow remove all policy build commands and IMAGE_UPLOAD_POLICY_VERSION. Keep a Chromium browser job, but change image-upload.browser.spec.ts to assert actual feature support only.
+Change image-upload.browser.spec.ts to assert actual feature support only.
 
 - [ ] **Step 4: Verify packaging and commit**
 
 Run:
 
 ```powershell
-node scripts/verify-image-upload-workflow.mjs
+& .\node_modules\.bin\jest.cmd --config apps/backend/package.json --runInBand --runTestsByPath apps/backend/src/images/docker-runtime-contract.spec.ts
 docker build --build-arg "IMAGE_UPLOAD_RELEASE_COMMIT=$(git rev-parse HEAD)" -f apps/backend/Dockerfile -t ndt-backend:simplified-upload .
 docker build -f apps/frontend/Dockerfile -t ndt-frontend:simplified-upload .
 docker compose config --quiet
-git add -- package-lock.json package.json apps/frontend apps/backend packages/types .github scripts
+git add -- package-lock.json package.json apps/frontend apps/backend packages/types scripts
 git rm -r -- packages/image-upload-policy scripts/turbo-build-path-budget.test.mjs
 git commit -m "build: remove image upload policy workspace"
 ```
@@ -899,7 +893,7 @@ Expected: packaging succeeds with no policy workspace in either image.
 
 ## Plan self-review
 
-- Spec coverage: Tasks 1-3 implement static browser compression, feature detection, 50/2 batching, no pass-through, and 429 retry display. Tasks 4-6 implement Sharp verification, digest/promotion preservation, 60/10 rate limit, and three-column removal. Tasks 7-9 remove cutover/policy runtime, package, Docker, smoke, and CI coupling. The per-task focused tests remain; a separate browser/local acceptance-and-audit task is intentionally omitted by user decision.
+- Spec coverage: Tasks 1-3 implement static browser compression, feature detection, 50/2 batching, no pass-through, and 429 retry display. Tasks 4-6 implement Sharp verification, digest/promotion preservation, 60/10 rate limit, and three-column removal. Tasks 7-9 remove cutover/policy runtime, package, Docker, and smoke coupling. The per-task focused tests remain; a separate browser/local acceptance-and-audit task is intentionally omitted by user decision.
 - Non-goals remain excluded: server source normalization, original fallback, GIF/SVG/HEIC/AVIF, stale tab support, dynamic compression, and R2 rewrites.
 - Placeholder scan: passed; no deferred work or vague validation instruction remains.
 - Type consistency: presign uses image/webp, processedSha256, and no policy field across frontend, shared types, DTO, fingerprint, service, smoke, and tests.

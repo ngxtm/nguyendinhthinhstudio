@@ -15,7 +15,6 @@
         "cutover",
         "preDeployPollingSnapshotSha256",
         "pollingSnapshots",
-        "ci",
         "stagingReceiptPathSha256",
         "stagingReceiptSha256",
         "startupApprovalPathSha256",
@@ -192,29 +191,6 @@
             "minItems": 2,
             "maxItems": 2,
             "items": { "$ref": "#/$defs/pollingSnapshot" }
-        },
-        "ci": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": ["rulesetId", "enforcement", "bypassActorCount", "contexts"],
-            "properties": {
-                "rulesetId": { "type": "string", "minLength": 1 },
-                "enforcement": { "enum": ["active", "evaluate", "disabled"] },
-                "bypassActorCount": { "$ref": "#/$defs/nonNegativeInteger" },
-                "contexts": {
-                    "type": "array",
-                    "minItems": 3,
-                    "maxItems": 3,
-                    "uniqueItems": true,
-                    "items": {
-                        "enum": [
-                            "backend-image-upload",
-                            "image-upload-packaging",
-                            "frontend-playwright-chromium"
-                        ]
-                    }
-                }
-            }
         },
         "stagingReceiptPathSha256": { "$ref": "#/$defs/sha256" },
         "stagingReceiptSha256": { "$ref": "#/$defs/sha256" },

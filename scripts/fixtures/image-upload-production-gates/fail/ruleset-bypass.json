@@ -1,1 +1,0 @@
-{ "base": "../pass.json", "expectedGate": "rulesetBypass", "set": { "ci.bypassActorCount": 1 } }

@@ -9,7 +9,6 @@
     "lint": "turbo run lint",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "check-types": "turbo run check-types",
-    "verify:image-upload-workflow": "node scripts/verify-image-upload-workflow.mjs",
     "verify:image-upload-final-ingress": "node scripts/verify-image-upload-final-ingress-gates.mjs",
     "postinstall": "prisma generate --schema=apps/backend/prisma/schema.prisma"
   },

@@ -701,17 +701,7 @@ npm run test:focused --workspace=frontend -- test/image-upload-queue.test.ts tes
 
 Expected: all selected tests pass.
 
-- [ ] **Step 3: Verify the workflow contract**
-
-Run:
-
-```powershell
-npm run verify:image-upload-workflow
-```
-
-Expected: `image-upload workflow contract: 3 required jobs verified`.
-
-- [ ] **Step 4: Check the final diff**
+- [ ] **Step 3: Check the final diff**
 
 Run:
 

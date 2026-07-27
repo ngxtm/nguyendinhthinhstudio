@@ -285,41 +285,6 @@ test('production mode binds every protected phase and active release', () => {
     assert.match(earlyApproval.stderr, /gate=evidenceOrdering/);
 });
 
-test('runbooks order both admission phases before evidence-driven cleanup', () => {
-    const rollForward = readFileSync(
-        resolve(scriptsDirectory, '../docs/runbooks/image-upload-roll-forward.md'),
-        'utf8',
-    );
-    const cleanup = readFileSync(
-        resolve(scriptsDirectory, '../docs/runbooks/image-upload-evidence-cleanup.md'),
-        'utf8',
-    );
-    const orderedMarkers = [
-        'Phase 1 post-start approval',
-        'operator-only ingress and smoke',
-        'roll-forward drill ending at the active release',
-        'two final zero polling snapshots',
-        'Phase 2 final-ingress approval',
-        'open general ingress',
-        'rollback-window cleanup',
-    ];
-    let previous = -1;
-    for (const marker of orderedMarkers) {
-        const index = rollForward.indexOf(marker, previous + 1);
-        assert.ok(index > previous, `missing or out-of-order marker: ${marker}`);
-        previous = index;
-    }
-    for (const marker of [
-        'dry-run by default',
-        'encrypted database backups are never deleted',
-        'image referenced by any container',
-        'rollback window',
-        'credential revocation',
-    ]) {
-        assert.ok(cleanup.includes(marker), `cleanup contract is missing: ${marker}`);
-    }
-});
-
 test('the superseded browser memory benchmark is absent', () => {
     const repositoryRoot = resolve(scriptsDirectory, '..');
     assert.equal(
