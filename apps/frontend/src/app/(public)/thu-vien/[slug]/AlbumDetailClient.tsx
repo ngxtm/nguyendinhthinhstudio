@@ -200,7 +200,7 @@ export default function AlbumDetailClient({ album, relatedAlbums }: Props) {
                       <Link
                         key={tag.id || tag.slug || `tag-${index}`}
                         href={tag.slug ? `/thu-vien/tag/${tag.slug}` : '#'}
-                        className="rounded-full bg-neutral-100 px-2.5 py-1 text-xs font-medium text-neutral-700 transition-colors hover:bg-neutral-200 md:px-3 md:py-1.5 md:text-sm"
+                        className="inline-flex items-center justify-center rounded-full bg-neutral-100 px-2.5 py-1 text-center text-xs font-medium text-neutral-700 transition-colors hover:bg-neutral-200 md:px-3 md:py-1.5 md:text-sm"
                       >
                         #{tag.name}
                       </Link>
