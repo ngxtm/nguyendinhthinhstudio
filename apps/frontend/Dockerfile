@@ -70,6 +70,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/apps/frontend/.next ./apps/fronte
 COPY --from=builder --chown=nextjs:nodejs /app/apps/frontend/public ./apps/frontend/public
 COPY --from=builder --chown=nextjs:nodejs /app/apps/frontend/package.json ./apps/frontend/package.json
 COPY --from=builder --chown=nextjs:nodejs /app/apps/frontend/next.config.mjs ./apps/frontend/next.config.mjs
+COPY --from=builder --chown=nextjs:nodejs /app/apps/frontend/seo-routes.mjs ./apps/frontend/seo-routes.mjs
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
 
