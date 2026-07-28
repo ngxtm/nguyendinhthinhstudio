@@ -32,7 +32,9 @@ export default function CategoriesPage() {
     name: '',
     slug: '',
     description: '',
-    parentId: undefined
+    parentId: undefined,
+    showInNavigation: false,
+    navigationOrder: 0
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -61,7 +63,14 @@ export default function CategoriesPage() {
 
   function handleOpenCreateModal() {
     setEditingCategory(null)
-    setFormData({ name: '', slug: '', description: '', parentId: undefined })
+    setFormData({
+      name: '',
+      slug: '',
+      description: '',
+      parentId: undefined,
+      showInNavigation: false,
+      navigationOrder: 0
+    })
     setIsModalOpen(true)
   }
 
@@ -71,7 +80,9 @@ export default function CategoriesPage() {
       name: category.name,
       slug: category.slug,
       description: category.description || '',
-      parentId: category.parentId || undefined
+      parentId: category.parentId || undefined,
+      showInNavigation: category.showInNavigation,
+      navigationOrder: category.navigationOrder
     })
     setIsModalOpen(true)
   }
@@ -194,7 +205,7 @@ export default function CategoriesPage() {
       {/* Categories Table */}
       <div className="rounded-lg bg-white shadow">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[720px] divide-y divide-gray-200">
+          <table className="w-full min-w-[840px] divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">Tên</th>
@@ -205,6 +216,9 @@ export default function CategoriesPage() {
                 <th className="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">
                   Số Album / Children
                 </th>
+                <th className="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">
+                  Menu / Thứ tự
+                </th>
                 <th className="px-6 py-3 text-right text-xs font-medium tracking-wider text-gray-500 uppercase">
                   Hành động
                 </th>
@@ -213,7 +227,7 @@ export default function CategoriesPage() {
             <tbody className="divide-y divide-gray-200 bg-white">
               {filteredCategories.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-sm text-gray-500">
+                  <td colSpan={6} className="px-6 py-12 text-center text-sm text-gray-500">
                     {searchQuery ? 'Không tìm thấy category' : 'Chưa có category nào'}
                   </td>
                 </tr>
@@ -248,6 +262,18 @@ export default function CategoriesPage() {
                             {category.childrenCount} children
                           </span>
                         )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                            category.showInNavigation ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-600'
+                          }`}
+                        >
+                          {category.showInNavigation ? 'Hiện' : 'Ẩn'}
+                        </span>
+                        <span className="text-xs text-gray-500">#{category.navigationOrder}</span>
                       </div>
                     </td>
                     <td className="px-6 py-4 text-right">
@@ -337,6 +363,33 @@ export default function CategoriesPage() {
                   placeholder="Mô tả ngắn về category..."
                   className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none"
                 />
+              </div>
+              <div className="grid gap-4 rounded-lg border border-gray-200 bg-gray-50 p-4 sm:grid-cols-[1fr_8rem] sm:items-end">
+                <label className="flex cursor-pointer items-start gap-3">
+                  <input
+                    type="checkbox"
+                    checked={formData.showInNavigation ?? false}
+                    onChange={e => setFormData({ ...formData, showInNavigation: e.target.checked })}
+                    className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span>
+                    <span className="block text-sm font-medium text-gray-700">Hiện trên menu thư viện</span>
+                    <span className="mt-1 block text-xs text-gray-500">
+                      Danh mục chỉ thực sự xuất hiện khi có ít nhất một album đã xuất bản.
+                    </span>
+                  </span>
+                </label>
+                <label className="block text-sm font-medium text-gray-700">
+                  Thứ tự
+                  <input
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={formData.navigationOrder ?? 0}
+                    onChange={e => setFormData({ ...formData, navigationOrder: Number(e.target.value) })}
+                    className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none"
+                  />
+                </label>
               </div>
               <div className="flex justify-end gap-3">
                 <button

@@ -7,11 +7,14 @@ import { Metadata } from 'next';
 import Script from 'next/script';
 import { notFound } from 'next/navigation';
 import { getAlbum, getRelatedAlbums, normalizeAlbumTags, normalizeAlbumCategories } from '@/lib/api';
+import { absoluteUrl } from '@/lib/seo';
 import AlbumDetailClient from './AlbumDetailClient';
 
 type Props = {
   params: Promise<{ slug: string }>;
 };
+
+export const dynamic = 'force-dynamic';
 
 /**
  * Generate dynamic metadata for SEO
@@ -37,12 +40,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       } ${tagNames.length ? `Tags: ${tagNamesString}.` : ''} Nhiếp ảnh chuyên nghiệp bởi NDT Studio.`;
 
     const title = album.metaTitle || `${album.title} | Thư viện ảnh NDT Studio`;
+    const canonical = absoluteUrl(`/thu-vien/${album.slug}`);
 
     // Get cover image for Open Graph
     const coverImageUrl = album.coverImage?.largeUrl || album.images?.[0]?.largeUrl;
 
     return {
-      title,
+      title: { absolute: title },
       description,
       keywords: [
         album.title,
@@ -61,7 +65,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
         title,
         description,
         type: 'article',
-        url: `https://ndtstudio.site/thu-vien/${slug}`,
+        url: canonical,
         siteName: 'NDT Studio',
         images: coverImageUrl
           ? [
@@ -99,7 +103,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
       // Alternate languages (if you have multi-language support)
       alternates: {
-        canonical: `https://ndtstudio.site/thu-vien/${slug}`,
+        canonical,
       },
     };
   } catch (error) {

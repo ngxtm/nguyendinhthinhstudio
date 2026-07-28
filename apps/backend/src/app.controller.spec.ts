@@ -14,9 +14,19 @@ describe('AppController', () => {
     appController = app.get<AppController>(AppController);
   });
 
-  describe('root', () => {
-    it('should return "Hello World!"', () => {
-      expect(appController.getHello()).toBe('Hello World!');
+  describe('search indexing boundaries', () => {
+    it('does not expose a successful root document', () => {
+      expect((appController as any).getHello).toBeUndefined();
+    });
+
+    it('keeps the health endpoint available', () => {
+      expect(appController.health()).toEqual({ status: 'ok' });
+    });
+
+    it('disallows crawling the API host', () => {
+      expect((appController as any).robots()).toBe(
+        'User-agent: *\nDisallow: /\n',
+      );
     });
   });
 });

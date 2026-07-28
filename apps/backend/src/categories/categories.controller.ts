@@ -1,4 +1,12 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+} from '@nestjs/common';
 import { CategoriesService } from './categories.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
@@ -31,6 +39,27 @@ export class CategoriesController {
     return this.categoriesService.findAll();
   }
 
+  @Get('navigation')
+  @Public()
+  @ApiOperation({ summary: 'Lấy cây category công khai cho menu thư viện' })
+  findPublicNavigation() {
+    return this.categoriesService.findPublicNavigation();
+  }
+
+  @Get('indexable')
+  @Public()
+  @ApiOperation({ summary: 'Lấy các category đủ điều kiện lập chỉ mục' })
+  findIndexable() {
+    return this.categoriesService.findIndexable();
+  }
+
+  @Get('slug/:slug')
+  @Public()
+  @ApiOperation({ summary: 'Lấy category công khai theo slug' })
+  findPublicBySlug(@Param('slug') slug: string) {
+    return this.categoriesService.findPublicBySlug(slug);
+  }
+
   @Get(':id')
   @Public()
   @ApiOperation({ summary: 'Lấy category theo ID' })
@@ -43,7 +72,10 @@ export class CategoriesController {
   @Roles('admin')
   @ApiOperation({ summary: 'Cập nhật category' })
   @ApiCreatedResponse({ description: 'Cập nhật category thành công' })
-  update(@Param('id') id: string, @Body() updateCategoryDto: UpdateCategoryDto) {
+  update(
+    @Param('id') id: string,
+    @Body() updateCategoryDto: UpdateCategoryDto,
+  ) {
     return this.categoriesService.update(id, updateCategoryDto);
   }
 

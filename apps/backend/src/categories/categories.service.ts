@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  BadRequestException,
+} from '@nestjs/common';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import { PrismaService } from '../prisma/prisma.service';
@@ -6,6 +11,88 @@ import { PrismaService } from '../prisma/prisma.service';
 @Injectable()
 export class CategoriesService {
   constructor(private readonly prisma: PrismaService) {}
+
+  private readonly publishedAlbumFilter = {
+    album: { status: 'published', deleteStatus: 'active' },
+  } as const;
+
+  private publicCategorySelect() {
+    return {
+      id: true,
+      name: true,
+      slug: true,
+      description: true,
+      parentId: true,
+      showInNavigation: true,
+      navigationOrder: true,
+      updatedAt: true,
+      _count: {
+        select: {
+          albums: { where: this.publishedAlbumFilter },
+        },
+      },
+    } as const;
+  }
+
+  private presentPublicCategory(category: any) {
+    const { _count, ...rest } = category;
+    return {
+      ...rest,
+      albumCount: _count.albums,
+    };
+  }
+
+  async findPublicNavigation() {
+    const rows = await this.prisma.category.findMany({
+      where: {
+        showInNavigation: true,
+        albums: { some: this.publishedAlbumFilter },
+      },
+      select: this.publicCategorySelect(),
+      orderBy: [{ navigationOrder: 'asc' }, { name: 'asc' }],
+    });
+
+    const nodes = rows.map((row) => ({
+      ...this.presentPublicCategory(row),
+      children: [] as any[],
+    }));
+    const byId = new Map(nodes.map((node) => [node.id, node]));
+    const roots: typeof nodes = [];
+
+    for (const node of nodes) {
+      const parent = node.parentId ? byId.get(node.parentId) : undefined;
+      if (parent) parent.children.push(node);
+      else roots.push(node);
+    }
+
+    return roots;
+  }
+
+  async findIndexable() {
+    const rows = await this.prisma.category.findMany({
+      where: { albums: { some: this.publishedAlbumFilter } },
+      select: this.publicCategorySelect(),
+      orderBy: [{ navigationOrder: 'asc' }, { name: 'asc' }],
+    });
+
+    return rows.map((row) => this.presentPublicCategory(row));
+  }
+
+  async findPublicBySlug(slug: string) {
+    const category = await this.prisma.category.findUnique({
+      where: { slug },
+      select: {
+        ...this.publicCategorySelect(),
+        parent: { select: { id: true, name: true, slug: true } },
+      },
+    });
+
+    if (!category) {
+      throw new NotFoundException(`Category với slug "${slug}" không tồn tại`);
+    }
+
+    return this.presentPublicCategory(category);
+  }
 
   async create(createCategoryDto: CreateCategoryDto) {
     // Check if name or slug already exists
@@ -20,10 +107,14 @@ export class CategoriesService {
 
     if (existing) {
       if (existing.name === createCategoryDto.name) {
-        throw new ConflictException(`Category với tên "${createCategoryDto.name}" đã tồn tại`);
+        throw new ConflictException(
+          `Category với tên "${createCategoryDto.name}" đã tồn tại`,
+        );
       }
       if (existing.slug === createCategoryDto.slug) {
-        throw new ConflictException(`Category với slug "${createCategoryDto.slug}" đã tồn tại`);
+        throw new ConflictException(
+          `Category với slug "${createCategoryDto.slug}" đã tồn tại`,
+        );
       }
     }
 
@@ -34,7 +125,9 @@ export class CategoriesService {
       });
 
       if (!parent) {
-        throw new BadRequestException(`Parent category với ID "${createCategoryDto.parentId}" không tồn tại`);
+        throw new BadRequestException(
+          `Parent category với ID "${createCategoryDto.parentId}" không tồn tại`,
+        );
       }
     }
 
@@ -116,18 +209,27 @@ export class CategoriesService {
         });
 
         if (!parent) {
-          throw new BadRequestException(`Parent category với ID "${updateCategoryDto.parentId}" không tồn tại`);
+          throw new BadRequestException(
+            `Parent category với ID "${updateCategoryDto.parentId}" không tồn tại`,
+          );
         }
 
         // Prevent self-reference
         if (updateCategoryDto.parentId === id) {
-          throw new BadRequestException('Category không thể là parent của chính nó');
+          throw new BadRequestException(
+            'Category không thể là parent của chính nó',
+          );
         }
 
         // Prevent circular reference (parent là child của current category)
-        const isCircular = await this.checkCircularReference(id, updateCategoryDto.parentId);
+        const isCircular = await this.checkCircularReference(
+          id,
+          updateCategoryDto.parentId,
+        );
         if (isCircular) {
-          throw new BadRequestException('Không thể tạo quan hệ vòng tròn (circular reference)');
+          throw new BadRequestException(
+            'Không thể tạo quan hệ vòng tròn (circular reference)',
+          );
         }
       }
     }
@@ -142,7 +244,7 @@ export class CategoriesService {
               OR: [
                 updateCategoryDto.name ? { name: updateCategoryDto.name } : {},
                 updateCategoryDto.slug ? { slug: updateCategoryDto.slug } : {},
-              ].filter(obj => Object.keys(obj).length > 0),
+              ].filter((obj) => Object.keys(obj).length > 0),
             },
           ],
         },
@@ -150,10 +252,14 @@ export class CategoriesService {
 
       if (conflict) {
         if (conflict.name === updateCategoryDto.name) {
-          throw new ConflictException(`Category với tên "${updateCategoryDto.name}" đã tồn tại`);
+          throw new ConflictException(
+            `Category với tên "${updateCategoryDto.name}" đã tồn tại`,
+          );
         }
         if (conflict.slug === updateCategoryDto.slug) {
-          throw new ConflictException(`Category với slug "${updateCategoryDto.slug}" đã tồn tại`);
+          throw new ConflictException(
+            `Category với slug "${updateCategoryDto.slug}" đã tồn tại`,
+          );
         }
       }
     }
@@ -172,7 +278,10 @@ export class CategoriesService {
   }
 
   // Helper: Check if setting parentId would create a circular reference
-  private async checkCircularReference(categoryId: string, newParentId: string): Promise<boolean> {
+  private async checkCircularReference(
+    categoryId: string,
+    newParentId: string,
+  ): Promise<boolean> {
     let currentId: string | null = newParentId;
 
     while (currentId) {
@@ -249,10 +358,7 @@ export class CategoriesService {
           },
         },
       },
-      orderBy: [
-        { source: 'desc' },
-        { createdAt: 'desc' },
-      ],
+      orderBy: [{ source: 'desc' }, { createdAt: 'desc' }],
       take: 100,
     });
 
@@ -285,7 +391,9 @@ export class CategoriesService {
     });
 
     if (!category) {
-      throw new NotFoundException(`Category với ID "${categoryId}" không tồn tại`);
+      throw new NotFoundException(
+        `Category với ID "${categoryId}" không tồn tại`,
+      );
     }
 
     const assignments = await this.prisma.albumCategory.findMany({
@@ -304,7 +412,8 @@ export class CategoriesService {
       where: { categoryId },
     });
 
-    const uniqueAlbumCount = new Set(assignments.map((item) => item.albumId)).size;
+    const uniqueAlbumCount = new Set(assignments.map((item) => item.albumId))
+      .size;
 
     return {
       removed: uniqueAlbumCount,

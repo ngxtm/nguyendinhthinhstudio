@@ -5,6 +5,7 @@ import SocialLinks from '../common/SocialLinks'
 import { useState } from 'react'
 import { ChevronDown, Menu, X } from 'lucide-react'
 import { MdArrowDropDown } from 'react-icons/md'
+import { buildPublicNavigation, type PublicNavigationItem } from '@/lib/public-navigation'
 
 interface SubMenuItem {
   href: string
@@ -15,7 +16,7 @@ interface SubMenuItem {
   }>
 }
 
-interface NavigationItem {
+interface NavigationItem extends PublicNavigationItem {
   href: string
   label: string
   children?: SubMenuItem[]
@@ -38,148 +39,7 @@ const Header: React.FC<HeaderProps> = ({
   className = 'bg-[#313132] text-white',
   showMobileMenu = false,
   showSocialLinks = true,
-  navigationItems = [
-    {
-      href: '/',
-      label: 'Trang Chủ'
-    },
-    {
-      href: '/gioi-thieu',
-      label: 'Giới Thiệu',
-      children: [
-        {
-          href: '/gioi-thieu/chinh-sach',
-          label: 'Chính Sách'
-        },
-        {
-          href: '/gioi-thieu/dich-vu',
-          label: 'Dịch Vụ'
-        },
-        {
-          href: '/gioi-thieu/quy-trinh',
-          label: 'Quy Trình'
-        }
-      ]
-    },
-    {
-      href: '/thu-vien',
-      label: 'Thư Viện Ảnh',
-      children: [
-        {
-          href: '/thu-vien/collection',
-          label: 'Collection'
-        },
-        {
-          href: '/thu-vien/nu',
-          label: 'Nữ',
-          children: [
-            {
-              href: '/thu-vien/nu/beauty',
-              label: 'Beauty'
-            },
-            {
-              href: '/thu-vien/nu/cong-chua',
-              label: 'Công Chúa – Nàng Thơ'
-            },
-            {
-              href: '/thu-vien/nu/birthday',
-              label: 'Birthday'
-            },
-            {
-              href: '/thu-vien/nu/thoi-trang',
-              label: 'Thời Trang'
-            },
-            {
-              href: '/thu-vien/nu/tet-trung-thu',
-              label: 'Tết – Trung Thu – Cổ Trang'
-            },
-            {
-              href: '/thu-vien/nu/noel-mua-dong',
-              label: 'Noel – Mùa Đông'
-            },
-            {
-              href: '/thu-vien/nu/cosplay',
-              label: 'Cosplay'
-            },
-            {
-              href: '/thu-vien/nu/quyen-ru',
-              label: 'Quyến Rũ – Sexy'
-            }
-          ]
-        },
-        {
-          href: '/thu-vien/nam',
-          label: 'Nam'
-        },
-        {
-          href: '/thu-vien/standard',
-          label: 'Standard'
-        },
-        {
-          href: '/thu-vien/bts',
-          label: 'BTS Hậu Trường'
-        },
-        {
-          href: '/thu-vien/couple',
-          label: 'Couple'
-        },
-        {
-          href: '/thu-vien/gia-dinh',
-          label: 'Gia Đình – Mẹ & Bé'
-        },
-        {
-          href: '/thu-vien/wedding',
-          label: 'Wedding'
-        },
-        {
-          href: '/thu-vien/me-bau',
-          label: 'Mẹ Bầu'
-        }
-      ]
-    },
-    {
-      href: '/video',
-      label: 'Video'
-    },
-    {
-      href: '/bang-gia',
-      label: 'Bảng Giá',
-      children: [
-        {
-          href: '/bang-gia/ca-nhan',
-          label: 'Bảng Giá Cá Nhân'
-        },
-        {
-          href: '/bang-gia/couple',
-          label: 'Bảng Giá Couple'
-        },
-        {
-          href: '/bang-gia/wedding',
-          label: 'Bảng Giá Wedding'
-        },
-        {
-          href: '/bang-gia/team',
-          label: 'Bảng Giá Team'
-        },
-        {
-          href: '/bang-gia/gia-dinh',
-          label: 'Bảng Giá Gia Đình'
-        },
-        {
-          href: '/bang-gia/video',
-          label: 'Bảng Giá Video'
-        },
-        {
-          href: '/bang-gia/dich-vu-khac',
-          label: 'Bảng Giá Dịch Vụ Khác'
-        }
-      ]
-    },
-    {
-      href: '/lien-he',
-      label: 'Liên Hệ'
-    }
-  ]
+  navigationItems = buildPublicNavigation([])
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null)
@@ -272,9 +132,7 @@ const Header: React.FC<HeaderProps> = ({
                     >
                       {child.children ? (
                         <div className="relative">
-                          <div
-                            className="flex w-full items-center justify-between px-4 py-3 text-left text-white transition-colors hover:bg-[#ededed] hover:text-[#585858] cursor-pointer"
-                          >
+                          <div className="flex w-full cursor-pointer items-center justify-between px-4 py-3 text-left text-white transition-colors hover:bg-[#ededed] hover:text-[#585858]">
                             <div className="text-sm font-medium">{child.label}</div>
                             <div className="-rotate-90 text-2xl">
                               <MdArrowDropDown />
@@ -337,7 +195,7 @@ const Header: React.FC<HeaderProps> = ({
         <div className="md:hidden">
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="rounded p-2 text-white transition-all duration-300 ease-in-out hover:bg-gray-600 flex items-center justify-center"
+            className="flex items-center justify-center rounded p-2 text-white transition-all duration-300 ease-in-out hover:bg-gray-600"
           >
             <div className="transition-transform duration-300 ease-in-out">
               {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
@@ -348,10 +206,10 @@ const Header: React.FC<HeaderProps> = ({
 
       {/* Mobile Menu */}
       <div
-        className={`absolute top-full right-0 left-0 max-h-[calc(100vh-4rem)] overflow-y-auto border-t border-gray-600/20 bg-[#313132]/95 backdrop-blur-md md:hidden transition-all duration-300 ease-in-out transform ${
+        className={`absolute top-full right-0 left-0 max-h-[calc(100vh-4rem)] transform overflow-y-auto border-t border-gray-600/20 bg-[#313132]/95 backdrop-blur-md transition-all duration-300 ease-in-out md:hidden ${
           mobileMenuOpen
-            ? 'max-h-[calc(100vh-4rem)] opacity-100 translate-y-0 shadow-2xl'
-            : 'max-h-0 opacity-0 -translate-y-4 pointer-events-none'
+            ? 'max-h-[calc(100vh-4rem)] translate-y-0 opacity-100 shadow-2xl'
+            : 'pointer-events-none max-h-0 -translate-y-4 opacity-0'
         }`}
       >
         <div className="space-y-1 px-4 py-4">
@@ -369,7 +227,7 @@ const Header: React.FC<HeaderProps> = ({
                     </Link>
                     <button
                       onClick={() => handleDropdownToggle(item.label)}
-                      className="text-white transition-colors hover:text-gray-300 flex items-center justify-center max-h-fit"
+                      className="flex max-h-fit items-center justify-center text-white transition-colors hover:text-gray-300"
                       aria-label={`Toggle ${item.label} submenu`}
                     >
                       <ChevronDown
@@ -380,8 +238,8 @@ const Header: React.FC<HeaderProps> = ({
                   <div
                     className={`overflow-hidden transition-all duration-300 ease-in-out ${
                       activeDropdown === item.label
-                        ? 'max-h-[1000px] opacity-100 mt-2 ml-4 space-y-1'
-                        : 'max-h-0 opacity-0 ml-4'
+                        ? 'mt-2 ml-4 max-h-[1000px] space-y-1 opacity-100'
+                        : 'ml-4 max-h-0 opacity-0'
                     }`}
                   >
                     {item.children.map(child => (
@@ -409,8 +267,8 @@ const Header: React.FC<HeaderProps> = ({
                             <div
                               className={`overflow-hidden transition-all duration-300 ease-in-out ${
                                 activeSubDropdown === child.label
-                                  ? 'max-h-[500px] opacity-100 mt-2 ml-4 space-y-1'
-                                  : 'max-h-0 opacity-0 ml-4'
+                                  ? 'mt-2 ml-4 max-h-[500px] space-y-1 opacity-100'
+                                  : 'ml-4 max-h-0 opacity-0'
                               }`}
                             >
                               {child.children.map(subChild => (

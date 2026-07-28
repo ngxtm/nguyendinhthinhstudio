@@ -7,47 +7,46 @@ import ServiceProcessComponnent from './components/ServiceProcessComponnent'
 import DividerWithText from '@/app/components/common/DividerWithText'
 import SeeMore from '@/app/(public)/lien-he/components/SeeMore'
 import AnimatedContent from '@/app/components/common/AnimatedContent'
+import { createPublicMetadata } from '@/lib/seo'
+
+export const metadata = createPublicMetadata({
+  title: 'Dịch vụ sản xuất hình ảnh | NDT Studio',
+  description: 'Khám phá dịch vụ stylist, makeup, chụp ảnh, quay phim và chỉ đạo sáng tạo tại NDT Studio.',
+  path: '/gioi-thieu/dich-vu'
+})
 
 export default function Service() {
   return (
+    <div className="pt-10 sm:pt-14">
+      <ServiceComponent />
+      <StylistComponent />
+      <MakeupComponent />
+      <ImageProductionComponent />
+      <CreativeDirectorComponent />
+      <AnimatedContent direction="horizontal" duration={1.5} distance={250} threshold={0.1} className="h-fit sm:h-full">
+        <DividerWithText
+          text="QUY TRÌNH DỊCH VỤ"
+          textClassName="text-[#888888] text-sm md:text-base"
+          className="px-4 sm:px-6 md:px-8 lg:px-12"
+        />
+      </AnimatedContent>
 
-      <div className="pt-10 sm:pt-14">
-        <ServiceComponent />
-        <StylistComponent />
-        <MakeupComponent />
-        <ImageProductionComponent />
-        <CreativeDirectorComponent />
-        <AnimatedContent
-          direction="horizontal"
-          duration={1.5}
-          distance={250}
-          threshold={0.1}
-          className="h-fit sm:h-full"
-        >
-          <DividerWithText
-            text="QUY TRÌNH DỊCH VỤ"
-            textClassName="text-[#888888] text-sm md:text-base"
-            className="px-4 sm:px-6 md:px-8 lg:px-12"
-          />
-        </AnimatedContent>
-
-        <ServiceProcessComponnent />
-        <AnimatedContent
-          direction="horizontal"
-          reverse={true}
-          duration={1.5}
-          distance={250}
-          threshold={0.1}
-          className="h-fit sm:h-full"
-        >
-          <DividerWithText
-            text="XEM THÊM"
-            textClassName="text-[#888888] text-sm md:text-base"
-            className="mb-10 px-4 sm:px-6 md:px-8 lg:px-12"
-          />
-        </AnimatedContent>
-        <SeeMore className="mb-4 px-4 sm:px-6 md:px-8 lg:px-12" />
-      </div>
-
+      <ServiceProcessComponnent />
+      <AnimatedContent
+        direction="horizontal"
+        reverse={true}
+        duration={1.5}
+        distance={250}
+        threshold={0.1}
+        className="h-fit sm:h-full"
+      >
+        <DividerWithText
+          text="XEM THÊM"
+          textClassName="text-[#888888] text-sm md:text-base"
+          className="mb-10 px-4 sm:px-6 md:px-8 lg:px-12"
+        />
+      </AnimatedContent>
+      <SeeMore className="mb-4 px-4 sm:px-6 md:px-8 lg:px-12" />
+    </div>
   )
 }

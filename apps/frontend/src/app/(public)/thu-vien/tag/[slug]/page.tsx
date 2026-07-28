@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { ApiError, getTagAlbums } from '@/lib/api'
+import { absoluteUrl } from '@/lib/seo'
 import TagGalleryClient from './TagGalleryClient'
 
 type PageParams = {
@@ -9,6 +10,8 @@ type PageParams = {
   }>
 }
 
+export const dynamic = 'force-dynamic'
+
 export async function generateMetadata({ params }: PageParams): Promise<Metadata> {
   const { slug: rawSlug } = await params
   const slug = decodeURIComponent(rawSlug)
@@ -16,26 +19,37 @@ export async function generateMetadata({ params }: PageParams): Promise<Metadata
   try {
     const response = await getTagAlbums(slug, { limit: 1, offset: 0 })
     const tagName = response.tag.name
-    const description = response.tag.description || `Khám phá các album thuộc tag ${tagName} tại Nguyen Dinh Thinh Studio.`
+    const description =
+      response.tag.description || `Khám phá các album thuộc tag ${tagName} tại Nguyen Dinh Thinh Studio.`
     const pageTitle = `${tagName} | Thư viện ảnh`
+    const canonical = absoluteUrl(`/thu-vien/tag/${response.tag.slug}`)
+    const isIndexable = response.pagination.totalPrimary > 0
 
     return {
-      title: pageTitle,
+      title: { absolute: pageTitle },
       description,
+      alternates: { canonical },
+      robots: { index: isIndexable, follow: true },
       openGraph: {
+        type: 'website',
+        locale: 'vi_VN',
+        siteName: 'NDT Studio',
         title: pageTitle,
         description,
-      },
+        url: canonical
+      }
     }
   } catch (error) {
     if (error instanceof ApiError && error.status === 404) {
       return {
-      title: 'Tag không tồn tại | Thư viện ảnh',
+        title: 'Tag không tồn tại | Thư viện ảnh',
+        robots: { index: false, follow: true }
       }
     }
 
     return {
       title: 'Thư viện ảnh',
+      robots: { index: false, follow: true }
     }
   }
 }

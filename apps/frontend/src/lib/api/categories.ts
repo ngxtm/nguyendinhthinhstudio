@@ -2,48 +2,71 @@
  * Categories API Service
  */
 
-import { apiClient, adminApiClient } from './client';
+import { apiClient, adminApiClient } from './client'
 
 export interface Category {
-  id: string;
-  name: string;
-  slug: string;
-  description?: string;
-  parentId?: string | null;
-  parent?: Category | null;
-  children?: Category[];
-  albumCount: number;
-  childrenCount?: number;
-  createdAt: string;
-  updatedAt: string;
+  id: string
+  name: string
+  slug: string
+  description?: string
+  parentId?: string | null
+  parent?: Category | null
+  children?: Category[]
+  albumCount: number
+  childrenCount?: number
+  showInNavigation: boolean
+  navigationOrder: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface PublicCategory extends Omit<Category, 'createdAt' | 'childrenCount' | 'parent' | 'children'> {
+  parent?: Pick<Category, 'id' | 'name' | 'slug'> | null
+  children?: PublicCategory[]
 }
 
 export interface CreateCategoryDto {
-  name: string;
-  slug: string;
-  description?: string;
-  parentId?: string;
+  name: string
+  slug: string
+  description?: string
+  parentId?: string
+  showInNavigation?: boolean
+  navigationOrder?: number
 }
 
 export interface UpdateCategoryDto {
-  name?: string;
-  slug?: string;
-  description?: string;
-  parentId?: string | null;
+  name?: string
+  slug?: string
+  description?: string
+  parentId?: string | null
+  showInNavigation?: boolean
+  navigationOrder?: number
+}
+
+export async function getCategoryNavigation(): Promise<PublicCategory[]> {
+  return apiClient<PublicCategory[]>('/categories/navigation')
+}
+
+export async function getIndexableCategories(): Promise<PublicCategory[]> {
+  return apiClient<PublicCategory[]>('/categories/indexable')
+}
+
+export async function getPublicCategoryBySlug(slug: string): Promise<PublicCategory> {
+  return apiClient<PublicCategory>(`/categories/slug/${encodeURIComponent(slug)}`)
 }
 
 /**
  * Get all categories
  */
 export async function getCategories(admin = false): Promise<Category[]> {
-  return (admin ? adminApiClient : apiClient)<Category[]>('/categories');
+  return (admin ? adminApiClient : apiClient)<Category[]>('/categories')
 }
 
 /**
  * Get category by ID
  */
 export async function getCategory(id: string): Promise<Category> {
-  return apiClient<Category>(`/categories/${id}`);
+  return apiClient<Category>(`/categories/${id}`)
 }
 
 /**
@@ -52,21 +75,18 @@ export async function getCategory(id: string): Promise<Category> {
 export async function createCategory(data: CreateCategoryDto): Promise<Category> {
   return adminApiClient<Category>('/categories', {
     method: 'POST',
-    body: JSON.stringify(data),
-  });
+    body: JSON.stringify(data)
+  })
 }
 
 /**
  * Update category (Admin only)
  */
-export async function updateCategory(
-  id: string,
-  data: UpdateCategoryDto
-): Promise<Category> {
+export async function updateCategory(id: string, data: UpdateCategoryDto): Promise<Category> {
   return adminApiClient<Category>(`/categories/${id}`, {
     method: 'PATCH',
-    body: JSON.stringify(data),
-  });
+    body: JSON.stringify(data)
+  })
 }
 
 /**
@@ -74,30 +94,30 @@ export async function updateCategory(
  */
 export async function deleteCategory(id: string): Promise<void> {
   return adminApiClient<void>(`/categories/${id}`, {
-    method: 'DELETE',
-  });
+    method: 'DELETE'
+  })
 }
 
 /**
  * Check category usage in albums
  */
 export async function checkCategoryUsage(id: string): Promise<{
-  isUsed: boolean;
-  albumCount: number;
-  albums: Array<{ id: string; title: string; slug: string }>;
+  isUsed: boolean
+  albumCount: number
+  albums: Array<{ id: string; title: string; slug: string }>
 }> {
-  return adminApiClient(`/categories/${id}/usage`);
+  return adminApiClient(`/categories/${id}/usage`)
 }
 
 /**
  * Bulk remove category from all albums
  */
 export async function bulkRemoveCategoryFromAlbums(categoryId: string): Promise<{
-  removed: number;
+  removed: number
 }> {
   return adminApiClient(`/categories/${categoryId}/bulk-remove`, {
-    method: 'POST',
-  });
+    method: 'POST'
+  })
 }
 
 /**
@@ -112,5 +132,5 @@ export function generateSlug(name: string): string {
     .replace(/[^a-z0-9\s-]/g, '')
     .trim()
     .replace(/\s+/g, '-')
-    .replace(/-+/g, '-');
+    .replace(/-+/g, '-')
 }

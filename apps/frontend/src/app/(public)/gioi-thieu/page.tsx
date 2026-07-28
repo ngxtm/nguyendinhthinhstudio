@@ -2,6 +2,14 @@ import Image from 'next/image'
 import gioiThieuImg from './images/gioi-thieu-1.png'
 import gioiThieuImg2 from './images/gioi-thieu-2.png'
 import Link from 'next/link'
+import { createPublicMetadata } from '@/lib/seo'
+
+export const metadata = createPublicMetadata({
+  title: 'Giới thiệu NDT Studio',
+  description:
+    'Tìm hiểu về Nguyễn Đình Thịnh Studio, đội ngũ và định hướng sản xuất hình ảnh chuyên nghiệp tại Nha Trang.',
+  path: '/gioi-thieu'
+})
 
 export default function About() {
   return (
@@ -43,10 +51,8 @@ export default function About() {
             tế, bảo chứng chất lượng của một studio tầm cỡ.
           </p>
 
-          <Link href="/gioi-thieu/thu-vien">
-            <button
-              className="group mt-4 inline-flex w-full items-center justify-center gap-2 rounded-full border border-neutral-300 bg-white/90 px-4 py-3 text-sm font-medium text-neutral-900 shadow-sm backdrop-blur transition-all duration-200 active:scale-[.98] hover:bg-neutral-900 hover:text-white focus:outline-none focus:ring-2 focus:ring-neutral-400 min-h-[44px] sm:w-auto"
-            >
+          <Link href="/thu-vien">
+            <button className="group mt-4 inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-full border border-neutral-300 bg-white/90 px-4 py-3 text-sm font-medium text-neutral-900 shadow-sm backdrop-blur transition-all duration-200 hover:bg-neutral-900 hover:text-white focus:ring-2 focus:ring-neutral-400 focus:outline-none active:scale-[.98] sm:w-auto">
               THAM KHẢO THÊM HÌNH ẢNH{' '}
               <span className="transition-transform duration-300 group-hover:translate-x-1">→</span>
             </button>

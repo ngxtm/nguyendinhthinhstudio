@@ -12,7 +12,7 @@ datasource db {
 
 model SiteSettings {
   key       String   @id
-  value     String   // JSON-encoded value
+  value     String // JSON-encoded value
   updatedAt DateTime @updatedAt
 }
 
@@ -36,10 +36,12 @@ model Staff {
 // ============ ALBUMS & IMAGES ============
 
 model Category {
-  id          String  @id @default(uuid())
-  name        String  @unique
-  slug        String  @unique
-  description String?
+  id               String  @id @default(uuid())
+  name             String  @unique
+  slug             String  @unique
+  description      String?
+  showInNavigation Boolean @default(false)
+  navigationOrder  Int     @default(0)
 
   // Parent-Child hierarchy
   parentId String?
@@ -54,6 +56,7 @@ model Category {
 
   @@index([slug])
   @@index([parentId])
+  @@index([showInNavigation, navigationOrder])
 }
 
 model Album {

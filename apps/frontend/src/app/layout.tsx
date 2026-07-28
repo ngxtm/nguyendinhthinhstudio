@@ -3,6 +3,7 @@ import { Geist, Geist_Mono, Inter, Montserrat } from 'next/font/google'
 import localFont from 'next/font/local'
 import Script from 'next/script'
 import './globals.css'
+import { SITE_URL } from '@/lib/seo'
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -33,7 +34,7 @@ const montserrat = Montserrat({
 })
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://ndtstudio.site'),
+  metadataBase: new URL(SITE_URL),
   title: {
     default: 'NDT Studio - Nhiếp ảnh chuyên nghiệp',
     template: '%s | NDT Studio'
@@ -69,7 +70,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     locale: 'vi_VN',
-    url: 'https://ndtstudio.site',
+    url: SITE_URL,
     siteName: 'NDT Studio',
     title: 'NDT Studio - Nhiếp ảnh chuyên nghiệp',
     description:
@@ -100,13 +101,6 @@ export const metadata: Metadata = {
       'max-image-preview': 'large',
       'max-snippet': -1
     }
-  },
-
-  verification: {
-    // Thêm sau khi verify với Google Search Console
-    google: 'your-google-verification-code'
-    // yandex: 'your-yandex-verification-code',
-    // bing: 'your-bing-verification-code',
   }
 }
 
@@ -120,8 +114,8 @@ export default function RootLayout({
     '@context': 'https://schema.org',
     '@type': 'Organization',
     name: 'NDT Studio',
-    url: 'https://ndtstudio.site',
-    logo: 'https://ndtstudio.site/logo.png',
+    url: SITE_URL,
+    logo: `${SITE_URL}/logo.png`,
     description: 'Studio chụp ảnh chuyên nghiệp tại Việt Nam',
     address: {
       '@type': 'PostalAddress',

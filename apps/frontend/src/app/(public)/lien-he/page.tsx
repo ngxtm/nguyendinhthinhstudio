@@ -4,6 +4,13 @@ import NavigationLinks from '../../components/common/NavigationLinks'
 import Support from './components/Support'
 import SeeMore from './components/SeeMore'
 import AnimatedContent from '../../components/common/AnimatedContent'
+import { createPublicMetadata } from '@/lib/seo'
+
+export const metadata = createPublicMetadata({
+  title: 'Liên hệ và đặt lịch | NDT Studio',
+  description: 'Liên hệ Nguyễn Đình Thịnh Studio tại Nha Trang để được tư vấn, đặt lịch chụp ảnh và hỗ trợ dịch vụ.',
+  path: '/lien-he'
+})
 
 export default function Contact() {
   // JSON-LD for LocalBusiness
@@ -13,7 +20,8 @@ export default function Contact() {
     '@id': 'https://ndtstudio.site/lien-he',
     name: 'Nguyễn Đình Thịnh Studio',
     image: 'https://ndtstudio.site/logo.png',
-    description: 'Studio chụp ảnh chuyên nghiệp tại Nha Trang - Chuyên chụp ảnh cưới, couple, gia đình, beauty với phong cách nghệ thuật độc đáo',
+    description:
+      'Studio chụp ảnh chuyên nghiệp tại Nha Trang - Chuyên chụp ảnh cưới, couple, gia đình, beauty với phong cách nghệ thuật độc đáo',
     url: 'https://ndtstudio.site',
     telephone: '+84983885473',
     priceRange: '₫₫₫',
@@ -33,15 +41,7 @@ export default function Contact() {
     openingHoursSpecification: [
       {
         '@type': 'OpeningHoursSpecification',
-        dayOfWeek: [
-          'Monday',
-          'Tuesday',
-          'Wednesday',
-          'Thursday',
-          'Friday',
-          'Saturday',
-          'Sunday'
-        ],
+        dayOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
         opens: '07:00',
         closes: '17:00'
       }
@@ -51,7 +51,7 @@ export default function Contact() {
       'https://instagram.com/ndtstudio',
       'https://maps.app.goo.gl/aQKTojhw51Bo8LMW6'
     ]
-  };
+  }
 
   // Breadcrumb Schema
   const breadcrumbSchema = {
@@ -71,7 +71,7 @@ export default function Contact() {
         item: 'https://ndtstudio.site/lien-he'
       }
     ]
-  };
+  }
 
   return (
     <>
@@ -83,7 +83,7 @@ export default function Contact() {
           </h1>
 
           {/* Navigation Links */}
-          <div className="flex justify-center mt-6 mb-4">
+          <div className="mt-6 mb-4 flex justify-center">
             <NavigationLinks
               links={[
                 { label: 'Tư Vấn', href: '/lien-he' },
@@ -96,7 +96,7 @@ export default function Contact() {
           </div>
 
           <DividerWithText text="THÔNG TIN LIÊN HỆ" textClassName="text-[#888888] text-sm" />
-          <div className="flex items-center  w-full flex-col gap-10 md:flex-row">
+          <div className="flex w-full flex-col items-center gap-10 md:flex-row">
             {/* Bản đồ Google Maps */}
             <div className="w-full lg:w-2/3">
               <div className="h-64 w-full overflow-hidden rounded-lg shadow-lg md:h-80 lg:h-96">
@@ -139,10 +139,10 @@ export default function Contact() {
                   </div>
 
                   <div className="border-b border-gray-100 pb-4">
-                    <p className="mb-2 text-xs tracking-wider text-gray-400 uppercase">Chương trình khuyến mãi tháng {new Date().getMonth()}</p>
-                    <p className="leading-relaxed">
-                      Vote 5 sao trên Google Maps để được nhận ưu đãi 5% gói chụp.
+                    <p className="mb-2 text-xs tracking-wider text-gray-400 uppercase">
+                      Chương trình khuyến mãi tháng {new Date().getMonth()}
                     </p>
+                    <p className="leading-relaxed">Vote 5 sao trên Google Maps để được nhận ưu đãi 5% gói chụp.</p>
                   </div>
                 </div>
 

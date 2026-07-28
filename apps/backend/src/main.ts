@@ -6,6 +6,7 @@ import { AppModule } from './app.module';
 import * as bodyParser from 'body-parser';
 import { parseImageUploadRuntimeConfig } from './images/image-upload-runtime-config';
 import { IMAGE_UPLOAD_OPERATOR_SMOKE_HEADER_NAME } from './images/image-upload-ingress';
+import { apiIndexingMiddleware } from './seo/api-indexing.middleware';
 
 // Local development: load .env from apps/backend before reading process.env.
 // In production (Dokploy) environment variables are injected into the container,
@@ -26,6 +27,7 @@ async function bootstrap() {
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   app.set('trust proxy', imageUploadRuntime.trustedProxyAllowlist);
+  app.use(apiIndexingMiddleware);
 
   // Upload metadata stays bounded; image bytes go directly to R2.
   app.use(bodyParser.json({ limit: '1mb' }));

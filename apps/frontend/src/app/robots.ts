@@ -3,36 +3,30 @@
  * Tells search engines which pages to crawl
  */
 
-import { MetadataRoute } from 'next';
+import { MetadataRoute } from 'next'
+import { SITE_URL } from '@/lib/seo'
 
 export default function robots(): MetadataRoute.Robots {
-  const baseUrl = 'https://ndtstudio.site';
-
   return {
     rules: [
       {
         userAgent: '*',
         allow: '/',
-        disallow: [
-          '/admin/',
-          '/api/',
-          '/_next/',
-          '/private/',
-        ],
+        disallow: ['/admin/', '/api/', '/private/']
       },
       {
         userAgent: 'Googlebot',
         allow: '/',
         disallow: ['/admin/', '/api/'],
-        crawlDelay: 0,
+        crawlDelay: 0
       },
       {
         userAgent: 'Googlebot-Image',
         allow: '/',
-        disallow: ['/admin/'],
-      },
+        disallow: ['/admin/']
+      }
     ],
-    sitemap: `${baseUrl}/sitemap.xml`,
-    host: baseUrl,
-  };
+    sitemap: `${SITE_URL}/sitemap.xml`,
+    host: SITE_URL
+  }
 }

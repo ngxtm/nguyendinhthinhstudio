@@ -2,6 +2,9 @@ import caNhan from '../images/ca-nhan.jpg'
 import couple from '../images/couple.jpg'
 import giaDinh from '../images/gia-dinh.jpg'
 import wedding from '../images/wedding.jpg'
+import { categoryHref } from '@/lib/public-navigation'
+
+type PricingLinkDefinition = { title: string; categorySlug: string } | { title: string; href: string }
 
 export const serviceCategories = [
   {
@@ -75,22 +78,22 @@ export const standardCategories = [
   }
 ]
 
-export const individualList = [
+export const individualList: PricingLinkDefinition[] = [
   {
     title: 'Xem Thêm Ảnh Nữ',
-    href: '/thu-vien/nu'
+    categorySlug: 'nu'
   },
   {
     title: 'Xem Thêm Ảnh Nam',
-    href: '/thu-vien/nam'
+    categorySlug: 'nam'
   },
   {
     title: 'Xem Thêm Ảnh Mẹ Bầu',
-    href: '/thu-vien/me-bau'
+    categorySlug: 'me-bau'
   },
   {
     title: 'Xem Thêm Ảnh Em Bé',
-    href: '/thu-vien/gia-dinh'
+    categorySlug: 'gia-dinh'
   },
   {
     title: 'Hỗ Trợ Nhanh',
@@ -98,18 +101,18 @@ export const individualList = [
   }
 ]
 
-export const coupleList = [
+export const coupleList: PricingLinkDefinition[] = [
   {
     title: 'Xem Thêm Ảnh Cặp Đôi',
-    href: '/thu-vien/couple'
+    categorySlug: 'couple'
   },
   {
     title: 'Xem Thêm Ảnh Đôi - Nhóm',
-    href: '/thu-vien/doi-nhom'
+    categorySlug: 'doi-nhom'
   },
   {
     title: 'Xem Thêm Ảnh Mẹ và Bé',
-    href: '/thu-vien/gia-dinh'
+    categorySlug: 'gia-dinh'
   },
   {
     title: 'Hỗ Trợ Nhanh',
@@ -117,10 +120,10 @@ export const coupleList = [
   }
 ]
 
-export const familyList = [
+export const familyList: PricingLinkDefinition[] = [
   {
     title: 'Xem Thêm Ảnh Gia Đình',
-    href: '/thu-vien/gia-dinh'
+    categorySlug: 'gia-dinh'
   },
   {
     title: 'Hỗ Trợ Nhanh',
@@ -128,10 +131,10 @@ export const familyList = [
   }
 ]
 
-export const weddingList = [
+export const weddingList: PricingLinkDefinition[] = [
   {
     title: 'Xem Thêm Ảnh Cưới',
-    href: '/thu-vien/wedding'
+    categorySlug: 'wedding'
   },
   {
     title: 'Hỗ Trợ Nhanh',
@@ -139,14 +142,14 @@ export const weddingList = [
   }
 ]
 
-export const promotionList = [
+export const promotionList: PricingLinkDefinition[] = [
   {
     title: 'Xem Thêm Ảnh Quảng Cáo',
-    href: '/thu-vien/quang-cao'
+    categorySlug: 'quang-cao'
   },
   {
     title: 'Xem Thêm Ảnh Sản Phẩm',
-    href: '/thu-vien/san-pham'
+    categorySlug: 'san-pham'
   },
   {
     title: 'Hỗ Trợ Nhanh',
@@ -154,7 +157,7 @@ export const promotionList = [
   }
 ]
 
-export const cardList = [
+const cardDefinitions = [
   {
     id: 'ca-nhan',
     title: 'Bảng Giá Dịch Vụ Ảnh Cá Nhân',
@@ -196,3 +199,14 @@ export const cardList = [
     imageWidth: 'md:w-[35vw] lg:w-[73vw] lg:h-[75vh]'
   }
 ]
+
+export function createPricingCardList(publicCategorySlugs: ReadonlySet<string>) {
+  return cardDefinitions.map(card => ({
+    ...card,
+    seeMoreList: card.seeMoreList.map(item =>
+      'categorySlug' in item
+        ? { title: item.title, href: categoryHref(item.categorySlug, publicCategorySlugs) }
+        : { title: item.title, href: item.href }
+    )
+  }))
+}

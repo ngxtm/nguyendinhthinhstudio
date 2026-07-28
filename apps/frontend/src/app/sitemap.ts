@@ -1,102 +1,73 @@
-/**
- * Dynamic Sitemap for Albums
- * Generates sitemap.xml with all published albums
- */
+import type { MetadataRoute } from 'next'
+import { getAlbums, getIndexableCategories, type Album } from '@/lib/api'
+import { SITE_URL } from '@/lib/seo'
 
-import { MetadataRoute } from 'next';
-import { getAlbums } from '@/lib/api';
+export const revalidate = 60
+
+const staticPaths = [
+  '',
+  '/gioi-thieu',
+  '/gioi-thieu/chinh-sach',
+  '/gioi-thieu/dich-vu',
+  '/gioi-thieu/quy-trinh',
+  '/thu-vien',
+  '/video',
+  '/bang-gia',
+  '/bang-gia/ca-nhan',
+  '/bang-gia/couple',
+  '/bang-gia/gia-dinh',
+  '/bang-gia/team',
+  '/bang-gia/video',
+  '/bang-gia/wedding',
+  '/lien-he'
+]
+
+const staticPages: MetadataRoute.Sitemap = staticPaths.map(path => ({
+  url: `${SITE_URL}${path}`,
+  changeFrequency: path === '' || path === '/thu-vien' ? 'weekly' : 'monthly',
+  priority: path === '' ? 1 : path === '/thu-vien' ? 0.9 : 0.7
+}))
+
+async function getAllPublishedAlbums(): Promise<Album[]> {
+  const albums: Album[] = []
+  let cursor: string | undefined
+
+  do {
+    const response = await getAlbums({
+      status: 'published',
+      limit: 50,
+      cursor,
+      sortBy: 'newest'
+    })
+    albums.push(...response.data)
+    cursor = response.pagination.nextCursor ?? undefined
+    if (!response.pagination.hasMore) break
+  } while (cursor)
+
+  return albums
+}
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = 'https://ndtstudio.site';
-
   try {
-    // Fetch all published albums
-    const albums = [] as Awaited<ReturnType<typeof getAlbums>>['data'];
-    let cursor: string | undefined;
-    let hasMore = true;
-
-    while (hasMore) {
-      const response = await getAlbums({
-        status: 'published',
-        limit: 50,
-        cursor,
-      });
-
-      albums.push(...response.data);
-      hasMore = response.pagination.hasMore;
-      cursor = response.pagination.nextCursor ?? undefined;
-
-      if (!hasMore) {
-        break;
-      }
-    }
-
-    // Generate album URLs
-    const albumUrls: MetadataRoute.Sitemap = albums.map((album) => ({
-      url: `${baseUrl}/thu-vien/${album.slug}`,
-      lastModified: album.updatedAt || album.publishedAt || new Date(),
+    const [albums, categories] = await Promise.all([getAllPublishedAlbums(), getIndexableCategories()])
+    const albumUrls: MetadataRoute.Sitemap = albums.map(album => ({
+      url: `${SITE_URL}/thu-vien/${album.slug}`,
+      ...(album.updatedAt || album.publishedAt
+        ? { lastModified: album.updatedAt || album.publishedAt || undefined }
+        : {}),
       changeFrequency: 'weekly',
-      priority: 0.8,
-    }));
+      priority: 0.8
+    }))
+    const categoryUrls: MetadataRoute.Sitemap = categories.map(category => ({
+      url: `${SITE_URL}/thu-vien/danh-muc/${category.slug}`,
+      lastModified: category.updatedAt,
+      changeFrequency: 'weekly',
+      priority: 0.75
+    }))
 
-    // Static pages
-    const staticPages: MetadataRoute.Sitemap = [
-      {
-        url: baseUrl,
-        lastModified: new Date(),
-        changeFrequency: 'daily',
-        priority: 1,
-      },
-      {
-        url: `${baseUrl}/gioi-thieu`,
-        lastModified: new Date(),
-        changeFrequency: 'monthly',
-        priority: 0.8,
-      },
-      {
-        url: `${baseUrl}/thu-vien`,
-        lastModified: new Date(),
-        changeFrequency: 'daily',
-        priority: 0.9,
-      },
-      {
-        url: `${baseUrl}/video`,
-        lastModified: new Date(),
-        changeFrequency: 'weekly',
-        priority: 0.7,
-      },
-      {
-        url: `${baseUrl}/bang-gia`,
-        lastModified: new Date(),
-        changeFrequency: 'monthly',
-        priority: 0.7,
-      },
-      {
-        url: `${baseUrl}/lien-he`,
-        lastModified: new Date(),
-        changeFrequency: 'monthly',
-        priority: 0.6,
-      },
-    ];
-
-    return [...staticPages, ...albumUrls];
+    return [...staticPages, ...categoryUrls, ...albumUrls]
   } catch (error) {
-    console.error('Error generating sitemap:', error);
-
-    // Return at least static pages if album fetch fails
-    return [
-      {
-        url: baseUrl,
-        lastModified: new Date(),
-        changeFrequency: 'daily',
-        priority: 1,
-      },
-      {
-        url: `${baseUrl}/thu-vien`,
-        lastModified: new Date(),
-        changeFrequency: 'daily',
-        priority: 0.9,
-      },
-    ];
+    console.error('Error generating sitemap:', error)
+    return staticPages
   }
 }
