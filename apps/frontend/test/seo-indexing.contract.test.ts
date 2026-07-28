@@ -55,6 +55,18 @@ test('redirect manifest normalizes www and every known legacy gallery route', as
   )
 })
 
+test('frontend runtime image packages the SEO redirect module required by Next config', () => {
+  const nextConfig = readSource('../next.config.mjs')
+  const dockerfile = readSource('../Dockerfile')
+
+  assert.match(nextConfig, /from ['"]\.\/seo-routes\.mjs['"]/)
+  assert.match(
+    dockerfile,
+    /COPY --from=builder --chown=nextjs:nodejs \/app\/apps\/frontend\/seo-routes\.mjs \.\/apps\/frontend\/seo-routes\.mjs/,
+    'the runtime image must include seo-routes.mjs next to next.config.mjs'
+  )
+})
+
 test('public source stops emitting verified legacy and missing internal links', () => {
   const sources = [
     '../src/app/components/layout/Header.tsx',
