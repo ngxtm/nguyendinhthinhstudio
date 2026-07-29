@@ -220,8 +220,10 @@ function AlbumsContent({
   }
 
   return (
-    <div className="overflow-hidden rounded-lg bg-white shadow">
-      <AlbumsTable albums={albums} onToggleFeatured={onToggleFeatured} onDelete={onDelete} />
+    <div className="rounded-lg bg-white shadow">
+      <div className="overflow-x-auto">
+        <AlbumsTable albums={albums} onToggleFeatured={onToggleFeatured} onDelete={onDelete} />
+      </div>
     </div>
   )
 }
@@ -236,7 +238,7 @@ function AlbumsTable({
   onDelete: (album: Album) => void
 }) {
   return (
-    <table className="w-full">
+    <table className="w-full min-w-[840px]">
       <thead className="border-b border-gray-200 bg-gray-50">
         <tr>
           <TableHeader>Album</TableHeader>

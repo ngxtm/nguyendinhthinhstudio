@@ -12,6 +12,13 @@ test('admin album list always requests the authenticated admin collection', () =
   assert.match(listCall, /\{\s*signal,\s*admin:\s*true\s*\}/)
 })
 
+test('admin album table keeps every column accessible through horizontal scrolling on mobile', () => {
+  const source = readFileSync(new URL('../src/app/admin/albums/page.tsx', import.meta.url), 'utf8')
+
+  assert.match(source, /<div className="overflow-x-auto">\s*<AlbumsTable/)
+  assert.match(source, /<table className="w-full min-w-\[840px\]">/)
+})
+
 test('admin album forms load taxonomy through the authenticated client', () => {
   for (const relativePath of ['../src/app/admin/albums/new/page.tsx', '../src/app/admin/albums/[id]/edit/page.tsx']) {
     const source = readFileSync(new URL(relativePath, import.meta.url), 'utf8')

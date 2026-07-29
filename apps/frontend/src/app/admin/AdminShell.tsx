@@ -95,12 +95,12 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
         )}
 
         <aside
-          className={`fixed inset-y-0 left-0 z-50 flex w-64 transform flex-col border-r border-gray-200 bg-white transition-transform duration-300 ease-in-out lg:sticky lg:top-0 lg:z-30 lg:h-screen lg:translate-x-0 lg:border-r lg:shadow-none ${
+          className={`fixed inset-y-0 left-0 z-50 flex w-64 transform flex-col overflow-hidden border-r border-gray-200 bg-white transition-transform duration-300 ease-in-out lg:z-30 lg:translate-x-0 lg:border-r lg:shadow-none ${
             sidebarOpen ? 'translate-x-0 shadow-xl' : '-translate-x-full lg:translate-x-0'
           }`}
           aria-label="Sidebar navigation"
         >
-          <div className="flex items-center justify-between px-6 py-5 lg:py-6">
+          <div className="flex shrink-0 items-center justify-between px-6 py-5 lg:py-6">
             <Link href="/admin" className="text-2xl font-bold text-gray-900" onClick={closeSidebar}>
               NDT Studio <span className="text-amber-400">Admin</span>
             </Link>
@@ -114,7 +114,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
             </button>
           </div>
 
-          <nav className="flex-1 space-y-1 px-4 py-2">
+          <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto px-4 py-2">
             {NAV_ENTRIES.map(entry => {
               if ('group' in entry) {
                 const groupActive = entry.items.some(item =>
@@ -149,7 +149,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
             })}
           </nav>
 
-          <div className="mt-auto space-y-3 border-t border-gray-200 px-6 py-4">
+          <div className="mt-auto shrink-0 space-y-3 border-t border-gray-200 px-6 py-4">
             <button
               type="button"
               disabled={signingOut}
@@ -168,7 +168,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
           </div>
         </aside>
 
-        <div className="flex flex-1 flex-col">
+        <div className="flex min-w-0 flex-1 flex-col lg:pl-64">
           <header className="sticky top-0 z-20 flex items-center justify-between border-b border-gray-200 bg-white px-4 py-3 shadow-sm lg:hidden">
             <button
               type="button"
