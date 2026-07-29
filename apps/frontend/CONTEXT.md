@@ -12,6 +12,10 @@ _Avoid_: Album, danh mục
 Một bộ ảnh cụ thể có tiêu đề và địa chỉ công khai riêng.
 _Avoid_: Danh mục, loại ảnh
 
+**Dữ liệu album**:
+Nội dung thuộc về một album cụ thể, gồm album, hình ảnh và các liên kết phân loại; không bao gồm bản thân danh mục thư viện hoặc tag để chúng có thể được tái sử dụng.
+_Avoid_: Toàn bộ dữ liệu thư viện, danh mục, tag
+
 **Danh mục thư viện**:
 Một nhóm có tên dùng để tập hợp nhiều album cùng chủ đề; danh mục có thể có danh mục cha hoặc con.
 _Avoid_: Album, tag

@@ -26,6 +26,41 @@ const imageTileSource = readOptionalSource('../src/app/admin/components/AlbumIma
 const imageActionsSource = readOptionalSource('../src/app/admin/components/ImageActionMenu.tsx')
 const responsiveMenuSource = readOptionalSource('../src/app/admin/components/ResponsiveActionMenu.tsx')
 const confirmDialogSource = readOptionalSource('../src/app/admin/components/ConfirmDialog.tsx')
+const uploadZoneSource = readOptionalSource('../src/app/admin/components/ImageUploadZone.tsx')
+
+test('publish keeps the gallery mounted, disables duplicate submits, and refreshes the authenticated album', () => {
+  assert.match(detailSource, /const \[isPublishing, setIsPublishing\] = useState\(false\)/)
+  assert.match(
+    detailSource,
+    /const updated = await publishAlbum\(album\.id\)[\s\S]*?setAlbum\(updated\)[\s\S]*?await loadAlbum\(\{ showLoading: false \}\)/
+  )
+  assert.match(detailSource, /disabled=\{isPublishing\}/)
+  assert.match(detailSource, /isPublishing \? 'Đang publish\.\.\.' : 'Publish'/)
+})
+
+test('album bulk selection is explicit, snapshot-based, and touch-safe', () => {
+  assert.match(detailSource, /selectionMode/)
+  assert.match(detailSource, /disabled=\{uploading\}/)
+  assert.match(imageGridSource, /selectedImageIds/)
+  assert.match(imageGridSource, /bulkDeleteAlbumImages\(albumId, Array\.from\(selectedImageIds\)\)/)
+  assert.match(imageGridSource, /Chọn tất cả/)
+  assert.match(imageGridSource, /Bỏ chọn tất cả/)
+  assert.match(imageGridSource, /Xóa \{selectedImageIds\.size\} ảnh/)
+  assert.match(imageGridSource, /fixed inset-x-0 bottom-0/)
+  assert.match(imageGridSource, /env\(safe-area-inset-bottom\)/)
+  assert.match(imageTileSource, /selectionMode/)
+  assert.match(imageTileSource, /role="checkbox"/)
+  assert.match(imageTileSource, /aria-checked=\{selected\}/)
+})
+
+test('upload and album selection modes lock each other', () => {
+  assert.match(detailSource, /disabled=\{selectionMode\}/)
+  assert.match(detailSource, /onUploadingChange=\{setUploading\}/)
+  assert.match(detailSource, /selectionDisabled=\{uploading\}/)
+  assert.match(uploadZoneSource, /disabled\?: boolean/)
+  assert.match(uploadZoneSource, /onUploadingChange\?: \(uploading: boolean\) => void/)
+  assert.match(uploadZoneSource, /<fieldset[\s\S]*?disabled=\{disabled\}/)
+})
 
 test('album images keep PhotoSwipe clicks while actions stay isolated', () => {
   assert.match(imageGridSource, /<AlbumImageTile/)

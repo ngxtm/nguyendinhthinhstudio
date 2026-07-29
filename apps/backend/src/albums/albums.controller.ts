@@ -1,6 +1,7 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, Query, UseGuards } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { BulkDeleteImagesDto } from '../images/dto/bulk-delete-images.dto';
 import { AlbumsService } from './albums.service';
 import { RecommendationService } from './recommendation.service';
 import { CreateAlbumDto } from './dto/create-album.dto';
@@ -117,6 +118,18 @@ export class AlbumsController {
   @ApiResponse({ status: 400, description: 'Image does not belong to album' })
   setCover(@Param('id') id: string, @Body() setCoverDto: SetCoverDto) {
     return this.albumsService.setCover(id, setCoverDto);
+  }
+
+  @Post(':id/images/bulk-delete')
+  @Roles('admin')
+  @ApiOperation({ summary: 'Delete selected album images atomically (Admin only)' })
+  @ApiResponse({ status: 200, description: 'Images deleted and album refreshed' })
+  @ApiResponse({ status: 400, description: 'Invalid image selection' })
+  bulkDeleteImages(
+    @Param('id') id: string,
+    @Body() dto: BulkDeleteImagesDto,
+  ) {
+    return this.albumsService.bulkDeleteImages(id, dto);
   }
 
   @Patch(':id/publish')

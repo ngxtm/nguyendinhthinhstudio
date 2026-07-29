@@ -49,16 +49,36 @@ describe('ImagesService deletion guard and queue', () => {
     ).rejects.toBeInstanceOf(ConflictException);
   });
 
-  it('queues an R2 object, clears cover, and decrements album count without deleting from R2 inline', async () => {
+  it('queues an R2 object and drafts an album whose cover is deleted without deleting from R2 inline', async () => {
+    const deletedImage = {
+      id: 'image-1',
+      albumId: 'album-1',
+      r2ObjectKey: 'albums/album-1/photo.jpg',
+      uploadStatus: 'completed',
+      orderIndex: 1,
+    };
     const tx: any = {
+      $executeRawUnsafe: jest.fn(),
       imageObjectDeletion: { upsert: jest.fn() },
       imageUploadPromotion: {
         findFirst: jest.fn().mockResolvedValue(null),
       },
       imageUpload: { updateMany: jest.fn() },
       imageUploadIdempotency: { updateMany: jest.fn() },
-      image: { delete: jest.fn() },
-      album: { update: jest.fn() },
+      image: {
+        deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
+        update: jest.fn(),
+      },
+      album: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'album-1',
+          status: 'published',
+          coverImageId: 'image-1',
+          deleteStatus: 'active',
+          images: [deletedImage],
+        }),
+        update: jest.fn(),
+      },
     };
     const prisma: any = {
       image: {
@@ -100,17 +120,25 @@ describe('ImagesService deletion guard and queue', () => {
     );
     expect(tx.album.update).toHaveBeenCalledWith({
       where: { id: 'album-1' },
-      data: { coverImageId: null },
-    });
-    expect(tx.album.update).toHaveBeenCalledWith({
-      where: { id: 'album-1' },
-      data: { imageCount: { decrement: 1 } },
+      data: {
+        coverImageId: null,
+        imageCount: 0,
+        status: 'draft',
+      },
     });
     expect(storage.deleteObject).not.toHaveBeenCalled();
   });
 
   it('stamps committed result tombstones and current-result deletion authority atomically', async () => {
+    const deletedImage = {
+      id: 'image-1',
+      albumId: 'album-1',
+      r2ObjectKey: 'albums/album-1/photo.jpg',
+      uploadStatus: 'completed',
+      orderIndex: 1,
+    };
     const tx: any = {
+      $executeRawUnsafe: jest.fn(),
       imageObjectDeletion: { upsert: jest.fn() },
       imageUploadPromotion: {
         findFirst: jest.fn().mockResolvedValue({
@@ -123,8 +151,20 @@ describe('ImagesService deletion guard and queue', () => {
       imageUploadIdempotency: {
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
-      image: { delete: jest.fn() },
-      album: { update: jest.fn() },
+      image: {
+        deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
+        update: jest.fn(),
+      },
+      album: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'album-1',
+          status: 'draft',
+          coverImageId: null,
+          deleteStatus: 'active',
+          images: [deletedImage],
+        }),
+        update: jest.fn(),
+      },
     };
     const prisma: any = {
       image: {

@@ -13,6 +13,7 @@ import { StorageService } from './storage.service';
 import { UploadRequestDto } from './dto/upload-request.dto';
 import { UploadConfirmDto } from './dto/upload-confirm.dto';
 import { UpdateImageDto } from './dto/update-image.dto';
+import { BulkDeleteImagesDto } from './dto/bulk-delete-images.dto';
 import { ReorderImagesDto } from './dto/reorder-images.dto';
 import { runSerializableWithRetry } from '../prisma/serializable-retry';
 import { createImageUploadRequestFingerprint } from './image-upload-fingerprint';
@@ -918,98 +919,197 @@ export class ImagesService {
   }
 
   /**
-   * Delete image
+   * Delete one image through the same album-level transaction used by bulk
+   * deletion so cover, status, count, and ordering invariants stay aligned.
    */
   async remove(id: string) {
     const image = await this.prisma.image.findUnique({
       where: { id },
-      include: { album: true },
+      select: { id: true, albumId: true },
     });
 
     if (!image) {
       throw new NotFoundException('Image not found');
     }
 
-    await this.prisma.$transaction(async (tx: any) => {
-      if (image.r2ObjectKey) {
-        const provider = image.r2ObjectKey.startsWith('albums/')
-          ? 'r2'
-          : 'cloudflare_legacy';
-        const objectKeyHash = createHash('sha256')
-          .update(image.r2ObjectKey)
-          .digest('hex');
-        const committedPromotion = await tx.imageUploadPromotion.findFirst({
-          where: {
-            committedResultImageId: image.id,
-            disposition: 'committed',
-          },
-        });
-        const authority = committedPromotion
-          ? 'current_result'
-          : provider === 'r2'
-            ? 'legacy_image'
-            : 'non_r2_deferred';
-        const legacyImageSnapshotSha256 = committedPromotion
-          ? null
-          : createHash('sha256')
-              .update(
-                JSON.stringify({
-                  imageId: image.id,
-                  albumId: image.albumId,
-                  provider,
-                  objectKeyHash,
-                }),
-              )
-              .digest('hex');
-        await tx.imageObjectDeletion.upsert({
-          where: {
-            provider_objectKey: {
-              provider,
-              objectKey: image.r2ObjectKey,
+    await this.removeMany(image.albumId, { imageIds: [image.id] });
+    return { message: 'Image deleted successfully' };
+  }
+
+  /**
+   * Delete an exact image-ID snapshot atomically.
+   */
+  async removeMany(albumId: string, dto: BulkDeleteImagesDto) {
+    const imageIds = [...new Set(dto.imageIds)];
+    if (imageIds.length !== dto.imageIds.length) {
+      throw new BadRequestException('Image IDs must be unique');
+    }
+
+    return runSerializableWithRetry(() =>
+      this.prisma.$transaction(
+        async (tx: any) => {
+          await tx.$executeRawUnsafe?.(
+            'SELECT pg_advisory_xact_lock(hashtextextended($1, 0))',
+            `album-images:${albumId}`,
+          );
+
+          const album = await tx.album.findUnique({
+            where: { id: albumId },
+            include: {
+              images: {
+                where: { uploadStatus: 'completed' },
+                orderBy: { orderIndex: 'asc' },
+              },
             },
-          },
-          create: {
-            imageId: image.id,
-            provider,
-            objectKey: image.r2ObjectKey,
-            status: provider === 'r2' ? 'pending' : 'deferred',
-            authority,
-            objectKeyHash,
-            legacyImageSnapshotSha256,
-            providerDisposition: provider === 'r2' ? null : 'legacy_deferred',
-          },
-          update: {
-            authority,
-            objectKeyHash,
-            legacyImageSnapshotSha256,
-            providerDisposition: provider === 'r2' ? null : 'legacy_deferred',
-          },
-        });
-        if (committedPromotion) {
-          const resultDeletedAt = new Date();
-          await tx.imageUpload.updateMany({
-            where: { resultImageId: image.id },
-            data: { resultDeletedAt },
           });
-          await tx.imageUploadIdempotency.updateMany({
-            where: { resultImageId: image.id },
-            data: { resultDeletedAt },
+
+          if (!album) {
+            throw new NotFoundException('Album not found');
+          }
+          if (
+            album.deleteStatus !== undefined &&
+            album.deleteStatus !== 'active'
+          ) {
+            throw new ConflictException('Album is not available for editing');
+          }
+
+          const selectedIds = new Set(imageIds);
+          const selectedImages = album.images.filter((image: any) =>
+            selectedIds.has(image.id),
+          );
+          if (selectedImages.length !== imageIds.length) {
+            throw new BadRequestException({
+              statusCode: 400,
+              code: 'album_image_selection_invalid',
+              message: 'Every selected image must belong to the album',
+            });
+          }
+
+          const remainingImages = album.images.filter(
+            (image: any) => !selectedIds.has(image.id),
+          );
+
+          for (const image of selectedImages) {
+            await this.queueImageDeletion(tx, image);
+          }
+
+          const deleted = await tx.image.deleteMany({
+            where: {
+              albumId,
+              id: { in: imageIds },
+            },
           });
-        }
-      }
-      if (image.album?.coverImageId === image.id)
-        await tx.album.update({
-          where: { id: image.albumId },
-          data: { coverImageId: null },
-        });
-      await tx.image.delete({ where: { id } });
-      await tx.album.update({
-        where: { id: image.albumId },
-        data: { imageCount: { decrement: 1 } },
-      });
+          if (deleted.count !== imageIds.length) {
+            throw new ConflictException({
+              statusCode: 409,
+              code: 'album_image_selection_changed',
+              message: 'The selected image snapshot changed',
+            });
+          }
+
+          for (const [index, image] of remainingImages.entries()) {
+            const orderIndex = index + 1;
+            if (image.orderIndex !== orderIndex) {
+              await tx.image.update({
+                where: { id: image.id },
+                data: { orderIndex },
+              });
+            }
+          }
+
+          const deletedCover =
+            Boolean(album.coverImageId) &&
+            selectedIds.has(String(album.coverImageId));
+          const mustClearCover = deletedCover || remainingImages.length === 0;
+          const mustDraft =
+            album.status === 'published' &&
+            (deletedCover || remainingImages.length === 0);
+
+          await tx.album.update({
+            where: { id: albumId },
+            data: {
+              ...(mustClearCover ? { coverImageId: null } : {}),
+              imageCount: remainingImages.length,
+              ...(mustDraft ? { status: 'draft' } : {}),
+            },
+          });
+
+          return { deletedCount: imageIds.length };
+        },
+        { isolationLevel: 'Serializable' as any },
+      ),
+    );
+  }
+
+  private async queueImageDeletion(tx: any, image: any): Promise<void> {
+    if (!image.r2ObjectKey) return;
+
+    const provider = image.r2ObjectKey.startsWith('albums/')
+      ? 'r2'
+      : 'cloudflare_legacy';
+    const objectKeyHash = createHash('sha256')
+      .update(image.r2ObjectKey)
+      .digest('hex');
+    const committedPromotion = await tx.imageUploadPromotion.findFirst({
+      where: {
+        committedResultImageId: image.id,
+        disposition: 'committed',
+      },
+    });
+    const authority = committedPromotion
+      ? 'current_result'
+      : provider === 'r2'
+        ? 'legacy_image'
+        : 'non_r2_deferred';
+    const legacyImageSnapshotSha256 = committedPromotion
+      ? null
+      : createHash('sha256')
+          .update(
+            JSON.stringify({
+              imageId: image.id,
+              albumId: image.albumId,
+              provider,
+              objectKeyHash,
+            }),
+          )
+          .digest('hex');
+
+    await tx.imageObjectDeletion.upsert({
+      where: {
+        provider_objectKey: {
+          provider,
+          objectKey: image.r2ObjectKey,
+        },
+      },
+      create: {
+        imageId: image.id,
+        provider,
+        objectKey: image.r2ObjectKey,
+        status: provider === 'r2' ? 'pending' : 'deferred',
+        authority,
+        objectKeyHash,
+        legacyImageSnapshotSha256,
+        providerDisposition: provider === 'r2' ? null : 'legacy_deferred',
+      },
+      update: {
+        authority,
+        objectKeyHash,
+        legacyImageSnapshotSha256,
+        providerDisposition: provider === 'r2' ? null : 'legacy_deferred',
+      },
     });
 
-    return { message: 'Image deleted successfully' };
+    if (committedPromotion) {
+      const resultDeletedAt = new Date();
+      await tx.imageUpload.updateMany({
+        where: { resultImageId: image.id },
+        data: { resultDeletedAt },
+      });
+      await tx.imageUploadIdempotency.updateMany({
+        where: { resultImageId: image.id },
+        data: { resultDeletedAt },
+      });
+    }
   }
 
   /**

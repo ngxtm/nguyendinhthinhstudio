@@ -6,7 +6,9 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { BulkDeleteImagesDto } from '../images/dto/bulk-delete-images.dto';
 import { ImagePresenterService } from '../images/image-presenter.service';
+import { ImagesService } from '../images/images.service';
 import { StorageService } from '../images/storage.service';
 import { UploadCleanupService } from '../images/upload-cleanup.service';
 import { runSerializableWithRetry } from '../prisma/serializable-retry';
@@ -51,12 +53,22 @@ export class AlbumsService {
     private readonly uploadCleanup: UploadCleanupService,
     private readonly imagePresenter: ImagePresenterService,
     private readonly recommendationService: RecommendationService,
+    private readonly imagesService: ImagesService,
   ) {}
 
   /**
    * Create a new album
    */
   async create(createAlbumDto: CreateAlbumDto) {
+    if (createAlbumDto.status === 'published') {
+      throw new BadRequestException({
+        statusCode: 400,
+        code: 'album_not_publishable',
+        message:
+          'A new album must be created as draft before images and a cover can be added',
+      });
+    }
+
     // Generate slug if not provided
     const slug = createAlbumDto.slug || this.generateSlug(createAlbumDto.title);
 
@@ -155,10 +167,7 @@ export class AlbumsService {
     return this.findVisibleAlbums(query, true);
   }
 
-  private async findVisibleAlbums(
-    query: QueryAlbumsDto,
-    publicOnly: boolean,
-  ) {
+  private async findVisibleAlbums(query: QueryAlbumsDto, publicOnly: boolean) {
     const { status, category, tag, isFeatured, limit, cursor, sortBy, search } =
       query;
 
@@ -367,7 +376,18 @@ export class AlbumsService {
   }
 
   async findAdminById(id: string) {
-    const album = await this.prisma.album.findUnique({ where: { id }, include: { tags: { include: { tag: true } }, categories: { include: { category: true } }, coverImage: true, images: true } });
+    const album = await this.prisma.album.findUnique({
+      where: { id },
+      include: {
+        tags: { include: { tag: true } },
+        categories: { include: { category: true } },
+        coverImage: true,
+        images: {
+          where: { uploadStatus: 'completed' },
+          orderBy: { orderIndex: 'asc' },
+        },
+      },
+    });
     if (!album) throw new NotFoundException('Album not found');
     return this.presentAlbum(album as any);
   }
@@ -379,7 +399,10 @@ export class AlbumsService {
         tags: { include: { tag: true } },
         categories: { include: { category: true } },
         coverImage: true,
-        images: true,
+        images: {
+          where: { uploadStatus: 'completed' },
+          orderBy: { orderIndex: 'asc' },
+        },
       },
     });
     if (!album) throw new NotFoundException('Album not found');
@@ -392,8 +415,20 @@ export class AlbumsService {
 
   private presentPublicAlbum(album: any) {
     const presented = this.presentAlbum(album);
-    const { googleDriveLink, scheduledPublishAt, deleteStatus, deleteStartedAt, metaTitle, metaDescription, ...safe } = presented as any;
-    return { ...safe, metaTitle: album.metaTitle ?? null, metaDescription: album.metaDescription ?? null };
+    const {
+      googleDriveLink,
+      scheduledPublishAt,
+      deleteStatus,
+      deleteStartedAt,
+      metaTitle,
+      metaDescription,
+      ...safe
+    } = presented as any;
+    return {
+      ...safe,
+      metaTitle: album.metaTitle ?? null,
+      metaDescription: album.metaDescription ?? null,
+    };
   }
 
   /**
@@ -452,12 +487,6 @@ export class AlbumsService {
       }
     }
 
-    // Handle publishing
-    let publishedAt = undefined;
-    if (updateAlbumDto.status === 'published' && album.status !== 'published') {
-      publishedAt = new Date();
-    }
-
     const { tagSlugs, categoryIds, ...albumData } = updateAlbumDto;
 
     const sanitizedAlbumData = this.sanitizeAlbumPayload(
@@ -480,36 +509,95 @@ export class AlbumsService {
       };
     }
 
-    const updated = await this.prisma.album.update({
-      where: { id },
-      data: {
-        ...sanitizedAlbumData,
-        publishedAt: publishedAt !== undefined ? publishedAt : undefined,
-        tags: tagOperations,
-        categories: categoryOperations,
-      },
-      include: {
-        tags: {
-          include: {
-            tag: true,
-          },
+    const hydratedInclude = {
+      tags: {
+        include: {
+          tag: true,
         },
-        categories: {
-          include: {
-            category: true,
-          },
-          orderBy: {
-            depth: 'asc',
-          },
-        },
-        coverImage: true,
       },
-    });
+      categories: {
+        include: {
+          category: true,
+        },
+        orderBy: {
+          depth: 'asc',
+        },
+      },
+      coverImage: true,
+      images: {
+        where: { uploadStatus: 'completed' },
+        orderBy: { orderIndex: 'asc' },
+      },
+    } as const;
+    const updateData = {
+      ...sanitizedAlbumData,
+      tags: tagOperations,
+      categories: categoryOperations,
+    };
+
+    const updated =
+      updateAlbumDto.status === 'published'
+        ? await runSerializableWithRetry(() =>
+            this.prisma.$transaction(
+              async (tx: any) => {
+                await tx.$executeRawUnsafe?.(
+                  'SELECT pg_advisory_xact_lock(hashtextextended($1, 0))',
+                  `album-images:${id}`,
+                );
+                const current = await tx.album.findUnique({
+                  where: { id },
+                  select: {
+                    status: true,
+                    coverImageId: true,
+                    _count: {
+                      select: {
+                        images: {
+                          where: { uploadStatus: 'completed' },
+                        },
+                      },
+                    },
+                  },
+                });
+                if (!current) {
+                  throw new NotFoundException('Album not found');
+                }
+                if (!current.coverImageId || current._count.images < 1) {
+                  throw new BadRequestException({
+                    statusCode: 400,
+                    code: 'album_not_publishable',
+                    message:
+                      'Album must have a completed image and a cover before publishing',
+                  });
+                }
+
+                return tx.album.update({
+                  where: { id },
+                  data: {
+                    ...updateData,
+                    publishedAt:
+                      current.status !== 'published' ? new Date() : undefined,
+                  },
+                  include: hydratedInclude,
+                });
+              },
+              { isolationLevel: 'Serializable' as any },
+            ),
+          )
+        : await this.prisma.album.update({
+            where: { id },
+            data: updateData,
+            include: hydratedInclude,
+          });
 
     this.logger.log(`Album updated: ${id}`);
     // Album visibility/tags/categories may have changed; invalidate related-album cache.
     this.recommendationService.clearCache();
     return this.presentAlbum(updated);
+  }
+
+  async bulkDeleteImages(id: string, dto: BulkDeleteImagesDto) {
+    await this.imagesService.removeMany(id, dto);
+    return this.findAdminById(id);
   }
 
   /**

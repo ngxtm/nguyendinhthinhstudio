@@ -78,7 +78,11 @@ function createPresentationHarness() {
       findMany: jest.fn().mockResolvedValue([]),
       findUnique: jest.fn(),
     },
+    $executeRawUnsafe: jest.fn(),
   };
+  prisma.$transaction = jest.fn(
+    async (work: (client: typeof prisma) => unknown) => work(prisma),
+  );
   const imagePresenter = {
     presentImage: jest.fn((image: Record<string, unknown>) => ({
       ...image,
@@ -87,16 +91,19 @@ function createPresentationHarness() {
   };
   const uploadCleanup = { cleanupExpired: jest.fn().mockResolvedValue({}) };
   const recommendationService = { clearCache: jest.fn() };
+  const imagesService = { removeMany: jest.fn() };
 
   return {
     prisma,
     imagePresenter,
+    imagesService,
     service: new (AlbumsService as any)(
       prisma,
       {} as any,
       uploadCleanup,
       imagePresenter,
       recommendationService,
+      imagesService,
     ) as AlbumsService,
   };
 }
@@ -166,6 +173,7 @@ function createHarness(
       uploadCleanup as any,
       { presentImage: jest.fn() },
       recommendationService,
+      { removeMany: jest.fn() },
     ) as AlbumsService,
   };
 }
@@ -318,6 +326,25 @@ describe('AlbumsService image presentation', () => {
     expect(imagePresenter.presentImage).not.toHaveBeenCalled();
   });
 
+  it('rejects creating an already-published album before it can have images or a cover', async () => {
+    const { prisma, service } = createPresentationHarness();
+    prisma.album.findUnique.mockResolvedValueOnce(null);
+    prisma.album.create.mockResolvedValueOnce(
+      albumRecord({ status: 'published' }),
+    );
+
+    await expect(
+      service.create({ title: 'Wedding album', status: 'published' } as any),
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({
+        statusCode: 400,
+        code: 'album_not_publishable',
+      }),
+    });
+
+    expect(prisma.album.create).not.toHaveBeenCalled();
+  });
+
   it('presents the cover returned by create', async () => {
     const { prisma, imagePresenter, service } = createPresentationHarness();
     const coverImage = imageRecord('create-cover');
@@ -346,10 +373,9 @@ describe('AlbumsService image presentation', () => {
 
     const result = await service.findAll({} as any);
 
-    expect(result.data.map((album: any) => album.coverImage.thumbnailUrl)).toEqual([
-      'presented://list-cover-1',
-      'presented://list-cover-2',
-    ]);
+    expect(
+      result.data.map((album: any) => album.coverImage.thumbnailUrl),
+    ).toEqual(['presented://list-cover-1', 'presented://list-cover-2']);
     expect(imagePresenter.presentImage).toHaveBeenCalledTimes(2);
   });
 
@@ -444,6 +470,101 @@ describe('AlbumsService image presentation', () => {
     expect(prisma.album.update).not.toHaveBeenCalledWith(
       expect.objectContaining({ data: { viewCount: { increment: 1 } } }),
     );
+  });
+
+  it('rejects publishing an album without a completed image and cover', async () => {
+    const { prisma, service } = createPresentationHarness();
+    prisma.album.findUnique.mockResolvedValue(
+      albumRecord({ coverImageId: null, _count: { images: 0 } }),
+    );
+    prisma.album.update.mockResolvedValue(albumRecord({ status: 'published' }));
+
+    await expect(
+      service.update(ALBUM_ID, { status: 'published' } as any),
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({
+        statusCode: 400,
+        code: 'album_not_publishable',
+      }),
+    });
+
+    expect(prisma.album.update).not.toHaveBeenCalled();
+  });
+
+  it('returns a hydrated, ordered gallery after publishing', async () => {
+    const { prisma, imagePresenter, service } = createPresentationHarness();
+    const coverImage = imageRecord('publish-cover');
+    const images = [
+      coverImage,
+      { ...imageRecord('publish-gallery'), orderIndex: 2 },
+    ];
+    prisma.album.findUnique.mockResolvedValue(
+      albumRecord({
+        coverImageId: coverImage.id,
+        coverImage,
+        images,
+        imageCount: images.length,
+        _count: { images: images.length },
+      }),
+    );
+    prisma.album.update.mockResolvedValue(
+      albumRecord({
+        status: 'published',
+        coverImageId: coverImage.id,
+        coverImage,
+        images,
+        imageCount: images.length,
+      }),
+    );
+
+    const result = await service.update(ALBUM_ID, {
+      status: 'published',
+    } as any);
+
+    expect(result.images.map((image: any) => image.thumbnailUrl)).toEqual([
+      'presented://publish-cover',
+      'presented://publish-gallery',
+    ]);
+    expect(imagePresenter.presentImage).toHaveBeenCalledTimes(3);
+    expect(prisma.album.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        include: expect.objectContaining({
+          images: {
+            where: { uploadStatus: 'completed' },
+            orderBy: { orderIndex: 'asc' },
+          },
+        }),
+      }),
+    );
+  });
+
+  it('returns the refreshed admin album after bulk image deletion', async () => {
+    const { prisma, imagesService, service } = createPresentationHarness();
+    const remainingImage = imageRecord('remaining');
+    imagesService.removeMany.mockResolvedValue({ deletedCount: 2 });
+    prisma.album.findUnique.mockResolvedValueOnce(
+      albumRecord({
+        status: 'draft',
+        coverImageId: null,
+        coverImage: null,
+        images: [remainingImage],
+        imageCount: 1,
+      }),
+    );
+
+    const result = await (service as any).bulkDeleteImages(ALBUM_ID, {
+      imageIds: ['image-1', 'image-2'],
+    });
+
+    expect(imagesService.removeMany).toHaveBeenCalledWith(ALBUM_ID, {
+      imageIds: ['image-1', 'image-2'],
+    });
+    expect(result).toMatchObject({
+      status: 'draft',
+      coverImage: null,
+      imageCount: 1,
+    });
+    expect(result.images).toHaveLength(1);
   });
 
   it('presents the cover returned by update', async () => {

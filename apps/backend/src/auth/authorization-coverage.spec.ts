@@ -27,6 +27,7 @@ const contracts: Array<{
       'update',
       'remove',
       'setCover',
+      'bulkDeleteImages',
       'publish',
       'toggleFeatured',
     ],

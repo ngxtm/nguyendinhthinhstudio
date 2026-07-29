@@ -1,13 +1,14 @@
 /**
  * Image Grid Component
- * Hiển thị và quản lý images (set cover, delete, reorder)
+ * Hiển thị và quản lý images (set cover, delete, bulk delete, reorder)
  */
 
 'use client'
 
 import { useEffect, useMemo, useState, type DragEvent } from 'react'
+import { Trash2 } from 'lucide-react'
 import Masonry from 'react-masonry-css'
-import { deleteImage, reorderImages, type Image } from '@/lib/api'
+import { bulkDeleteAlbumImages, deleteImage, reorderImages, type Album, type Image } from '@/lib/api'
 import { toast } from 'sonner'
 import { usePhotoSwipe } from '@/lib/photoswipe'
 import AlbumImageTile from './AlbumImageTile'
@@ -15,17 +16,35 @@ import ConfirmDialog from './ConfirmDialog'
 import 'photoswipe/style.css'
 
 interface Props {
+  albumId: string
   images: Image[]
   coverImageId?: string
+  selectionMode: boolean
+  selectionDisabled?: boolean
+  onSelectionModeChange: (active: boolean) => void
+  onAlbumUpdated: (album: Album) => void
   onSetCover: (imageId: string) => Promise<boolean>
   onDelete: () => Promise<void>
   onReorder: () => Promise<void>
 }
 
-export default function ImageGrid({ images, coverImageId, onSetCover, onDelete, onReorder }: Props) {
+export default function ImageGrid({
+  albumId,
+  images,
+  coverImageId,
+  selectionMode,
+  selectionDisabled = false,
+  onSelectionModeChange,
+  onAlbumUpdated,
+  onSetCover,
+  onDelete,
+  onReorder
+}: Props) {
   const [localImages, setLocalImages] = useState(images)
   const [dimensions, setDimensions] = useState<Record<string, { width: number; height: number }>>({})
   const [deleteCandidate, setDeleteCandidate] = useState<Image | null>(null)
+  const [selectedImageIds, setSelectedImageIds] = useState<Set<string>>(new Set())
+  const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false)
   const [isDeletePending, setIsDeletePending] = useState(false)
   const masonryBreakpoints = useMemo(
     () => ({
@@ -42,7 +61,23 @@ export default function ImageGrid({ images, coverImageId, onSetCover, onDelete, 
 
   useEffect(() => {
     setLocalImages(images)
+    const currentIds = new Set(images.map(image => image.id))
+    setSelectedImageIds(current => new Set([...current].filter(id => currentIds.has(id))))
   }, [images])
+
+  useEffect(() => {
+    if (!selectionMode) {
+      setSelectedImageIds(new Set())
+      setBulkConfirmOpen(false)
+    }
+  }, [selectionMode])
+
+  useEffect(() => {
+    if (selectionDisabled && selectionMode) {
+      setSelectedImageIds(new Set())
+      onSelectionModeChange(false)
+    }
+  }, [onSelectionModeChange, selectionDisabled, selectionMode])
 
   const galleryId = 'admin-album-gallery'
   const galleryKey = useMemo(
@@ -64,7 +99,7 @@ export default function ImageGrid({ images, coverImageId, onSetCover, onDelete, 
       children: 'a[data-pswp-src]',
       pswpModule: () => import('photoswipe')
     },
-    dependencies: [galleryKey]
+    dependencies: [galleryKey, selectionMode]
   })
 
   useEffect(() => {
@@ -119,6 +154,35 @@ export default function ImageGrid({ images, coverImageId, onSetCover, onDelete, 
     }
   }, [localImages])
 
+  const allSelected = localImages.length > 0 && selectedImageIds.size === localImages.length
+  const selectionIncludesCover = coverImageId ? selectedImageIds.has(coverImageId) : false
+
+  function leaveSelectionMode() {
+    if (isDeletePending) return
+    setSelectedImageIds(new Set())
+    setBulkConfirmOpen(false)
+    onSelectionModeChange(false)
+  }
+
+  function toggleImageSelection(imageId: string) {
+    if (!selectionMode || isDeletePending) return
+
+    setSelectedImageIds(current => {
+      const next = new Set(current)
+      if (next.has(imageId)) {
+        next.delete(imageId)
+      } else {
+        next.add(imageId)
+      }
+      return next
+    })
+  }
+
+  function toggleSelectAll() {
+    if (isDeletePending) return
+    setSelectedImageIds(allSelected ? new Set() : new Set(localImages.map(image => image.id)))
+  }
+
   async function handleConfirmDelete(): Promise<void> {
     if (!deleteCandidate || isDeletePending) return
 
@@ -138,17 +202,43 @@ export default function ImageGrid({ images, coverImageId, onSetCover, onDelete, 
     }
   }
 
+  async function handleConfirmBulkDelete(): Promise<void> {
+    if (selectedImageIds.size === 0 || isDeletePending) return
+
+    const deletedCount = selectedImageIds.size
+    setIsDeletePending(true)
+    try {
+      const updated = await bulkDeleteAlbumImages(albumId, Array.from(selectedImageIds))
+      setLocalImages(updated.images ?? [])
+      setBulkConfirmOpen(false)
+      setSelectedImageIds(new Set())
+      onSelectionModeChange(false)
+      onAlbumUpdated(updated)
+      toast.success(`Đã xóa ${deletedCount} ảnh!`)
+      await onDelete()
+    } catch (error) {
+      console.error('Failed to bulk delete images:', error)
+      setBulkConfirmOpen(false)
+      toast.error('Không thể xóa các ảnh đã chọn')
+    } finally {
+      setIsDeletePending(false)
+    }
+  }
+
   function handleDragStart(event: DragEvent, index: number) {
+    if (selectionMode) return
     event.dataTransfer.effectAllowed = 'move'
     event.dataTransfer.setData('text/plain', String(index))
   }
 
   function handleDragOver(event: DragEvent) {
+    if (selectionMode) return
     event.preventDefault()
     event.dataTransfer.dropEffect = 'move'
   }
 
   async function handleDrop(event: DragEvent, dropIndex: number) {
+    if (selectionMode) return
     event.preventDefault()
     const dragIndex = Number(event.dataTransfer.getData('text/plain'))
 
@@ -161,7 +251,7 @@ export default function ImageGrid({ images, coverImageId, onSetCover, onDelete, 
 
     try {
       const imageIds = newImages.map(img => img.id)
-      await reorderImages(images[0]?.albumId || '', imageIds)
+      await reorderImages(albumId, imageIds)
       toast.success('Đã sắp xếp lại ảnh!')
       await onReorder()
     } catch (error) {
@@ -173,6 +263,41 @@ export default function ImageGrid({ images, coverImageId, onSetCover, onDelete, 
 
   return (
     <>
+      {selectionMode && (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3">
+          <p className="text-sm font-medium text-blue-950">
+            Đã chọn <span className="font-bold">{selectedImageIds.size}</span>/{localImages.length} ảnh
+          </p>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <button
+              type="button"
+              disabled={isDeletePending}
+              onClick={toggleSelectAll}
+              className="min-h-11 rounded-lg border border-blue-300 bg-white px-3 text-sm font-medium text-blue-700 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {allSelected ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
+            </button>
+            <button
+              type="button"
+              disabled={isDeletePending}
+              onClick={leaveSelectionMode}
+              className="min-h-11 rounded-lg px-3 text-sm font-medium text-gray-600 hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Hủy
+            </button>
+            <button
+              type="button"
+              disabled={selectedImageIds.size === 0 || isDeletePending}
+              onClick={() => setBulkConfirmOpen(true)}
+              className="hidden min-h-11 items-center gap-2 rounded-lg bg-red-600 px-4 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50 md:inline-flex"
+            >
+              <Trash2 size={17} aria-hidden="true" />
+              Xóa {selectedImageIds.size} ảnh
+            </button>
+          </div>
+        </div>
+      )}
+
       <div id={galleryId}>
         <Masonry
           breakpointCols={masonryBreakpoints}
@@ -192,6 +317,9 @@ export default function ImageGrid({ images, coverImageId, onSetCover, onDelete, 
                 index={index}
                 dimensions={dims}
                 coverImageId={coverImageId}
+                selectionMode={selectionMode}
+                selected={selectedImageIds.has(image.id)}
+                onToggleSelection={toggleImageSelection}
                 onSetCover={onSetCover}
                 onDeleteRequest={setDeleteCandidate}
                 onDragStart={handleDragStart}
@@ -203,6 +331,31 @@ export default function ImageGrid({ images, coverImageId, onSetCover, onDelete, 
         </Masonry>
       </div>
 
+      {selectionMode && (
+        <>
+          <div className="h-24 md:hidden" aria-hidden="true" />
+          <div
+            className="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white/95 px-4 pt-3 shadow-[0_-12px_30px_rgba(15,23,42,0.12)] backdrop-blur md:hidden"
+            style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 0.75rem)' }}
+          >
+            <div className="mx-auto flex max-w-lg items-center gap-3">
+              <p className="min-w-0 flex-1 text-sm font-medium text-gray-700">
+                {selectedImageIds.size > 0 ? `Đã chọn ${selectedImageIds.size} ảnh` : 'Chọn ảnh để xóa'}
+              </p>
+              <button
+                type="button"
+                disabled={selectedImageIds.size === 0 || isDeletePending}
+                onClick={() => setBulkConfirmOpen(true)}
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-red-600 px-5 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Trash2 size={18} aria-hidden="true" />
+                Xóa {selectedImageIds.size} ảnh
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
       <ConfirmDialog
         open={deleteCandidate !== null}
         title="Xóa ảnh?"
@@ -211,11 +364,45 @@ export default function ImageGrid({ images, coverImageId, onSetCover, onDelete, 
             Bạn có chắc chắn muốn xóa ảnh{' '}
             <strong className="font-semibold text-gray-900">“{deleteCandidate?.filename}”</strong>? Hành động này không
             thể hoàn tác.
+            {deleteCandidate?.id === coverImageId && (
+              <span className="mt-2 block font-medium text-amber-700">
+                Đây là ảnh cover. Album sẽ mất cover và chuyển về Draft.
+              </span>
+            )}
           </>
         }
         isPending={isDeletePending}
         onClose={() => setDeleteCandidate(null)}
         onConfirm={handleConfirmDelete}
+      />
+
+      <ConfirmDialog
+        open={bulkConfirmOpen}
+        title={allSelected ? 'Xóa toàn bộ ảnh?' : `Xóa ${selectedImageIds.size} ảnh?`}
+        description={
+          <>
+            <span>
+              Bạn sắp xóa vĩnh viễn <strong className="font-semibold text-gray-900">{selectedImageIds.size} ảnh</strong>{' '}
+              khỏi album.
+            </span>
+            {allSelected ? (
+              <span className="mt-2 block font-medium text-amber-700">
+                Album sẽ không còn ảnh, cover bị bỏ và trạng thái chuyển về Draft.
+              </span>
+            ) : (
+              selectionIncludesCover && (
+                <span className="mt-2 block font-medium text-amber-700">
+                  Lựa chọn có ảnh cover. Album sẽ mất cover và chuyển về Draft.
+                </span>
+              )
+            )}
+            <span className="mt-2 block">Hành động này không thể hoàn tác.</span>
+          </>
+        }
+        confirmLabel={allSelected ? `Xóa toàn bộ ${selectedImageIds.size} ảnh` : `Xóa ${selectedImageIds.size} ảnh`}
+        isPending={isDeletePending}
+        onClose={() => setBulkConfirmOpen(false)}
+        onConfirm={handleConfirmBulkDelete}
       />
 
       <style jsx global>{`

@@ -293,6 +293,19 @@ export async function deleteAlbum(id: string): Promise<void> {
 }
 
 /**
+ * Delete an exact selection of album images atomically (Admin only)
+ */
+export async function bulkDeleteAlbumImages(
+  albumId: string,
+  imageIds: string[]
+): Promise<Album> {
+  return adminApiClient<Album>(`/albums/${albumId}/images/bulk-delete`, {
+    method: 'POST',
+    body: JSON.stringify({ imageIds }),
+  });
+}
+
+/**
  * Set cover image (Admin only)
  */
 export async function setCoverImage(

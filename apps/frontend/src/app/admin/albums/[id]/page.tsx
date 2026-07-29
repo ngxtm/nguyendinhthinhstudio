@@ -6,16 +6,15 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Upload, Edit, Trash2, Star } from 'lucide-react';
+import { ArrowLeft, Upload, Edit, ListChecks } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   getAlbum,
   setCoverImage,
   publishAlbum,
   type Album,
-  type Image,
 } from '@/lib/api';
 import { formatFullCount } from '@/lib/format';
 import ImageUploadZone from '../../components/ImageUploadZone';
@@ -23,12 +22,13 @@ import ImageGrid from '../../components/ImageGrid';
 
 export default function AlbumDetailPage() {
   const params = useParams();
-  const router = useRouter();
   const slug = params.id as string; // This is actually a slug, not an ID
 
   const [album, setAlbum] = useState<Album | null>(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [selectionMode, setSelectionMode] = useState(false);
 
   useEffect(() => {
     if (slug) {
@@ -67,7 +67,7 @@ export default function AlbumDetailPage() {
   }
 
   async function handlePublish() {
-    if (!album) return;
+    if (!album || isPublishing) return;
 
     if (!album.images || album.images.length === 0) {
       toast.error('Vui lòng upload ít nhất 1 ảnh trước khi publish');
@@ -79,13 +79,17 @@ export default function AlbumDetailPage() {
       return;
     }
 
+    setIsPublishing(true);
     try {
       const updated = await publishAlbum(album.id);
       setAlbum(updated);
+      await loadAlbum({ showLoading: false });
       toast.success('Đã publish album!');
     } catch (error) {
       console.error('Failed to publish album:', error);
       toast.error('Không thể publish album');
+    } finally {
+      setIsPublishing(false);
     }
   }
 
@@ -139,9 +143,10 @@ export default function AlbumDetailPage() {
             {album.status !== 'published' && (
               <button
                 onClick={handlePublish}
-                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                disabled={isPublishing}
+                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Publish
+                {isPublishing ? 'Đang publish...' : 'Publish'}
               </button>
             )}
           </div>
@@ -184,6 +189,8 @@ export default function AlbumDetailPage() {
         <h2 className="text-xl font-semibold mb-4">Upload Ảnh</h2>
         <ImageUploadZone
           albumId={album.id}
+          disabled={selectionMode}
+          onUploadingChange={setUploading}
           onUploadComplete={handleUploadComplete}
         />
         <p className="text-sm text-gray-500 mt-2">
@@ -193,13 +200,32 @@ export default function AlbumDetailPage() {
 
       {/* Images Grid */}
       <div>
-        <h2 className="text-xl font-semibold mb-4">
-          Ảnh trong album ({album.images?.length || 0})
-        </h2>
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <h2 className="text-xl font-semibold">
+            Ảnh trong album ({album.images?.length || 0})
+          </h2>
+          {!selectionMode && album.images && album.images.length > 0 && (
+            <button
+              type="button"
+              disabled={uploading}
+              onClick={() => setSelectionMode(true)}
+              className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 text-sm font-medium text-gray-700 transition-colors hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+              title={uploading ? 'Hoàn tất upload trước khi chọn ảnh' : undefined}
+            >
+              <ListChecks size={18} aria-hidden="true" />
+              Chọn ảnh
+            </button>
+          )}
+        </div>
         {album.images && album.images.length > 0 ? (
           <ImageGrid
+            albumId={album.id}
             images={album.images}
             coverImageId={album.coverImage?.id}
+            selectionMode={selectionMode}
+            selectionDisabled={uploading}
+            onSelectionModeChange={setSelectionMode}
+            onAlbumUpdated={setAlbum}
             onSetCover={handleSetCover}
             onDelete={loadAlbum}
             onReorder={loadAlbum}

@@ -5,7 +5,7 @@
 
 'use client'
 
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { Upload, X, FileImage, CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { UploadApiError, uploadImage } from '@/lib/api/images'
@@ -21,6 +21,8 @@ import { IMAGE_NORMALIZATION_MESSAGE, ImageUploadErrors } from './ImageUploadErr
 
 interface Props {
   albumId: string
+  disabled?: boolean
+  onUploadingChange?: (uploading: boolean) => void
   onUploadComplete: () => void | Promise<void>
 }
 
@@ -37,12 +39,23 @@ interface FileWithProgress {
   statusText?: string // "Đang lấy URL...", "Đang upload...", "Đang lưu vào DB..."
 }
 
-export default function ImageUploadZone({ albumId, onUploadComplete }: Props) {
+export default function ImageUploadZone({ albumId, disabled = false, onUploadingChange, onUploadComplete }: Props) {
   const [files, setFiles] = useState<FileWithProgress[]>([])
   const [uploading, setUploading] = useState(false)
   const [dragActive, setDragActive] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const uploadControllerRef = useRef<{ cancel: boolean }>({ cancel: false })
+
+  useEffect(() => {
+    onUploadingChange?.(uploading)
+  }, [onUploadingChange, uploading])
+
+  useEffect(
+    () => () => {
+      onUploadingChange?.(false)
+    },
+    [onUploadingChange]
+  )
 
   function validateFile(file: File): string | null {
     if (!ACCEPTED_SOURCE_MIME_TYPES.includes(file.type as never)) {
@@ -61,7 +74,7 @@ export default function ImageUploadZone({ albumId, onUploadComplete }: Props) {
   }
 
   async function handleFiles(newFiles: FileList | null) {
-    if (!newFiles || newFiles.length === 0) return
+    if (disabled || !newFiles || newFiles.length === 0) return
 
     if (files.length + newFiles.length > MAX_BATCH_FILES) {
       toast.error(`Chỉ có thể upload tối đa ${MAX_BATCH_FILES} ảnh/lần`)
@@ -108,6 +121,10 @@ export default function ImageUploadZone({ albumId, onUploadComplete }: Props) {
   function handleDrag(e: React.DragEvent) {
     e.preventDefault()
     e.stopPropagation()
+    if (disabled) {
+      setDragActive(false)
+      return
+    }
 
     if (e.type === 'dragenter' || e.type === 'dragover') {
       setDragActive(true)
@@ -120,6 +137,7 @@ export default function ImageUploadZone({ albumId, onUploadComplete }: Props) {
     e.preventDefault()
     e.stopPropagation()
     setDragActive(false)
+    if (disabled) return
 
     handleFiles(e.dataTransfer.files)
   }
@@ -284,17 +302,22 @@ export default function ImageUploadZone({ albumId, onUploadComplete }: Props) {
   }
 
   return (
-    <div>
+    <fieldset disabled={disabled} className="min-w-0 disabled:cursor-not-allowed disabled:opacity-60">
+      {disabled && (
+        <p className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+          Hoàn tất hoặc hủy chế độ chọn ảnh để tiếp tục upload.
+        </p>
+      )}
       {/* Drop Zone */}
       <div
         onDragEnter={handleDrag}
         onDragOver={handleDrag}
         onDragLeave={handleDrag}
         onDrop={handleDrop}
-        onClick={() => !uploading && fileInputRef.current?.click()}
+        onClick={() => !disabled && !uploading && fileInputRef.current?.click()}
         className={`relative cursor-pointer rounded-lg border-2 border-dashed p-12 text-center transition-colors ${
           dragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300 bg-white hover:border-gray-400'
-        } ${uploading ? 'cursor-not-allowed opacity-50' : ''}`}
+        } ${uploading || disabled ? 'cursor-not-allowed opacity-50' : ''}`}
       >
         <Upload size={48} className={`mx-auto mb-4 ${dragActive ? 'text-blue-500' : 'text-gray-400'}`} />
         <p className="mb-2 text-lg font-medium text-gray-700">
@@ -311,7 +334,7 @@ export default function ImageUploadZone({ albumId, onUploadComplete }: Props) {
           multiple
           accept={ACCEPTED_SOURCE_MIME_TYPES.join(',')}
           onChange={handleFileInput}
-          disabled={uploading}
+          disabled={uploading || disabled}
           className="hidden"
         />
       </div>
@@ -501,6 +524,6 @@ export default function ImageUploadZone({ albumId, onUploadComplete }: Props) {
           )}
         </div>
       )}
-    </div>
+    </fieldset>
   )
 }
