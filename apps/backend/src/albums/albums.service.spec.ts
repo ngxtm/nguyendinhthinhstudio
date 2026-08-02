@@ -63,6 +63,8 @@ function createPresentationHarness() {
     album: {
       findUnique: jest.fn(),
       findMany: jest.fn().mockResolvedValue([]),
+      count: jest.fn().mockResolvedValue(0),
+      aggregate: jest.fn().mockResolvedValue({ _sum: {} }),
       create: jest.fn(),
       update: jest.fn(),
       updateMany: jest.fn().mockResolvedValue({ count: 0 }),
@@ -379,19 +381,19 @@ describe('AlbumsService image presentation', () => {
     expect(imagePresenter.presentImage).toHaveBeenCalledTimes(2);
   });
 
-  it('applies admin status, search, sorting, active-state, and pagination filters', async () => {
+  it('applies admin status, search, sorting, active-state, and numbered pagination filters', async () => {
     const { prisma, service } = createPresentationHarness();
     prisma.album.findMany.mockResolvedValueOnce([
       albumRecord({ id: 'album-2', title: 'Testing 223' }),
-      albumRecord({ id: 'album-1', title: 'Older draft' }),
     ]);
+    prisma.album.count.mockResolvedValueOnce(49);
 
     const result = await service.findAdminAll({
       status: 'draft',
       search: ' testing ',
       sortBy: 'newest',
       limit: 1,
-      cursor: 'album-cursor',
+      page: 2,
     } as any);
 
     expect(prisma.album.findMany).toHaveBeenCalledWith(
@@ -400,7 +402,6 @@ describe('AlbumsService image presentation', () => {
           AND: expect.arrayContaining([
             { deleteStatus: 'active' },
             { status: 'draft' },
-            { id: { lt: 'album-cursor' } },
             {
               OR: expect.arrayContaining([
                 { title: { contains: 'testing', mode: 'insensitive' } },
@@ -409,15 +410,130 @@ describe('AlbumsService image presentation', () => {
             },
           ]),
         },
-        orderBy: [{ publishedAt: 'desc' }, { createdAt: 'desc' }],
-        take: 2,
+        orderBy: [
+          { publishedAt: 'desc' },
+          { createdAt: 'desc' },
+          { id: 'desc' },
+        ],
+        skip: 1,
+        take: 1,
       }),
     );
+    expect(prisma.album.count).toHaveBeenCalledWith({
+      where: {
+        AND: expect.arrayContaining([
+          { deleteStatus: 'active' },
+          { status: 'draft' },
+          {
+            OR: expect.arrayContaining([
+              { title: { contains: 'testing', mode: 'insensitive' } },
+              { slug: { contains: 'testing', mode: 'insensitive' } },
+            ]),
+          },
+        ]),
+      },
+    });
     expect(result.data).toHaveLength(1);
     expect(result.pagination).toEqual({
       hasMore: true,
-      nextCursor: 'album-2',
+      nextCursor: null,
       limit: 1,
+      page: 2,
+      total: 49,
+      totalPages: 49,
+    });
+  });
+
+  it('loads the curated gallery page in sorted order and keeps the public batch small', async () => {
+    const { prisma, service } = createPresentationHarness();
+    const candidates = [
+      albumRecord({
+        id: 'older-featured',
+        isFeatured: true,
+        featuredOrder: 2,
+        createdAt: new Date('2026-07-01T00:00:00.000Z'),
+        categories: [],
+      }),
+      albumRecord({
+        id: 'new-featured',
+        isFeatured: true,
+        featuredOrder: 3,
+        createdAt: new Date('2026-06-01T00:00:00.000Z'),
+        categories: [],
+      }),
+      albumRecord({
+        id: 'beauty',
+        createdAt: new Date('2026-05-01T00:00:00.000Z'),
+        categories: [{ category: { slug: 'beauty' } }],
+      }),
+    ];
+    const hydrated = candidates.map((album) => ({ ...album }));
+    prisma.album.findMany
+      .mockResolvedValueOnce(candidates)
+      .mockResolvedValueOnce(hydrated);
+
+    const result = await service.findAll({
+      limit: 2,
+      sortBy: 'gallery',
+    } as any);
+
+    expect(prisma.album.findMany).toHaveBeenNthCalledWith(1, {
+      where: {
+        AND: [{ status: 'published' }, { deleteStatus: 'active' }],
+      },
+      select: expect.objectContaining({
+        id: true,
+        featuredOrder: true,
+        categories: expect.any(Object),
+      }),
+    });
+    expect(prisma.album.findMany).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        where: { id: { in: ['new-featured', 'older-featured'] } },
+      }),
+    );
+    expect(result.data.map((album: any) => album.id)).toEqual([
+      'new-featured',
+      'older-featured',
+    ]);
+    expect(result.pagination).toEqual({
+      hasMore: true,
+      nextCursor: 'older-featured',
+      limit: 2,
+    });
+  });
+
+  it('counts only active albums in dashboard statistics', async () => {
+    const { prisma, service } = createPresentationHarness();
+    prisma.album.count
+      .mockResolvedValueOnce(162)
+      .mockResolvedValueOnce(120)
+      .mockResolvedValueOnce(42);
+    prisma.album.aggregate.mockResolvedValueOnce({
+      _sum: { imageCount: 800, viewCount: 1400 },
+    });
+
+    await expect(service.getDashboardStats()).resolves.toEqual({
+      totalAlbums: 162,
+      publishedAlbums: 120,
+      draftAlbums: 42,
+      totalImages: 800,
+      totalViews: 1400,
+    });
+
+    expect(prisma.album.count).toHaveBeenNthCalledWith(1, {
+      where: { deleteStatus: 'active' },
+    });
+    expect(prisma.album.count).toHaveBeenNthCalledWith(2, {
+      where: { status: 'published', deleteStatus: 'active' },
+    });
+    expect(prisma.album.count).toHaveBeenNthCalledWith(3, {
+      where: { status: 'draft', deleteStatus: 'active' },
+    });
+    expect(prisma.album.aggregate).toHaveBeenCalledWith({
+      where: { deleteStatus: 'active' },
+      _sum: { imageCount: true, viewCount: true },
     });
   });
 

@@ -102,6 +102,22 @@ test('main gallery is server rendered with initial album data', () => {
   assert.doesNotMatch(page, /Đang tải\.\.\./)
 })
 
+test('main gallery starts with eight albums and uses the curated gallery sort', () => {
+  const page = readSource('../src/app/(public)/thu-vien/page.tsx')
+
+  assert.match(page, /limit:\s*8/)
+  assert.match(page, /sortBy:\s*['"]gallery['"]/)
+})
+
+test('gallery client preloads eight albums and animates appended cards before the sentinel', () => {
+  const gallery = readSource('../src/app/(public)/thu-vien/GalleryClient.tsx')
+
+  assert.match(gallery, /limit:\s*8/)
+  assert.match(gallery, /rootMargin:\s*['"]0px 0px 800px 0px['"]/)
+  assert.match(gallery, /fadeInUp/i)
+  assert.match(gallery, /prefers-reduced-motion/)
+})
+
 test('category landing route defines canonical and empty-category noindex behavior', () => {
   const pagePath = new URL('../src/app/(public)/thu-vien/danh-muc/[slug]/page.tsx', import.meta.url)
   assert.equal(existsSync(pagePath), true, 'category landing page must exist')

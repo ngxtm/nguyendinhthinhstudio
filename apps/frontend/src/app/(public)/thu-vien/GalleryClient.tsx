@@ -24,6 +24,9 @@ export default function GalleryClient({
   description = 'Thư viện ảnh với hơn 1000 concept được cập nhật liên tục và “Ready to Shoot”.'
 }: GalleryClientProps) {
   const [albums, setAlbums] = useState(initialAlbums)
+  const [animationDelays, setAnimationDelays] = useState<Map<string, number>>(
+    () => new Map(initialAlbums.map((album, index) => [album.id, (index % 8) * 40]))
+  )
   const [loadingMore, setLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(initialPagination.hasMore)
   const [cursor, setCursor] = useState<string | null>(initialPagination.nextCursor)
@@ -42,14 +45,22 @@ export default function GalleryClient({
       const response = await listAlbums({
         status: 'published',
         category: categorySlug,
-        limit: initialPagination.limit,
+        limit: 8,
         cursor,
-        sortBy: 'newest'
+        sortBy: 'gallery'
       })
+      const incoming = response.data.filter(album => !albums.some(current => current.id === album.id))
       setAlbums(current => {
         const ids = new Set(current.map(album => album.id))
         return [...current, ...response.data.filter(album => !ids.has(album.id))]
       })
+      if (incoming.length > 0) {
+        setAnimationDelays(current => {
+          const next = new Map(current)
+          incoming.forEach((album, index) => next.set(album.id, index * 40))
+          return next
+        })
+      }
       setHasMore(response.pagination.hasMore)
       setCursor(response.pagination.nextCursor)
     } catch (loadError) {
@@ -59,7 +70,7 @@ export default function GalleryClient({
       setLoadingMore(false)
       requestInFlightRef.current = false
     }
-  }, [categorySlug, cursor, hasMore, initialPagination.limit])
+  }, [albums, categorySlug, cursor, hasMore])
 
   useEffect(() => {
     const target = loadMoreRef.current
@@ -69,7 +80,7 @@ export default function GalleryClient({
       entries => {
         if (entries[0].isIntersecting) void loadMore()
       },
-      { threshold: 0.1 }
+      { threshold: 0.1, rootMargin: '0px 0px 800px 0px' }
     )
     observer.observe(target)
     return () => observer.disconnect()
@@ -115,7 +126,7 @@ export default function GalleryClient({
               columnClassName="pl-0 sm:pl-6 lg:pl-8 bg-clip-padding"
             >
               {albums.map(album => (
-                <AlbumCard key={album.id} album={album} />
+                <AlbumCard key={album.id} album={album} animationDelay={animationDelays.get(album.id) ?? 0} />
               ))}
             </Masonry>
             <div ref={loadMoreRef} className="flex h-20 items-center justify-center">
@@ -126,13 +137,39 @@ export default function GalleryClient({
           </>
         )}
       </div>
+      <style jsx>{`
+        .gallery-card-enter {
+          animation: galleryFadeInUp 500ms ease-out both;
+        }
+
+        @keyframes galleryFadeInUp {
+          from {
+            opacity: 0;
+            transform: translateY(12px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .gallery-card-enter {
+            animation: none;
+          }
+        }
+      `}</style>
     </div>
   )
 }
 
-function AlbumCard({ album }: { album: Album }) {
+function AlbumCard({ album, animationDelay }: { album: Album; animationDelay: number }) {
   return (
-    <Link href={`/thu-vien/${album.slug}`} className="group mb-8 block">
+    <Link
+      href={`/thu-vien/${album.slug}`}
+      className="gallery-card-enter group mb-8 block"
+      style={{ animationDelay: `${animationDelay}ms` }}
+    >
       <div className="relative overflow-hidden rounded-lg bg-neutral-100">
         {album.coverImage ? (
           <img

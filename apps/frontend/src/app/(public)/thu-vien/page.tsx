@@ -13,8 +13,8 @@ export const metadata = createPublicMetadata({
 export default async function GalleryPage() {
   const initial = await listAlbums({
     status: 'published',
-    limit: 20,
-    sortBy: 'newest'
+    limit: 8,
+    sortBy: 'gallery'
   })
 
   return <GalleryClient initialAlbums={initial.data} initialPagination={initial.pagination} />

@@ -12,6 +12,21 @@ test('admin album list always requests the authenticated admin collection', () =
   assert.match(listCall, /\{\s*signal,\s*admin:\s*true\s*\}/)
 })
 
+test('admin album list requests 24-item pages and renders pagination totals', () => {
+  const source = readFileSync(new URL('../src/app/admin/albums/page.tsx', import.meta.url), 'utf8')
+
+  assert.match(source, /limit:\s*24/)
+  assert.match(source, /page:\s*page/)
+  assert.match(source, /totalPages/)
+  assert.match(source, /Đang xem/)
+})
+
+test('admin album actions share an aligned inline-flex icon button frame', () => {
+  const source = readFileSync(new URL('../src/app/admin/albums/page.tsx', import.meta.url), 'utf8')
+
+  assert.match(source, /className="inline-flex items-center justify-center rounded p-2[^"]*"/)
+})
+
 test('admin album table keeps every column accessible through horizontal scrolling on mobile', () => {
   const source = readFileSync(new URL('../src/app/admin/albums/page.tsx', import.meta.url), 'utf8')
 

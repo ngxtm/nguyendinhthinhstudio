@@ -206,5 +206,11 @@ tutorial_component/
 # Superpowers visual brainstorming sessions
 .superpowers/
 
+# Local album-import manifests and review thumbnails
+.artifacts/
+
 # Optional local image-upload visual-quality evidence
 /0W9A1500.jpg
+
+
+note.md

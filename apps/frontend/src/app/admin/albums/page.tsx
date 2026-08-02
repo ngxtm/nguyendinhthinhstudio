@@ -10,7 +10,7 @@ import ConfirmDialog from '../components/ConfirmDialog'
 import Link from 'next/link'
 import { Plus, Edit, Trash2, Eye, Star, Search } from 'lucide-react'
 import { toast } from 'sonner'
-import { listAlbums, deleteAlbum, toggleFeatured, type Album } from '@/lib/api'
+import { listAlbums, deleteAlbum, toggleFeatured, type Album, type PaginatedResponse } from '@/lib/api'
 import { formatFullCount } from '@/lib/format'
 import { useAbortableEffect, useDebouncedValue } from '../hooks'
 
@@ -21,6 +21,15 @@ export default function AlbumsPage() {
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<AlbumFilter>('all')
   const [searchTerm, setSearchTerm] = useState('')
+  const [page, setPage] = useState(1)
+  const [pagination, setPagination] = useState<PaginatedResponse<Album>['pagination']>({
+    hasMore: false,
+    nextCursor: null,
+    limit: 24,
+    page: 1,
+    total: 0,
+    totalPages: 0
+  })
 
   const debouncedSearch = useDebouncedValue(searchTerm, 300)
   const trimmedSearch = debouncedSearch.trim()
@@ -33,7 +42,8 @@ export default function AlbumsPage() {
           const response = await listAlbums(
             {
               status: filter === 'all' ? undefined : filter,
-              limit: 50,
+              limit: 24,
+              page: page,
               search: trimmedSearch ? trimmedSearch : undefined
             },
             { signal, admin: true }
@@ -41,6 +51,7 @@ export default function AlbumsPage() {
 
           if (!signal.aborted) {
             setAlbums(response.data)
+            setPagination(response.pagination)
           }
         } catch (error: any) {
           if (signal.aborted) {
@@ -64,12 +75,22 @@ export default function AlbumsPage() {
 
       loadAlbums()
     },
-    [filter, trimmedSearch]
+    [filter, trimmedSearch, page]
   )
 
   const isSearching = trimmedSearch.length > 0
   const [deleteCandidate, setDeleteCandidate] = useState<Album | null>(null)
   const [isDeletePending, setIsDeletePending] = useState(false)
+
+  const handleFilterChange = (nextFilter: AlbumFilter) => {
+    setFilter(nextFilter)
+    setPage(1)
+  }
+
+  const handleSearchChange = (value: string) => {
+    setSearchTerm(value)
+    setPage(1)
+  }
 
   const requestDelete = (album: Album) => {
     if (!isDeletePending) setDeleteCandidate(album)
@@ -105,13 +126,20 @@ export default function AlbumsPage() {
   return (
     <div>
       <AlbumsHeader />
-      <AlbumsToolbar filter={filter} onFilterChange={setFilter} search={searchTerm} onSearchChange={setSearchTerm} />
+      <AlbumsToolbar
+        filter={filter}
+        onFilterChange={handleFilterChange}
+        search={searchTerm}
+        onSearchChange={handleSearchChange}
+      />
       <AlbumsContent
         albums={albums}
         loading={loading}
         onToggleFeatured={handleToggleFeatured}
         onDelete={requestDelete}
         isSearching={isSearching}
+        pagination={pagination}
+        onPageChange={setPage}
       />
       <ConfirmDialog
         open={deleteCandidate !== null}
@@ -181,13 +209,13 @@ function AlbumsToolbar({
         ))}
       </div>
       <div className="relative w-full md:w-72">
-        <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
         <input
           type="search"
           value={search}
           onChange={event => onSearchChange(event.target.value)}
           placeholder="Tìm kiếm album..."
-          className="w-full rounded-lg border border-gray-300 bg-white py-2 pr-3 pl-9 text-sm text-gray-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none"
+          className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-9 pr-3 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
         />
       </div>
     </div>
@@ -199,13 +227,17 @@ function AlbumsContent({
   loading,
   onToggleFeatured,
   onDelete,
-  isSearching
+  isSearching,
+  pagination,
+  onPageChange
 }: {
   albums: Album[]
   loading: boolean
   onToggleFeatured: (album: Album) => void
   onDelete: (album: Album) => void
   isSearching: boolean
+  pagination: PaginatedResponse<Album>['pagination']
+  onPageChange: (page: number) => void
 }) {
   if (loading) {
     return (
@@ -224,7 +256,76 @@ function AlbumsContent({
       <div className="overflow-x-auto">
         <AlbumsTable albums={albums} onToggleFeatured={onToggleFeatured} onDelete={onDelete} />
       </div>
+      <AlbumsPagination pagination={pagination} onPageChange={onPageChange} />
     </div>
+  )
+}
+
+function AlbumsPagination({
+  pagination,
+  onPageChange
+}: {
+  pagination: PaginatedResponse<Album>['pagination']
+  onPageChange: (page: number) => void
+}) {
+  const currentPage = pagination.page ?? 1
+  const totalPages = pagination.totalPages ?? 0
+  const total = pagination.total ?? 0
+  const start = total === 0 ? 0 : (currentPage - 1) * pagination.limit + 1
+  const end = Math.min(currentPage * pagination.limit, total)
+
+  if (totalPages <= 1) {
+    return total > 0 ? (
+      <div className="border-t border-gray-200 px-6 py-4 text-sm text-gray-500">
+        Đang xem {start}–{end} trên {total}
+      </div>
+    ) : null
+  }
+
+  return (
+    <div className="flex flex-col gap-3 border-t border-gray-200 px-6 py-4 text-sm text-gray-600 sm:flex-row sm:items-center sm:justify-between">
+      <span>
+        Đang xem {start}–{end} trên {total}
+      </span>
+      <div className="flex items-center gap-1">
+        <PaginationButton disabled={currentPage === 1} onClick={() => onPageChange(currentPage - 1)}>
+          Trước
+        </PaginationButton>
+        {Array.from({ length: totalPages }, (_, index) => index + 1).map(value => (
+          <PaginationButton key={value} active={value === currentPage} onClick={() => onPageChange(value)}>
+            {value}
+          </PaginationButton>
+        ))}
+        <PaginationButton disabled={currentPage === totalPages} onClick={() => onPageChange(currentPage + 1)}>
+          Sau
+        </PaginationButton>
+      </div>
+    </div>
+  )
+}
+
+function PaginationButton({
+  children,
+  active = false,
+  disabled = false,
+  onClick
+}: {
+  children: ReactNode
+  active?: boolean
+  disabled?: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className={`inline-flex min-h-9 items-center justify-center rounded-md px-3 transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+        active ? 'bg-blue-600 font-medium text-white' : 'text-gray-600 hover:bg-gray-100'
+      }`}
+    >
+      {children}
+    </button>
   )
 }
 
@@ -304,7 +405,7 @@ function AlbumRow({
         <div className="flex items-center justify-end gap-2">
           <button
             onClick={() => onToggleFeatured(album)}
-            className={`rounded p-2 transition-colors hover:bg-gray-100 ${
+            className={`inline-flex items-center justify-center rounded p-2 transition-colors hover:bg-gray-100 ${
               album.isFeatured ? 'text-yellow-500' : 'text-gray-400'
             }`}
             title={album.isFeatured ? 'Đang featured' : 'Chưa featured'}
@@ -313,13 +414,13 @@ function AlbumRow({
           </button>
           <Link
             href={`/admin/albums/${album.slug}`}
-            className="rounded p-2 text-blue-600 transition-colors hover:bg-gray-100"
+            className="inline-flex items-center justify-center rounded p-2 text-blue-600 transition-colors hover:bg-gray-100"
           >
             <Edit size={18} />
           </Link>
           <button
             onClick={() => onDelete(album)}
-            className="rounded p-2 text-red-600 transition-colors hover:bg-gray-100"
+            className="inline-flex items-center justify-center rounded p-2 text-red-600 transition-colors hover:bg-gray-100"
           >
             <Trash2 size={18} />
           </button>
@@ -351,7 +452,7 @@ function EmptyState({ isSearching }: { isSearching: boolean }) {
 function TableHeader({ children, align = 'left' }: { children: ReactNode; align?: 'left' | 'right' }) {
   const alignment = align === 'right' ? 'text-right' : 'text-left'
   return (
-    <th className={`px-6 py-3 text-xs font-medium tracking-wide text-gray-500 uppercase ${alignment}`}>{children}</th>
+    <th className={`px-6 py-3 text-xs font-medium uppercase tracking-wide text-gray-500 ${alignment}`}>{children}</th>
   )
 }
 

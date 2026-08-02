@@ -85,8 +85,9 @@ export interface QueryAlbumsParams {
   tag?: string;
   isFeatured?: boolean;
   limit?: number;
+  page?: number;
   cursor?: string;
-  sortBy?: 'newest' | 'oldest' | 'popular' | 'featured';
+  sortBy?: 'newest' | 'oldest' | 'popular' | 'featured' | 'gallery';
   search?: string;
 }
 
@@ -96,6 +97,9 @@ export interface PaginatedResponse<T> {
     hasMore: boolean;
     nextCursor: string | null;
     limit: number;
+    page?: number;
+    total?: number;
+    totalPages?: number;
   };
 }
 
@@ -118,11 +122,7 @@ type AlbumCategoryRelation = {
 } & Record<string, unknown>;
 
 function isAlbumTagRelation(value: unknown): value is AlbumTagRelation {
-  return Boolean(
-    value &&
-      typeof value === 'object' &&
-      'tag' in (value as Record<string, unknown>)
-  );
+  return Boolean(value && typeof value === 'object' && 'tag' in (value as Record<string, unknown>));
 }
 
 function isTag(value: unknown): value is Tag {
@@ -161,11 +161,7 @@ function isAlbumCategory(value: unknown): value is AlbumCategory {
   }
 
   const candidate = value as Record<string, unknown>;
-  return (
-    typeof candidate.id === 'string' &&
-    typeof candidate.name === 'string' &&
-    typeof candidate.slug === 'string'
-  );
+  return typeof candidate.id === 'string' && typeof candidate.name === 'string' && typeof candidate.slug === 'string';
 }
 
 export function normalizeAlbumCategories(categories?: unknown[]): AlbumCategory[] {
@@ -180,7 +176,7 @@ export function normalizeAlbumCategories(categories?: unknown[]): AlbumCategory[
       normalized.push({
         ...item,
         depth: typeof item.depth === 'number' ? item.depth : 0,
-        source: item.source === 'parent' ? 'parent' : 'manual',
+        source: item.source === 'parent' ? 'parent' : 'manual'
       });
       continue;
     }
@@ -191,7 +187,7 @@ export function normalizeAlbumCategories(categories?: unknown[]): AlbumCategory[
         normalized.push({
           ...relation.category,
           depth: typeof relation.depth === 'number' ? relation.depth : 0,
-          source: relation.source === 'parent' ? 'parent' : 'manual',
+          source: relation.source === 'parent' ? 'parent' : 'manual'
         });
       }
     }
@@ -220,10 +216,9 @@ export async function listAlbums(
   const query = searchParams.toString();
   const client = options?.admin ? adminApiClient : apiClient;
   const endpoint = options?.admin ? '/albums/admin' : '/albums';
-  return client<PaginatedResponse<Album>>(
-    `${endpoint}${query ? `?${query}` : ''}`,
-    { signal: options?.signal }
-  );
+  return client<PaginatedResponse<Album>>(`${endpoint}${query ? `?${query}` : ''}`, {
+    signal: options?.signal
+  });
 }
 
 /**
@@ -245,7 +240,7 @@ export async function getAlbum(slug: string, admin = false): Promise<Album> {
  */
 export async function incrementAlbumView(slug: string): Promise<void> {
   await apiClient<void>(`/albums/${encodeURIComponent(slug)}/view`, {
-    method: 'POST',
+    method: 'POST'
   });
 }
 
@@ -266,20 +261,17 @@ export async function getAlbumDashboardStats(): Promise<AlbumDashboardStats> {
 export async function createAlbum(data: CreateAlbumDto): Promise<Album> {
   return adminApiClient<Album>('/albums', {
     method: 'POST',
-    body: JSON.stringify(data),
+    body: JSON.stringify(data)
   });
 }
 
 /**
  * Update album (Admin only)
  */
-export async function updateAlbum(
-  id: string,
-  data: UpdateAlbumDto
-): Promise<Album> {
+export async function updateAlbum(id: string, data: UpdateAlbumDto): Promise<Album> {
   return adminApiClient<Album>(`/albums/${id}`, {
     method: 'PATCH',
-    body: JSON.stringify(data),
+    body: JSON.stringify(data)
   });
 }
 
@@ -288,33 +280,27 @@ export async function updateAlbum(
  */
 export async function deleteAlbum(id: string): Promise<void> {
   return adminApiClient<void>(`/albums/${id}`, {
-    method: 'DELETE',
+    method: 'DELETE'
   });
 }
 
 /**
  * Delete an exact selection of album images atomically (Admin only)
  */
-export async function bulkDeleteAlbumImages(
-  albumId: string,
-  imageIds: string[]
-): Promise<Album> {
+export async function bulkDeleteAlbumImages(albumId: string, imageIds: string[]): Promise<Album> {
   return adminApiClient<Album>(`/albums/${albumId}/images/bulk-delete`, {
     method: 'POST',
-    body: JSON.stringify({ imageIds }),
+    body: JSON.stringify({ imageIds })
   });
 }
 
 /**
  * Set cover image (Admin only)
  */
-export async function setCoverImage(
-  albumId: string,
-  imageId: string
-): Promise<Album> {
+export async function setCoverImage(albumId: string, imageId: string): Promise<Album> {
   return adminApiClient<Album>(`/albums/${albumId}/cover`, {
     method: 'PATCH',
-    body: JSON.stringify({ imageId }),
+    body: JSON.stringify({ imageId })
   });
 }
 
@@ -323,7 +309,7 @@ export async function setCoverImage(
  */
 export async function publishAlbum(albumId: string): Promise<Album> {
   return adminApiClient<Album>(`/albums/${albumId}/publish`, {
-    method: 'PATCH',
+    method: 'PATCH'
   });
 }
 
@@ -332,7 +318,7 @@ export async function publishAlbum(albumId: string): Promise<Album> {
  */
 export async function toggleFeatured(albumId: string): Promise<Album> {
   return adminApiClient<Album>(`/albums/${albumId}/feature`, {
-    method: 'PATCH',
+    method: 'PATCH'
   });
 }
 

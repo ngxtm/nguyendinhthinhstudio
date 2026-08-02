@@ -22,6 +22,7 @@ import { UpdateAlbumDto } from './dto/update-album.dto';
 import { QueryAlbumsDto } from './dto/query-albums.dto';
 import { SetCoverDto } from './dto/set-cover.dto';
 import { RecommendationService } from './recommendation.service';
+import { compareGalleryAlbums } from './gallery-sort';
 
 type CategoryAssignment = {
   categoryId: string;
@@ -168,8 +169,17 @@ export class AlbumsService {
   }
 
   private async findVisibleAlbums(query: QueryAlbumsDto, publicOnly: boolean) {
-    const { status, category, tag, isFeatured, limit, cursor, sortBy, search } =
-      query;
+    const {
+      status,
+      category,
+      tag,
+      isFeatured,
+      limit,
+      page,
+      cursor,
+      sortBy,
+      search,
+    } = query;
 
     const filters: Prisma.AlbumWhereInput[] = publicOnly
       ? [{ status: 'published' }, { deleteStatus: 'active' }]
@@ -204,10 +214,6 @@ export class AlbumsService {
           },
         },
       });
-    }
-
-    if (cursor) {
-      filters.push({ id: { lt: cursor } });
     }
 
     if (search) {
@@ -253,69 +259,246 @@ export class AlbumsService {
           : { AND: filters };
 
     const limitValue = Math.min(Math.max(limit ?? 20, 1), 50);
-
-    // Build orderBy clause
-    let orderBy: any = {};
-    switch (sortBy) {
-      case 'newest':
-        orderBy = [{ publishedAt: 'desc' }, { createdAt: 'desc' }];
-        break;
-      case 'oldest':
-        orderBy = [{ publishedAt: 'asc' }, { createdAt: 'asc' }];
-        break;
-      case 'popular':
-        orderBy = [{ viewCount: 'desc' }, { publishedAt: 'desc' }];
-        break;
-      case 'featured':
-        orderBy = [
-          { isFeatured: 'desc' },
-          { featuredOrder: 'asc' },
-          { publishedAt: 'desc' },
-        ];
-        break;
-      default:
-        orderBy = { createdAt: 'desc' };
-    }
-
-    // Fetch albums
-    const albums = await this.prisma.album.findMany({
-      where,
-      orderBy,
-      take: limitValue + 1, // Fetch one extra to check if there's a next page
-      include: {
-        tags: {
-          include: {
-            tag: true,
-          },
-        },
-        categories: {
-          include: {
-            category: true,
-          },
-          orderBy: {
-            depth: 'asc',
-          },
-        },
-        coverImage: true,
-        _count: {
-          select: { images: true },
+    const adminPage = !publicOnly
+      ? Math.max(Math.floor(page ?? 1), 1)
+      : undefined;
+    const albumInclude = {
+      tags: {
+        include: {
+          tag: true,
         },
       },
-    });
+      categories: {
+        include: {
+          category: true,
+        },
+        orderBy: {
+          depth: 'asc' as const,
+        },
+      },
+      coverImage: true,
+      _count: {
+        select: { images: true },
+      },
+    };
 
-    // Determine if there's a next page
-    const hasMore = albums.length > limitValue;
-    const data = hasMore ? albums.slice(0, limitValue) : albums;
-    const nextCursor = hasMore ? data[data.length - 1].id : null;
+    if (sortBy === 'gallery' && publicOnly) {
+      const candidates = await this.prisma.album.findMany({
+        where,
+        select: {
+          id: true,
+          isFeatured: true,
+          featuredOrder: true,
+          shootDate: true,
+          publishedAt: true,
+          createdAt: true,
+          categories: {
+            select: {
+              category: {
+                select: { slug: true },
+              },
+            },
+          },
+        },
+      });
+      const sortedCandidates = [...candidates].sort(compareGalleryAlbums);
+      const cursorIndex = cursor
+        ? sortedCandidates.findIndex((album) => album.id === cursor)
+        : -1;
+      const startIndex = cursorIndex >= 0 ? cursorIndex + 1 : 0;
+      const pageCandidates = sortedCandidates.slice(
+        startIndex,
+        startIndex + limitValue + 1,
+      );
+      const hasMore = pageCandidates.length > limitValue;
+      const pageIds = pageCandidates
+        .slice(0, limitValue)
+        .map((album) => album.id);
+      const rows = pageIds.length
+        ? await this.prisma.album.findMany({
+            where: { id: { in: pageIds } },
+            include: albumInclude,
+          })
+        : [];
+      const rowsById = new Map(rows.map((album: any) => [album.id, album]));
+      const data = pageIds
+        .map((id) => rowsById.get(id))
+        .filter(Boolean) as AlbumWithRelations[];
+
+      return {
+        data: data.map((album) => this.presentAlbum(album)),
+        pagination: {
+          hasMore,
+          nextCursor: hasMore ? data[data.length - 1].id : null,
+          limit: limitValue,
+        },
+      };
+    }
+
+    const orderBy = this.getAlbumOrderBy(sortBy);
+    const cursorFilter =
+      publicOnly && cursor ? this.getCursorFilter(sortBy, cursor) : null;
+    const queryWhere = cursorFilter
+      ? where
+        ? { AND: [where, cursorFilter] }
+        : cursorFilter
+      : where;
+
+    let albums: AlbumWithRelations[];
+    let total: number | undefined;
+    if (adminPage !== undefined) {
+      [albums, total] = await Promise.all([
+        this.prisma.album.findMany({
+          where: queryWhere,
+          orderBy,
+          skip: (adminPage - 1) * limitValue,
+          take: limitValue,
+          include: albumInclude,
+        }),
+        this.prisma.album.count({ where }),
+      ]);
+    } else {
+      albums = await this.prisma.album.findMany({
+        where: queryWhere,
+        orderBy,
+        take: limitValue + 1,
+        include: albumInclude,
+      });
+    }
+
+    const hasMore =
+      adminPage !== undefined
+        ? adminPage * limitValue < (total ?? 0)
+        : albums.length > limitValue;
+    const data =
+      adminPage !== undefined || !hasMore
+        ? albums
+        : albums.slice(0, limitValue);
+    const nextCursor =
+      adminPage !== undefined || !hasMore
+        ? null
+        : this.encodeAlbumCursor(data[data.length - 1], sortBy);
+    const pagination: Record<string, unknown> = {
+      hasMore,
+      nextCursor,
+      limit: limitValue,
+    };
+    if (adminPage !== undefined) {
+      pagination.page = adminPage;
+      pagination.total = total ?? 0;
+      pagination.totalPages = Math.ceil((total ?? 0) / limitValue);
+    }
 
     return {
       data: data.map((album) => this.presentAlbum(album)),
-      pagination: {
-        hasMore,
-        nextCursor,
-        limit: limitValue,
-      },
+      pagination,
     };
+  }
+
+  private getAlbumOrderBy(
+    sortBy: QueryAlbumsDto['sortBy'],
+  ): Prisma.AlbumOrderByWithRelationInput[] {
+    switch (sortBy) {
+      case 'oldest':
+        return [{ publishedAt: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }];
+      case 'popular':
+        return [{ viewCount: 'desc' }, { publishedAt: 'desc' }, { id: 'desc' }];
+      case 'featured':
+        return [
+          { isFeatured: 'desc' },
+          { featuredOrder: 'desc' },
+          { publishedAt: 'desc' },
+          { id: 'desc' },
+        ];
+      case 'newest':
+      default:
+        return [{ publishedAt: 'desc' }, { createdAt: 'desc' }, { id: 'desc' }];
+    }
+  }
+
+  private encodeAlbumCursor(
+    album: AlbumWithRelations,
+    sortBy: QueryAlbumsDto['sortBy'],
+  ) {
+    const payload = {
+      sortBy: sortBy ?? 'newest',
+      id: album.id,
+      publishedAt:
+        album.publishedAt?.toISOString?.() ?? album.publishedAt ?? null,
+      createdAt: album.createdAt.toISOString?.() ?? album.createdAt,
+      viewCount: album.viewCount,
+      isFeatured: album.isFeatured,
+      featuredOrder: album.featuredOrder,
+    };
+    return Buffer.from(JSON.stringify(payload)).toString('base64url');
+  }
+
+  private getCursorFilter(
+    sortBy: QueryAlbumsDto['sortBy'],
+    cursor: string,
+  ): Prisma.AlbumWhereInput | null {
+    let payload: Record<string, any>;
+    try {
+      payload = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'));
+    } catch {
+      return { id: { lt: cursor } };
+    }
+
+    if (payload.sortBy !== (sortBy ?? 'newest')) {
+      return { id: { lt: payload.id ?? cursor } };
+    }
+
+    const fields =
+      sortBy === 'oldest'
+        ? [
+            ['publishedAt', 'asc'],
+            ['createdAt', 'asc'],
+            ['id', 'asc'],
+          ]
+        : sortBy === 'popular'
+          ? [
+              ['viewCount', 'desc'],
+              ['publishedAt', 'desc'],
+              ['id', 'desc'],
+            ]
+          : sortBy === 'featured'
+            ? [
+                ['isFeatured', 'desc'],
+                ['featuredOrder', 'desc'],
+                ['publishedAt', 'desc'],
+                ['id', 'desc'],
+              ]
+            : [
+                ['publishedAt', 'desc'],
+                ['createdAt', 'desc'],
+                ['id', 'desc'],
+              ];
+    const clauses = fields.map(([field, direction], index) => {
+      const equals = Object.fromEntries(
+        fields
+          .slice(0, index)
+          .map(([previousField]) => [
+            previousField,
+            this.deserializeCursorValue(previousField, payload[previousField]),
+          ]),
+      );
+      const value = this.deserializeCursorValue(field, payload[field]);
+      if (value == null && field !== 'id') return null;
+      return {
+        ...equals,
+        [field]: {
+          [direction === 'desc' ? 'lt' : 'gt']: value,
+        },
+      };
+    });
+    return { OR: clauses.filter(Boolean) as Prisma.AlbumWhereInput[] };
+  }
+
+  private deserializeCursorValue(field: string, value: unknown) {
+    if (value != null && ['publishedAt', 'createdAt'].includes(field)) {
+      return new Date(String(value));
+    }
+    return value;
   }
 
   /**
@@ -929,10 +1112,15 @@ export class AlbumsService {
   async getDashboardStats() {
     const [totalAlbums, publishedAlbums, draftAlbums, aggregates] =
       await Promise.all([
-        this.prisma.album.count(),
-        this.prisma.album.count({ where: { status: 'published' } }),
-        this.prisma.album.count({ where: { status: 'draft' } }),
+        this.prisma.album.count({ where: { deleteStatus: 'active' } }),
+        this.prisma.album.count({
+          where: { status: 'published', deleteStatus: 'active' },
+        }),
+        this.prisma.album.count({
+          where: { status: 'draft', deleteStatus: 'active' },
+        }),
         this.prisma.album.aggregate({
+          where: { deleteStatus: 'active' },
           _sum: {
             imageCount: true,
             viewCount: true,

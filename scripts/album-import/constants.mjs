@@ -1,0 +1,10 @@
+export const PRODUCTION_ORIGIN = 'https://api.ndtstudio.site';
+export const MANIFEST_SCHEMA_VERSION = 1;
+export const MAX_ALBUM_IMAGES = 50;
+export const DEFAULT_SESSION_GAP_MINUTES = 90;
+export const MAX_SOURCE_BYTES = 100 * 1024 * 1024;
+export const MAX_OUTPUT_BYTES = 5 * 1024 * 1024;
+export const MAX_OUTPUT_EDGE = 2560;
+export const WEBP_QUALITY = 84;
+export const UPLOAD_CONCURRENCY = 2;
+export const THUMBNAIL_EDGE = 768;

@@ -1,32 +1,39 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsOptional, IsNumber, Min, Max, IsEnum } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsNumber,
+  Min,
+  Max,
+  IsEnum,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class QueryAlbumsDto {
-  @ApiProperty({ 
-    example: 'published', 
+  @ApiProperty({
+    example: 'published',
     description: 'Filter by status',
     enum: ['draft', 'published', 'scheduled', 'all'],
     required: false,
-    default: 'published'
+    default: 'published',
   })
   @IsString()
   @IsOptional()
   status?: string;
 
-  @ApiProperty({ 
-    example: 'wedding', 
+  @ApiProperty({
+    example: 'wedding',
     description: 'Filter by category',
-    required: false 
+    required: false,
   })
   @IsString()
   @IsOptional()
   category?: string;
 
-  @ApiProperty({ 
-    example: 'nha-trang', 
+  @ApiProperty({
+    example: 'nha-trang',
     description: 'Filter by tag slug',
-    required: false 
+    required: false,
   })
   @IsString()
   @IsOptional()
@@ -41,21 +48,21 @@ export class QueryAlbumsDto {
   @IsOptional()
   search?: string;
 
-  @ApiProperty({ 
-    example: true, 
+  @ApiProperty({
+    example: true,
     description: 'Filter featured albums only',
-    required: false 
+    required: false,
   })
   @IsOptional()
   isFeatured?: boolean;
 
-  @ApiProperty({ 
-    example: 20, 
+  @ApiProperty({
+    example: 20,
     description: 'Number of albums to return',
     required: false,
     default: 20,
     minimum: 1,
-    maximum: 50
+    maximum: 50,
   })
   @IsNumber()
   @Min(1)
@@ -64,24 +71,35 @@ export class QueryAlbumsDto {
   @IsOptional()
   limit?: number = 20;
 
-  @ApiProperty({ 
-    example: 'album-id-xxx', 
+  @ApiProperty({
+    example: 1,
+    description: 'Page number for admin pagination',
+    required: false,
+    minimum: 1,
+  })
+  @IsNumber()
+  @Min(1)
+  @Type(() => Number)
+  @IsOptional()
+  page?: number;
+
+  @ApiProperty({
+    example: 'album-id-xxx',
     description: 'Cursor for pagination (last album ID from previous page)',
-    required: false 
+    required: false,
   })
   @IsString()
   @IsOptional()
   cursor?: string;
 
-  @ApiProperty({ 
-    example: 'newest', 
+  @ApiProperty({
+    example: 'newest',
     description: 'Sort order',
-    enum: ['newest', 'oldest', 'popular', 'featured'],
+    enum: ['newest', 'oldest', 'popular', 'featured', 'gallery'],
     required: false,
-    default: 'newest'
+    default: 'newest',
   })
-  @IsEnum(['newest', 'oldest', 'popular', 'featured'])
+  @IsEnum(['newest', 'oldest', 'popular', 'featured', 'gallery'])
   @IsOptional()
-  sortBy?: 'newest' | 'oldest' | 'popular' | 'featured' = 'newest';
+  sortBy?: 'newest' | 'oldest' | 'popular' | 'featured' | 'gallery' = 'newest';
 }
-
