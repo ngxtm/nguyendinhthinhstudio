@@ -109,7 +109,7 @@ export default function EditAlbumPage() {
         title: albumData.title,
         slug: albumData.slug,
         description: albumData.description || '',
-        shootDate: albumData.shootDate || '',
+        shootDate: albumData.shootDate?.slice(0, 10) ?? '',
         categoryIds: manualCategoryIds,
         tagSlugs: normalizedTags.map(t => t.slug),
         status: albumData.status,

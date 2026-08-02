@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
 const detailSource = readFileSync(new URL('../src/app/admin/albums/[id]/page.tsx', import.meta.url), 'utf8')
+const albumsApiSource = readFileSync(new URL('../src/lib/api/albums.ts', import.meta.url), 'utf8')
 
 test('post-upload album refresh keeps the existing grid mounted', () => {
   assert.match(detailSource, /async function loadAlbum\([\s\S]*?showLoading = true[\s\S]*?\): Promise<void>/)
@@ -53,6 +54,18 @@ test('album bulk selection is explicit, snapshot-based, and touch-safe', () => {
   assert.match(imageTileSource, /aria-checked=\{selected\}/)
 })
 
+test('album selection exposes a searchable move-to-album action', () => {
+  const moveDialogSource = readOptionalSource('../src/app/admin/components/MoveImagesDialog.tsx')
+
+  assert.match(imageGridSource, /moveAlbumImages\(/)
+  assert.match(imageGridSource, /<MoveImagesDialog/)
+  assert.match(imageGridSource, /Chuyển album/)
+  assert.match(moveDialogSource, /listAlbums\(/)
+  assert.match(moveDialogSource, /type="search"/)
+  assert.match(moveDialogSource, /Tìm album đích/)
+  assert.match(albumsApiSource, /`\/albums\/\$\{sourceAlbumId\}\/images\/move`/)
+})
+
 test('upload and album selection modes lock each other', () => {
   assert.match(detailSource, /disabled=\{selectionMode\}/)
   assert.match(detailSource, /onUploadingChange=\{setUploading\}/)
@@ -95,6 +108,10 @@ test('image deletion is guarded by one reusable confirmation dialog', () => {
 })
 
 const editSource = readFileSync(new URL('../src/app/admin/albums/[id]/edit/page.tsx', import.meta.url), 'utf8')
+
+test('album edit normalizes the API date before binding it to the date input', () => {
+  assert.match(editSource, /shootDate:\s*albumData\.shootDate\?\.slice\(0,\s*10\)\s*\?\?\s*''/)
+})
 
 test('album edit exposes a guarded destructive delete action', () => {
   assert.match(editSource, /deleteAlbum\(album\.id\)/)

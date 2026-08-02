@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { BulkDeleteImagesDto } from '../images/dto/bulk-delete-images.dto';
+import { MoveImagesDto } from '../images/dto/move-images.dto';
 import { ImagePresenterService } from '../images/image-presenter.service';
 import { ImagesService } from '../images/images.service';
 import { StorageService } from '../images/storage.service';
@@ -780,6 +781,12 @@ export class AlbumsService {
 
   async bulkDeleteImages(id: string, dto: BulkDeleteImagesDto) {
     await this.imagesService.removeMany(id, dto);
+    return this.findAdminById(id);
+  }
+
+  async moveImages(id: string, dto: MoveImagesDto) {
+    await this.imagesService.moveMany(id, dto);
+    this.recommendationService.clearCache();
     return this.findAdminById(id);
   }
 

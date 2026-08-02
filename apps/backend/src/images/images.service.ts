@@ -14,6 +14,7 @@ import { UploadRequestDto } from './dto/upload-request.dto';
 import { UploadConfirmDto } from './dto/upload-confirm.dto';
 import { UpdateImageDto } from './dto/update-image.dto';
 import { BulkDeleteImagesDto } from './dto/bulk-delete-images.dto';
+import { MoveImagesDto } from './dto/move-images.dto';
 import { ReorderImagesDto } from './dto/reorder-images.dto';
 import { runSerializableWithRetry } from '../prisma/serializable-retry';
 import { createImageUploadRequestFingerprint } from './image-upload-fingerprint';
@@ -27,6 +28,7 @@ import { StoredImageInspectorService } from './stored-image-inspector.service';
 import { canonicalizeEtag } from './canonical-etag';
 
 const FINALIZATION_LEASE_MS = 10 * 60 * 1000;
+const MAX_ALBUM_IMAGES = 50;
 
 function isClientRequestWinnerConflict(error: unknown): boolean {
   if (typeof error !== 'object' || error === null) return false;
@@ -1035,6 +1037,155 @@ export class ImagesService {
           });
 
           return { deletedCount: imageIds.length };
+        },
+        { isolationLevel: 'Serializable' as any },
+      ),
+    );
+  }
+
+  /**
+   * Move an exact image-ID snapshot to another active album atomically.
+   * The stored object remains in R2; only the album relation and ordering move.
+   */
+  async moveMany(sourceAlbumId: string, dto: MoveImagesDto) {
+    const imageIds = [...new Set(dto.imageIds)];
+    if (imageIds.length !== dto.imageIds.length) {
+      throw new BadRequestException('Image IDs must be unique');
+    }
+    if (sourceAlbumId === dto.targetAlbumId) {
+      throw new BadRequestException('Destination album must be different');
+    }
+
+    return runSerializableWithRetry(() =>
+      this.prisma.$transaction(
+        async (tx: any) => {
+          for (const albumId of [sourceAlbumId, dto.targetAlbumId].sort()) {
+            await tx.$executeRawUnsafe?.(
+              'SELECT pg_advisory_xact_lock(hashtextextended($1, 0))',
+              `album-images:${albumId}`,
+            );
+          }
+
+          const albumInclude = {
+            images: {
+              where: { uploadStatus: 'completed' },
+              orderBy: { orderIndex: 'asc' },
+            },
+          };
+          const [sourceAlbum, targetAlbum] = await Promise.all([
+            tx.album.findUnique({
+              where: { id: sourceAlbumId },
+              include: albumInclude,
+            }),
+            tx.album.findUnique({
+              where: { id: dto.targetAlbumId },
+              include: albumInclude,
+            }),
+          ]);
+
+          if (!sourceAlbum || !targetAlbum) {
+            throw new NotFoundException('Album not found');
+          }
+          for (const album of [sourceAlbum, targetAlbum]) {
+            if (
+              album.deleteStatus !== undefined &&
+              album.deleteStatus !== 'active'
+            ) {
+              throw new ConflictException('Album is not available for editing');
+            }
+          }
+
+          const selectedIds = new Set(imageIds);
+          const selectedImages = sourceAlbum.images.filter((image: any) =>
+            selectedIds.has(image.id),
+          );
+          if (selectedImages.length !== imageIds.length) {
+            throw new BadRequestException({
+              statusCode: 400,
+              code: 'album_image_selection_invalid',
+              message: 'Every selected image must belong to the album',
+            });
+          }
+
+          const activeReservations = await tx.imageUpload.count({
+            where: {
+              albumId: dto.targetAlbumId,
+              OR: [
+                {
+                  status: 'pending',
+                  expiresAt: { gt: new Date() },
+                },
+                { status: 'finalizing' },
+              ],
+            },
+          });
+          if (
+            targetAlbum.images.length +
+              activeReservations +
+              selectedImages.length >
+            MAX_ALBUM_IMAGES
+          ) {
+            const available = Math.max(
+              0,
+              MAX_ALBUM_IMAGES - targetAlbum.images.length - activeReservations,
+            );
+            throw new ConflictException({
+              statusCode: 409,
+              code: 'album_image_move_capacity_exceeded',
+              message: `Destination album can receive only ${available} more image(s)`,
+            });
+          }
+
+          const remainingImages = sourceAlbum.images.filter(
+            (image: any) => !selectedIds.has(image.id),
+          );
+          for (const [index, image] of remainingImages.entries()) {
+            const orderIndex = index + 1;
+            if (image.orderIndex !== orderIndex) {
+              await tx.image.update({
+                where: { id: image.id },
+                data: { orderIndex },
+              });
+            }
+          }
+
+          const lastTargetOrderIndex = targetAlbum.images.reduce(
+            (max: number, image: any) => Math.max(max, image.orderIndex ?? 0),
+            0,
+          );
+          for (const [index, image] of selectedImages.entries()) {
+            await tx.image.update({
+              where: { id: image.id },
+              data: {
+                albumId: dto.targetAlbumId,
+                orderIndex: lastTargetOrderIndex + index + 1,
+              },
+            });
+          }
+
+          const movedCover =
+            Boolean(sourceAlbum.coverImageId) &&
+            selectedIds.has(String(sourceAlbum.coverImageId));
+          const sourceIsEmpty = remainingImages.length === 0;
+          const mustClearCover = movedCover || sourceIsEmpty;
+          const mustDraft = movedCover || sourceIsEmpty;
+
+          await tx.album.update({
+            where: { id: sourceAlbumId },
+            data: {
+              ...(mustClearCover ? { coverImageId: null } : {}),
+              imageCount: remainingImages.length,
+              ...(mustDraft ? { status: 'draft' } : {}),
+            },
+          });
+          await tx.album.update({
+            where: { id: dto.targetAlbumId },
+            data: {
+              imageCount: targetAlbum.images.length + selectedImages.length,
+            },
+          });
+
+          return { movedCount: selectedImages.length };
         },
         { isolationLevel: 'Serializable' as any },
       ),

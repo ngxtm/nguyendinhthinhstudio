@@ -13,6 +13,7 @@ describe('AlbumsController route ordering', () => {
     findBySlug: jest.fn(),
     findAdminAll: jest.fn(),
     findAdminBySlug: jest.fn(),
+    moveImages: jest.fn(),
     incrementView: jest.fn().mockResolvedValue(undefined),
   };
 
@@ -20,6 +21,7 @@ describe('AlbumsController route ordering', () => {
     albumsService.findBySlug.mockResolvedValue({ source: 'public' });
     albumsService.findAdminAll.mockResolvedValue({ source: 'admin' });
     albumsService.findAdminBySlug.mockResolvedValue({ source: 'admin-slug' });
+    albumsService.moveImages.mockResolvedValue({ source: 'moved' });
 
     const moduleRef = await Test.createTestingModule({
       controllers: [AlbumsController],
@@ -60,5 +62,21 @@ describe('AlbumsController route ordering', () => {
       .expect({ source: 'admin-slug' });
 
     expect(albumsService.findAdminBySlug).toHaveBeenCalledWith('testing-223');
+  });
+
+  it('dispatches the authenticated album image move route', async () => {
+    await request(app.getHttpServer())
+      .post('/albums/source-album/images/move')
+      .send({
+        imageIds: ['image-1'],
+        targetAlbumId: 'target-album',
+      })
+      .expect(201)
+      .expect({ source: 'moved' });
+
+    expect(albumsService.moveImages).toHaveBeenCalledWith('source-album', {
+      imageIds: ['image-1'],
+      targetAlbumId: 'target-album',
+    });
   });
 });

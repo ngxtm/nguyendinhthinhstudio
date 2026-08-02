@@ -1,7 +1,23 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { BulkDeleteImagesDto } from '../images/dto/bulk-delete-images.dto';
+import { MoveImagesDto } from '../images/dto/move-images.dto';
 import { AlbumsService } from './albums.service';
 import { RecommendationService } from './recommendation.service';
 import { CreateAlbumDto } from './dto/create-album.dto';
@@ -44,18 +60,25 @@ export class AlbumsController {
   @Get('dashboard/stats')
   @Roles('admin')
   @ApiOperation({ summary: 'Get aggregated dashboard statistics' })
-  @ApiResponse({ status: 200, description: 'Dashboard stats retrieved successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Dashboard stats retrieved successfully',
+  })
   getDashboardStats() {
     return this.albumsService.getDashboardStats();
   }
 
   @Get('admin')
   @Roles('admin')
-  findAdminAll(@Query() query: QueryAlbumsDto) { return this.albumsService.findAdminAll(query); }
+  findAdminAll(@Query() query: QueryAlbumsDto) {
+    return this.albumsService.findAdminAll(query);
+  }
 
   @Get('admin/:id')
   @Roles('admin')
-  findAdminById(@Param('id') id: string) { return this.albumsService.findAdminById(id); }
+  findAdminById(@Param('id') id: string) {
+    return this.albumsService.findAdminById(id);
+  }
 
   @Get('admin/slug/:slug')
   @Roles('admin')
@@ -68,16 +91,16 @@ export class AlbumsController {
   @ApiOperation({ summary: 'Get album by slug' })
   @ApiResponse({ status: 200, description: 'Album retrieved successfully' })
   @ApiResponse({ status: 404, description: 'Album not found' })
-  findOne(
-    @Param('slug') slug: string,
-  ) {
+  findOne(@Param('slug') slug: string) {
     return this.albumsService.findBySlug(slug);
   }
 
   @Post(':slug/view')
   @Public()
   @Throttle({ default: { limit: 30, ttl: 60000 } }) // 30 views/min/IP — tight per-album view counter
-  @ApiOperation({ summary: 'Record a single album page view (increment view count)' })
+  @ApiOperation({
+    summary: 'Record a single album page view (increment view count)',
+  })
   @ApiResponse({ status: 200, description: 'View recorded' })
   recordView(@Param('slug') slug: string) {
     return this.albumsService.incrementView(slug);
@@ -86,7 +109,10 @@ export class AlbumsController {
   @Get(':slug/related')
   @Public()
   @ApiOperation({ summary: 'Get 12 related albums using smart recommendation' })
-  @ApiResponse({ status: 200, description: 'Related albums retrieved successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Related albums retrieved successfully',
+  })
   getRelated(@Param('slug') slug: string) {
     return this.recommendationService.getRelatedAlbums(slug, 12);
   }
@@ -122,14 +148,37 @@ export class AlbumsController {
 
   @Post(':id/images/bulk-delete')
   @Roles('admin')
-  @ApiOperation({ summary: 'Delete selected album images atomically (Admin only)' })
-  @ApiResponse({ status: 200, description: 'Images deleted and album refreshed' })
+  @ApiOperation({
+    summary: 'Delete selected album images atomically (Admin only)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Images deleted and album refreshed',
+  })
   @ApiResponse({ status: 400, description: 'Invalid image selection' })
-  bulkDeleteImages(
-    @Param('id') id: string,
-    @Body() dto: BulkDeleteImagesDto,
-  ) {
+  bulkDeleteImages(@Param('id') id: string, @Body() dto: BulkDeleteImagesDto) {
     return this.albumsService.bulkDeleteImages(id, dto);
+  }
+
+  @Post(':id/images/move')
+  @Roles('admin')
+  @ApiOperation({
+    summary: 'Move selected album images atomically (Admin only)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Images moved and source album refreshed',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid image selection or destination',
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'Destination album capacity is exhausted',
+  })
+  moveImages(@Param('id') id: string, @Body() dto: MoveImagesDto) {
+    return this.albumsService.moveImages(id, dto);
   }
 
   @Patch(':id/publish')
@@ -144,10 +193,12 @@ export class AlbumsController {
   @Patch(':id/feature')
   @Roles('admin')
   @ApiOperation({ summary: 'Toggle featured status (Admin only)' })
-  @ApiResponse({ status: 200, description: 'Featured status toggled successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Featured status toggled successfully',
+  })
   @ApiResponse({ status: 404, description: 'Album not found' })
   toggleFeatured(@Param('id') id: string) {
     return this.albumsService.toggleFeatured(id);
   }
 }
-

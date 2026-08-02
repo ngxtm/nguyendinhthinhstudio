@@ -6,13 +6,22 @@
 'use client'
 
 import { useEffect, useMemo, useState, type DragEvent } from 'react'
-import { Trash2 } from 'lucide-react'
+import { ArrowRightLeft, Trash2 } from 'lucide-react'
 import Masonry from 'react-masonry-css'
-import { bulkDeleteAlbumImages, deleteImage, reorderImages, type Album, type Image } from '@/lib/api'
+import {
+  ApiError,
+  bulkDeleteAlbumImages,
+  deleteImage,
+  moveAlbumImages,
+  reorderImages,
+  type Album,
+  type Image
+} from '@/lib/api'
 import { toast } from 'sonner'
 import { usePhotoSwipe } from '@/lib/photoswipe'
 import AlbumImageTile from './AlbumImageTile'
 import ConfirmDialog from './ConfirmDialog'
+import MoveImagesDialog from './MoveImagesDialog'
 import 'photoswipe/style.css'
 
 interface Props {
@@ -46,6 +55,8 @@ export default function ImageGrid({
   const [selectedImageIds, setSelectedImageIds] = useState<Set<string>>(new Set())
   const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false)
   const [isDeletePending, setIsDeletePending] = useState(false)
+  const [moveDialogOpen, setMoveDialogOpen] = useState(false)
+  const [isMovePending, setIsMovePending] = useState(false)
   const masonryBreakpoints = useMemo(
     () => ({
       default: 4,
@@ -69,6 +80,7 @@ export default function ImageGrid({
     if (!selectionMode) {
       setSelectedImageIds(new Set())
       setBulkConfirmOpen(false)
+      setMoveDialogOpen(false)
     }
   }, [selectionMode])
 
@@ -156,16 +168,17 @@ export default function ImageGrid({
 
   const allSelected = localImages.length > 0 && selectedImageIds.size === localImages.length
   const selectionIncludesCover = coverImageId ? selectedImageIds.has(coverImageId) : false
+  const isSelectionPending = isDeletePending || isMovePending
 
   function leaveSelectionMode() {
-    if (isDeletePending) return
+    if (isSelectionPending) return
     setSelectedImageIds(new Set())
     setBulkConfirmOpen(false)
     onSelectionModeChange(false)
   }
 
   function toggleImageSelection(imageId: string) {
-    if (!selectionMode || isDeletePending) return
+    if (!selectionMode || isSelectionPending) return
 
     setSelectedImageIds(current => {
       const next = new Set(current)
@@ -179,7 +192,7 @@ export default function ImageGrid({
   }
 
   function toggleSelectAll() {
-    if (isDeletePending) return
+    if (isSelectionPending) return
     setSelectedImageIds(allSelected ? new Set() : new Set(localImages.map(image => image.id)))
   }
 
@@ -222,6 +235,35 @@ export default function ImageGrid({
       toast.error('Không thể xóa các ảnh đã chọn')
     } finally {
       setIsDeletePending(false)
+    }
+  }
+
+  async function handleConfirmMove(targetAlbum: Album): Promise<void> {
+    if (selectedImageIds.size === 0 || isSelectionPending) return
+
+    const movedCount = selectedImageIds.size
+    setIsMovePending(true)
+    try {
+      const updated = await moveAlbumImages(albumId, Array.from(selectedImageIds), targetAlbum.id)
+      setLocalImages(updated.images ?? [])
+      setSelectedImageIds(new Set())
+      setMoveDialogOpen(false)
+      onSelectionModeChange(false)
+      onAlbumUpdated(updated)
+      toast.success(`Đã chuyển ${movedCount} ảnh sang album "${targetAlbum.title}"!`)
+      await onDelete()
+    } catch (error) {
+      console.error('Failed to move images:', error)
+      const message =
+        error instanceof ApiError &&
+        typeof error.data === 'object' &&
+        error.data !== null &&
+        typeof (error.data as { message?: unknown }).message === 'string'
+          ? (error.data as { message: string }).message
+          : 'Không thể chuyển các ảnh đã chọn'
+      toast.error(message)
+    } finally {
+      setIsMovePending(false)
     }
   }
 
@@ -271,7 +313,7 @@ export default function ImageGrid({
           <div className="flex flex-wrap items-center justify-end gap-2">
             <button
               type="button"
-              disabled={isDeletePending}
+              disabled={isSelectionPending}
               onClick={toggleSelectAll}
               className="min-h-11 rounded-lg border border-blue-300 bg-white px-3 text-sm font-medium text-blue-700 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-50"
             >
@@ -279,7 +321,7 @@ export default function ImageGrid({
             </button>
             <button
               type="button"
-              disabled={isDeletePending}
+              disabled={isSelectionPending}
               onClick={leaveSelectionMode}
               className="min-h-11 rounded-lg px-3 text-sm font-medium text-gray-600 hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
             >
@@ -287,7 +329,16 @@ export default function ImageGrid({
             </button>
             <button
               type="button"
-              disabled={selectedImageIds.size === 0 || isDeletePending}
+              disabled={selectedImageIds.size === 0 || isSelectionPending}
+              onClick={() => setMoveDialogOpen(true)}
+              className="hidden min-h-11 items-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50 md:inline-flex"
+            >
+              <ArrowRightLeft size={17} aria-hidden="true" />
+              Chuyển album
+            </button>
+            <button
+              type="button"
+              disabled={selectedImageIds.size === 0 || isSelectionPending}
               onClick={() => setBulkConfirmOpen(true)}
               className="hidden min-h-11 items-center gap-2 rounded-lg bg-red-600 px-4 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50 md:inline-flex"
             >
@@ -344,12 +395,21 @@ export default function ImageGrid({
               </p>
               <button
                 type="button"
-                disabled={selectedImageIds.size === 0 || isDeletePending}
+                disabled={selectedImageIds.size === 0 || isSelectionPending}
                 onClick={() => setBulkConfirmOpen(true)}
                 className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-red-600 px-5 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <Trash2 size={18} aria-hidden="true" />
                 Xóa {selectedImageIds.size} ảnh
+              </button>
+              <button
+                type="button"
+                disabled={selectedImageIds.size === 0 || isSelectionPending}
+                onClick={() => setMoveDialogOpen(true)}
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <ArrowRightLeft size={18} aria-hidden="true" />
+                Chuyển
               </button>
             </div>
           </div>
@@ -403,6 +463,15 @@ export default function ImageGrid({
         isPending={isDeletePending}
         onClose={() => setBulkConfirmOpen(false)}
         onConfirm={handleConfirmBulkDelete}
+      />
+
+      <MoveImagesDialog
+        open={moveDialogOpen}
+        sourceAlbumId={albumId}
+        selectedCount={selectedImageIds.size}
+        isPending={isMovePending}
+        onClose={() => setMoveDialogOpen(false)}
+        onConfirm={handleConfirmMove}
       />
 
       <style jsx global>{`
