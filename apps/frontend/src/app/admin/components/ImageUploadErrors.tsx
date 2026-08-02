@@ -1,6 +1,6 @@
 'use client'
 
-export const IMAGE_NORMALIZATION_MESSAGE = 'Ảnh sẽ được nén sang WebP trước khi upload.'
+export const IMAGE_NORMALIZATION_MESSAGE = 'Ảnh sẽ được nén sang WebP trước khi tải ảnh lên.'
 
 function retryTime(retryAfter: string | undefined): string {
   if (!retryAfter) return 'ít phút nữa'
@@ -32,7 +32,7 @@ export function getImageUploadErrorMessage(code: string, retryAfter?: string): s
     case 'image_encode_failed':
       return 'Không thể xử lý ảnh này trong trình duyệt. Vui lòng thử xuất lại ảnh hoặc chọn ảnh khác.'
     default:
-      return 'Không thể upload ảnh này. Vui lòng thử lại hoặc chọn ảnh khác.'
+      return 'Không thể tải ảnh này lên. Vui lòng thử lại hoặc chọn ảnh khác.'
   }
 }
 

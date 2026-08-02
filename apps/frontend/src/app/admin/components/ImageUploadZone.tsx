@@ -59,10 +59,10 @@ export default function ImageUploadZone({ albumId, disabled = false, onUploading
 
   function validateFile(file: File): string | null {
     if (!ACCEPTED_SOURCE_MIME_TYPES.includes(file.type as never)) {
-      return 'Chỉ hỗ trợ file ảnh JPG, PNG hoặc WebP'
+      return 'Chỉ hỗ trợ ảnh định dạng JPG, PNG hoặc WebP'
     }
     if (file.size > MAX_SOURCE_BYTES) {
-      return 'File quá lớn (tối đa 100 MB)'
+      return 'Ảnh quá lớn (tối đa 100 MB)'
     }
     return null
   }
@@ -77,7 +77,7 @@ export default function ImageUploadZone({ albumId, disabled = false, onUploading
     if (disabled || !newFiles || newFiles.length === 0) return
 
     if (files.length + newFiles.length > MAX_BATCH_FILES) {
-      toast.error(`Chỉ có thể upload tối đa ${MAX_BATCH_FILES} ảnh/lần`)
+      toast.error(`Chỉ có thể tải lên tối đa ${MAX_BATCH_FILES} ảnh/lần`)
       return
     }
 
@@ -114,7 +114,7 @@ export default function ImageUploadZone({ albumId, disabled = false, onUploading
     setFiles(prev => [...prev, ...validFiles])
 
     if (validFiles.length > 0) {
-      toast.success(`Đã chọn ${validFiles.length} ảnh. Bấm nút Upload bên dưới để bắt đầu.`)
+      toast.success(`Đã chọn ${validFiles.length} ảnh. Bấm nút Tải ảnh lên bên dưới để bắt đầu.`)
     }
   }
 
@@ -181,7 +181,7 @@ export default function ImageUploadZone({ albumId, disabled = false, onUploading
             const newFiles = [...prev]
             newFiles[index].progress = progress
             newFiles[index].statusText =
-              progress < 10 ? IMAGE_NORMALIZATION_MESSAGE : progress < 90 ? 'Đang upload' : 'Đang hoàn tất'
+              progress < 10 ? IMAGE_NORMALIZATION_MESSAGE : progress < 90 ? 'Đang tải ảnh lên' : 'Đang hoàn tất'
             return newFiles
           })
         })
@@ -213,7 +213,7 @@ export default function ImageUploadZone({ albumId, disabled = false, onUploading
     const validFiles = files.filter(f => !f.error && f.status !== 'success')
 
     if (validFiles.length === 0) {
-      toast.error('Không có file hợp lệ để upload')
+      toast.error('Không có ảnh hợp lệ để tải ảnh lên')
       return
     }
 
@@ -221,7 +221,7 @@ export default function ImageUploadZone({ albumId, disabled = false, onUploading
       setUploading(true)
       uploadControllerRef.current.cancel = false
 
-      toast.info(`Bắt đầu upload ${validFiles.length} ảnh...`)
+      toast.info(`Bắt đầu tải ảnh lên ${validFiles.length} ảnh...`)
 
       // Upload với concurrency (2 ảnh cùng lúc)
       const queue = [
@@ -237,11 +237,13 @@ export default function ImageUploadZone({ albumId, disabled = false, onUploading
 
       // Summary
       if (uploadControllerRef.current.cancel) {
-        toast.warning('Upload đã bị hủy')
+        toast.warning('Tải ảnh lên đã bị hủy')
       } else if (failed > 0) {
-        toast.warning(`Upload hoàn thành: ${completed} thành công, ${failed} thất bại. Bấm nút Retry để thử lại.`)
+        toast.warning(
+          `Tải ảnh lên hoàn thành: ${completed} thành công, ${failed} thất bại. Bấm nút Thử lại để thử lại.`
+        )
       } else {
-        toast.success(`Upload thành công ${completed} ảnh!`)
+        toast.success(`Tải ảnh lên thành công ${completed} ảnh!`)
       }
 
       // Clean up successful files
@@ -253,7 +255,7 @@ export default function ImageUploadZone({ albumId, disabled = false, onUploading
       }
     } catch (error: any) {
       console.error('Upload failed:', error)
-      toast.error('Có lỗi xảy ra khi upload')
+      toast.error('Có lỗi xảy ra khi tải ảnh lên')
     } finally {
       setUploading(false)
       uploadControllerRef.current.cancel = false
@@ -267,13 +269,13 @@ export default function ImageUploadZone({ albumId, disabled = false, onUploading
 
     try {
       await uploadSingleFile(fileItem, index)
-      toast.success(`Upload thành công ${fileItem.file.name}!`)
+      toast.success(`Tải ảnh lên thành công ${fileItem.file.name}!`)
 
       // Remove from list if success
       setFiles(prev => prev.filter((_, i) => i !== index))
       await onUploadComplete()
     } catch (error) {
-      toast.error(`Upload thất bại ${fileItem.file.name}`)
+      toast.error(`Tải ảnh lên thất bại ${fileItem.file.name}`)
     }
   }
 
@@ -290,7 +292,7 @@ export default function ImageUploadZone({ albumId, disabled = false, onUploading
       }))
     )
 
-    toast.warning('Đã hủy upload')
+    toast.warning('Đã hủy tải ảnh lên')
   }
 
   const stats = {
@@ -305,7 +307,7 @@ export default function ImageUploadZone({ albumId, disabled = false, onUploading
     <fieldset disabled={disabled} className="min-w-0 disabled:cursor-not-allowed disabled:opacity-60">
       {disabled && (
         <p className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
-          Hoàn tất hoặc hủy chế độ chọn ảnh để tiếp tục upload.
+          Hoàn tất hoặc hủy chế độ chọn ảnh để tiếp tục tải ảnh lên.
         </p>
       )}
       {/* Drop Zone */}
@@ -321,12 +323,12 @@ export default function ImageUploadZone({ albumId, disabled = false, onUploading
       >
         <Upload size={48} className={`mx-auto mb-4 ${dragActive ? 'text-blue-500' : 'text-gray-400'}`} />
         <p className="mb-2 text-lg font-medium text-gray-700">
-          {dragActive ? 'Thả file vào đây' : 'Kéo thả hoặc click để chọn ảnh'}
+          {dragActive ? 'Thả ảnh vào đây' : 'Kéo thả hoặc nhấp để chọn ảnh'}
         </p>
         <p className="text-sm text-gray-500">
           Hỗ trợ: JPG, PNG, WebP - Tối đa {MAX_SOURCE_BYTES / (1024 * 1024)} MB/ảnh
         </p>
-        <p className="mt-1 text-xs text-gray-400">Mỗi ảnh sẽ được nén một lần sang WebP trước khi upload</p>
+        <p className="mt-1 text-xs text-gray-400">Mỗi ảnh sẽ được nén một lần sang WebP trước khi tải ảnh lên</p>
 
         <input
           ref={fileInputRef}
@@ -352,7 +354,7 @@ export default function ImageUploadZone({ albumId, disabled = false, onUploading
               {stats.uploading > 0 && (
                 <span className="flex items-center gap-1 text-blue-600">
                   <Loader2 size={14} className="animate-spin" />
-                  {stats.uploading} đang upload
+                  {stats.uploading} đang tải ảnh lên
                 </span>
               )}
               {stats.success > 0 && (
@@ -420,7 +422,7 @@ export default function ImageUploadZone({ albumId, disabled = false, onUploading
                   {(fileItem.status === 'pending' || fileItem.status === 'uploading') && (
                     <ImageUploadProgress
                       progress={fileItem.progress}
-                      state={fileItem.statusText ?? (fileItem.status === 'uploading' ? 'Đang upload' : 'Sẵn sàng')}
+                      state={fileItem.statusText ?? (fileItem.status === 'uploading' ? 'Đang tải ảnh lên' : 'Sẵn sàng')}
                     />
                   )}
 
@@ -464,7 +466,7 @@ export default function ImageUploadZone({ albumId, disabled = false, onUploading
                         className="rounded-lg bg-orange-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-orange-700"
                         title="Thử lại"
                       >
-                        Retry
+                        Thử lại
                       </button>
                     )}
 
@@ -473,7 +475,7 @@ export default function ImageUploadZone({ albumId, disabled = false, onUploading
                       <button
                         onClick={() => removeFile(index)}
                         className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
-                        title="Xóa file"
+                        title="Xóa ảnh"
                       >
                         <X size={20} />
                       </button>
@@ -494,7 +496,7 @@ export default function ImageUploadZone({ albumId, disabled = false, onUploading
                   className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-blue-600 px-6 py-3 font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Upload size={20} />
-                  Upload {files.filter(f => !f.error && f.status !== 'success').length} ảnh
+                  Tải ảnh lên {files.filter(f => !f.error && f.status !== 'success').length} ảnh
                 </button>
                 <button
                   onClick={() => {
@@ -511,7 +513,7 @@ export default function ImageUploadZone({ albumId, disabled = false, onUploading
                 onClick={handleCancelUpload}
                 className="flex-1 rounded-lg border border-red-300 px-6 py-3 font-medium text-red-600 transition-colors hover:bg-red-50"
               >
-                Hủy upload
+                Hủy tải ảnh lên
               </button>
             )}
           </div>
@@ -519,7 +521,7 @@ export default function ImageUploadZone({ albumId, disabled = false, onUploading
           {/* Upload Tips */}
           {uploading && (
             <div className="mt-4 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-700">
-              💡 <strong>Tip:</strong> Upload đang chạy. Bạn có thể đóng tab này và quay lại sau.
+              💡 <strong>Mẹo:</strong> Tải ảnh lên đang chạy. Bạn có thể đóng tab này và quay lại sau.
             </div>
           )}
         </div>

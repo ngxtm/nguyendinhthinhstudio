@@ -8,20 +8,13 @@
 import { useEffect, useMemo, useState, type DragEvent } from 'react'
 import { ArrowRightLeft, Trash2 } from 'lucide-react'
 import Masonry from 'react-masonry-css'
-import {
-  ApiError,
-  bulkDeleteAlbumImages,
-  deleteImage,
-  moveAlbumImages,
-  reorderImages,
-  type Album,
-  type Image
-} from '@/lib/api'
+import { bulkDeleteAlbumImages, deleteImage, moveAlbumImages, reorderImages, type Album, type Image } from '@/lib/api'
 import { toast } from 'sonner'
 import { usePhotoSwipe } from '@/lib/photoswipe'
 import AlbumImageTile from './AlbumImageTile'
 import ConfirmDialog from './ConfirmDialog'
 import MoveImagesDialog from './MoveImagesDialog'
+import { getAdminErrorMessage } from '../error-message'
 import 'photoswipe/style.css'
 
 interface Props {
@@ -250,18 +243,11 @@ export default function ImageGrid({
       setMoveDialogOpen(false)
       onSelectionModeChange(false)
       onAlbumUpdated(updated)
-      toast.success(`Đã chuyển ${movedCount} ảnh sang album "${targetAlbum.title}"!`)
+      toast.success(`Đã chuyển ${movedCount} ảnh sang bộ ảnh "${targetAlbum.title}"!`)
       await onDelete()
     } catch (error) {
       console.error('Failed to move images:', error)
-      const message =
-        error instanceof ApiError &&
-        typeof error.data === 'object' &&
-        error.data !== null &&
-        typeof (error.data as { message?: unknown }).message === 'string'
-          ? (error.data as { message: string }).message
-          : 'Không thể chuyển các ảnh đã chọn'
-      toast.error(message)
+      toast.error(getAdminErrorMessage(error, 'Không thể chuyển các ảnh đã chọn'))
     } finally {
       setIsMovePending(false)
     }
@@ -334,7 +320,7 @@ export default function ImageGrid({
               className="hidden min-h-11 items-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50 md:inline-flex"
             >
               <ArrowRightLeft size={17} aria-hidden="true" />
-              Chuyển album
+              Chuyển bộ ảnh
             </button>
             <button
               type="button"
@@ -426,7 +412,7 @@ export default function ImageGrid({
             thể hoàn tác.
             {deleteCandidate?.id === coverImageId && (
               <span className="mt-2 block font-medium text-amber-700">
-                Đây là ảnh cover. Album sẽ mất cover và chuyển về Draft.
+                Đây là ảnh bìa. Bộ ảnh sẽ mất ảnh bìa và chuyển về Nháp.
               </span>
             )}
           </>
@@ -443,16 +429,16 @@ export default function ImageGrid({
           <>
             <span>
               Bạn sắp xóa vĩnh viễn <strong className="font-semibold text-gray-900">{selectedImageIds.size} ảnh</strong>{' '}
-              khỏi album.
+              khỏi bộ ảnh.
             </span>
             {allSelected ? (
               <span className="mt-2 block font-medium text-amber-700">
-                Album sẽ không còn ảnh, cover bị bỏ và trạng thái chuyển về Draft.
+                Bộ ảnh sẽ không còn ảnh, ảnh bìa bị bỏ và trạng thái chuyển về Nháp.
               </span>
             ) : (
               selectionIncludesCover && (
                 <span className="mt-2 block font-medium text-amber-700">
-                  Lựa chọn có ảnh cover. Album sẽ mất cover và chuyển về Draft.
+                  Lựa chọn có ảnh bìa. Bộ ảnh sẽ mất ảnh bìa và chuyển về Nháp.
                 </span>
               )
             )}

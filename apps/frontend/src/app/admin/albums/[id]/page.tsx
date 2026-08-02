@@ -45,7 +45,7 @@ export default function AlbumDetailPage() {
       setAlbum(data);
     } catch (error) {
       console.error('Failed to load album:', error);
-      toast.error('Không thể tải album');
+      toast.error('Không thể tải bộ ảnh');
     } finally {
       if (showLoading) setLoading(false);
     }
@@ -57,11 +57,11 @@ export default function AlbumDetailPage() {
     try {
       const updated = await setCoverImage(album.id, imageId);
       setAlbum(updated);
-      toast.success('Đã đặt ảnh cover!');
+      toast.success('Đã đặt ảnh bìa!');
       return true;
     } catch (error) {
       console.error('Failed to set cover:', error);
-      toast.error('Không thể đặt ảnh cover');
+      toast.error('Không thể đặt ảnh bìa');
       return false;
     }
   }
@@ -70,12 +70,12 @@ export default function AlbumDetailPage() {
     if (!album || isPublishing) return;
 
     if (!album.images || album.images.length === 0) {
-      toast.error('Vui lòng upload ít nhất 1 ảnh trước khi publish');
+      toast.error('Vui lòng tải lên ít nhất 1 ảnh trước khi xuất bản');
       return;
     }
 
     if (!album.coverImage) {
-      toast.error('Vui lòng chọn ảnh cover trước khi publish');
+      toast.error('Vui lòng chọn ảnh bìa trước khi xuất bản');
       return;
     }
 
@@ -84,10 +84,10 @@ export default function AlbumDetailPage() {
       const updated = await publishAlbum(album.id);
       setAlbum(updated);
       await loadAlbum({ showLoading: false });
-      toast.success('Đã publish album!');
+      toast.success('Đã xuất bản bộ ảnh!');
     } catch (error) {
       console.error('Failed to publish album:', error);
-      toast.error('Không thể publish album');
+      toast.error('Không thể xuất bản bộ ảnh');
     } finally {
       setIsPublishing(false);
     }
@@ -108,9 +108,9 @@ export default function AlbumDetailPage() {
   if (!album) {
     return (
       <div className="text-center py-12">
-        <p className="text-gray-500 mb-4">Không tìm thấy album</p>
+        <p className="text-gray-500 mb-4">Không tìm thấy bộ ảnh</p>
         <Link href="/admin/albums" className="text-blue-600 hover:underline">
-          Quay lại danh sách albums
+          Quay lại danh sách bộ ảnh
         </Link>
       </div>
     );
@@ -138,7 +138,7 @@ export default function AlbumDetailPage() {
               className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
             >
               <Edit size={18} />
-              Edit
+              Chỉnh sửa
             </Link>
             {album.status !== 'published' && (
               <button
@@ -146,7 +146,7 @@ export default function AlbumDetailPage() {
                 disabled={isPublishing}
                 className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isPublishing ? 'Đang publish...' : 'Publish'}
+                {isPublishing ? 'Đang xuất bản...' : 'Xuất bản'}
               </button>
             )}
           </div>
@@ -157,13 +157,13 @@ export default function AlbumDetailPage() {
       <div className="bg-white rounded-lg shadow p-6 mb-6">
         <div className="grid grid-cols-4 gap-6">
           <div>
-            <p className="text-sm text-gray-500">Status</p>
+            <p className="text-sm text-gray-500">Trạng thái</p>
             <p className="font-medium">
               <StatusBadge status={album.status} />
             </p>
           </div>
           <div>
-            <p className="text-sm text-gray-500">Category</p>
+            <p className="text-sm text-gray-500">Danh mục</p>
             <p className="font-medium">
               {album.categories && album.categories.length > 0
                 ? album.categories
@@ -174,11 +174,11 @@ export default function AlbumDetailPage() {
             </p>
           </div>
           <div>
-            <p className="text-sm text-gray-500">Images</p>
+            <p className="text-sm text-gray-500">Hình ảnh</p>
             <p className="font-medium">{album.imageCount} ảnh</p>
           </div>
           <div>
-            <p className="text-sm text-gray-500">Views</p>
+            <p className="text-sm text-gray-500">Lượt xem</p>
             <p className="font-medium">{formatFullCount(album.viewCount)}</p>
           </div>
         </div>
@@ -186,7 +186,7 @@ export default function AlbumDetailPage() {
 
       {/* Upload Section */}
       <div className="mb-8">
-        <h2 className="text-xl font-semibold mb-4">Upload Ảnh</h2>
+        <h2 className="text-xl font-semibold mb-4">Tải ảnh lên</h2>
         <ImageUploadZone
           albumId={album.id}
           disabled={selectionMode}
@@ -194,7 +194,7 @@ export default function AlbumDetailPage() {
           onUploadComplete={handleUploadComplete}
         />
         <p className="text-sm text-gray-500 mt-2">
-          * Tối đa 50 ảnh/album, 100MB/ảnh. Hỗ trợ JPG, PNG, WebP, GIF
+          * Tối đa 50 ảnh/bộ ảnh, 100MB/ảnh. Hỗ trợ JPG, PNG, WebP, GIF
         </p>
       </div>
 
@@ -202,7 +202,7 @@ export default function AlbumDetailPage() {
       <div>
         <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
           <h2 className="text-xl font-semibold">
-            Ảnh trong album ({album.images?.length || 0})
+            Ảnh trong bộ ảnh ({album.images?.length || 0})
           </h2>
           {!selectionMode && album.images && album.images.length > 0 && (
             <button
@@ -210,7 +210,7 @@ export default function AlbumDetailPage() {
               disabled={uploading}
               onClick={() => setSelectionMode(true)}
               className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 text-sm font-medium text-gray-700 transition-colors hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-              title={uploading ? 'Hoàn tất upload trước khi chọn ảnh' : undefined}
+              title={uploading ? 'Hoàn tất tải ảnh lên trước khi chọn ảnh' : undefined}
             >
               <ListChecks size={18} aria-hidden="true" />
               Chọn ảnh
@@ -235,7 +235,7 @@ export default function AlbumDetailPage() {
             <Upload size={48} className="mx-auto text-gray-400 mb-4" />
             <p className="text-gray-500 mb-2">Chưa có ảnh nào</p>
             <p className="text-sm text-gray-400">
-              Kéo thả hoặc click vào khu vực bên trên để upload
+              Kéo thả hoặc nhấp vào khu vực bên trên để tải ảnh lên
             </p>
           </div>
         )}
@@ -250,6 +250,11 @@ function StatusBadge({ status }: { status: string }) {
     draft: 'bg-gray-100 text-gray-800',
     scheduled: 'bg-blue-100 text-blue-800',
   };
+  const labels = {
+    published: 'Đã xuất bản',
+    draft: 'Nháp',
+    scheduled: 'Đã lên lịch',
+  };
 
   return (
     <span
@@ -257,7 +262,7 @@ function StatusBadge({ status }: { status: string }) {
         colors[status as keyof typeof colors] || colors.draft
       }`}
     >
-      {status}
+      {labels[status as keyof typeof labels] || 'Không xác định'}
     </span>
   );
 }

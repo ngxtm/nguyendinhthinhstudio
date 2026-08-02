@@ -82,9 +82,9 @@ export default function LibrarySettingsPage() {
     setSaving('gallery');
     try {
       await updateSiteSetting('gallery', gallery);
-      toast.success('Đã lưu cấu hình gallery');
+      toast.success('Đã lưu cấu hình thư viện ảnh');
     } catch {
-      toast.error('Lưu cấu hình gallery thất bại');
+      toast.error('Lưu cấu hình thư viện ảnh thất bại');
     } finally {
       setSaving(null);
     }
@@ -99,7 +99,7 @@ export default function LibrarySettingsPage() {
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Quản lý thư viện</h1>
         <p className="mt-1 text-sm text-gray-500">
-          Cấu hình thông tin studio hiển thị công khai và hành vi gallery.
+          Cấu hình thông tin studio hiển thị công khai và hành vi thư viện ảnh.
         </p>
       </div>
 
@@ -116,7 +116,7 @@ export default function LibrarySettingsPage() {
               placeholder="NDT Studio"
             />
           </Field>
-          <Field label="Tagline / Slogan">
+          <Field label="Khẩu hiệu">
             <input
               type="text"
               value={branding.tagline}
@@ -134,7 +134,7 @@ export default function LibrarySettingsPage() {
               placeholder="0901234567"
             />
           </Field>
-          <Field label="Email">
+          <Field label="Địa chỉ email">
             <input
               type="email"
               value={branding.email}
@@ -194,9 +194,9 @@ export default function LibrarySettingsPage() {
 
       {/* Gallery config */}
       <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-        <h2 className="mb-4 text-lg font-semibold text-gray-900">Cấu hình gallery</h2>
+        <h2 className="mb-4 text-lg font-semibold text-gray-900">Cấu hình thư viện ảnh</h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <Field label="Trạng thái album mặc định">
+          <Field label="Trạng thái bộ ảnh mặc định">
             <select
               value={gallery.defaultAlbumStatus}
               onChange={(e) =>
@@ -208,7 +208,7 @@ export default function LibrarySettingsPage() {
               <option value="published">Công khai</option>
             </select>
           </Field>
-          <Field label="Số album nổi bật (homepage)">
+          <Field label="Số bộ ảnh nổi bật (trang chủ)">
             <input
               type="number"
               min={1}
@@ -218,7 +218,7 @@ export default function LibrarySettingsPage() {
               className="input"
             />
           </Field>
-          <Field label="Số bộ ảnh mỗi trang gallery">
+          <Field label="Số bộ ảnh mỗi trang thư viện ảnh">
             <input
               type="number"
               min={1}
@@ -236,7 +236,7 @@ export default function LibrarySettingsPage() {
             disabled={saving === 'gallery'}
             className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {saving === 'gallery' ? 'Đang lưu…' : 'Lưu cấu hình gallery'}
+            {saving === 'gallery' ? 'Đang lưu…' : 'Lưu cấu hình thư viện ảnh'}
           </button>
         </div>
       </section>

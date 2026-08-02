@@ -65,7 +65,7 @@ export default function AlbumsPage() {
           }
 
           console.error('Failed to load albums:', error)
-          toast.error('Không thể tải danh sách albums')
+          toast.error('Không thể tải danh sách bộ ảnh')
         } finally {
           if (!signal.aborted) {
             setLoading(false)
@@ -103,11 +103,11 @@ export default function AlbumsPage() {
     try {
       await deleteAlbum(deleteCandidate.id)
       setAlbums(previous => previous.filter(album => album.id !== deleteCandidate.id))
-      toast.success('Đã xóa album!')
+      toast.success('Đã xóa bộ ảnh!')
       setDeleteCandidate(null)
     } catch (error) {
       console.error('Failed to delete album:', error)
-      toast.error('Không thể xóa album')
+      toast.error('Không thể xóa bộ ảnh')
     } finally {
       setIsDeletePending(false)
     }
@@ -119,7 +119,7 @@ export default function AlbumsPage() {
       setAlbums(previous => previous.map(item => (item.id === album.id ? updated : item)))
     } catch (error) {
       console.error('Failed to toggle featured:', error)
-      toast.error('Không thể cập nhật featured status')
+      toast.error('Không thể cập nhật trạng thái nổi bật')
     }
   }
 
@@ -143,13 +143,13 @@ export default function AlbumsPage() {
       />
       <ConfirmDialog
         open={deleteCandidate !== null}
-        title="Xóa album?"
+        title="Xóa bộ ảnh?"
         description={
           <>
-            Xóa album <strong>&quot;{deleteCandidate?.title}&quot;</strong>? Hành động này không thể hoàn tác.
+            Xóa bộ ảnh <strong>&quot;{deleteCandidate?.title}&quot;</strong>? Hành động này không thể hoàn tác.
           </>
         }
-        confirmLabel="Xóa album"
+        confirmLabel="Xóa bộ ảnh"
         isPending={isDeletePending}
         onClose={() => setDeleteCandidate(null)}
         onConfirm={handleConfirmDelete}
@@ -162,15 +162,15 @@ function AlbumsHeader() {
   return (
     <div className="mb-8 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">Albums</h1>
-        <p className="text-gray-600">Quản lý danh sách albums và trạng thái hiển thị</p>
+        <h1 className="text-3xl font-bold text-gray-900">Bộ ảnh</h1>
+        <p className="text-gray-600">Quản lý danh sách bộ ảnh và trạng thái hiển thị</p>
       </div>
       <Link
         href="/admin/albums/new"
         className="flex items-center gap-2 self-start rounded-lg bg-blue-600 px-5 py-2.5 font-medium text-white transition-colors hover:bg-blue-700"
       >
         <Plus size={18} />
-        Tạo Album Mới
+        Tạo bộ ảnh mới
       </Link>
     </div>
   )
@@ -190,8 +190,8 @@ function AlbumsToolbar({
   const filters = useMemo(
     () => [
       { label: 'Tất cả', value: 'all' as AlbumFilter },
-      { label: 'Published', value: 'published' as AlbumFilter },
-      { label: 'Draft', value: 'draft' as AlbumFilter }
+      { label: 'Đã xuất bản', value: 'published' as AlbumFilter },
+      { label: 'Nháp', value: 'draft' as AlbumFilter }
     ],
     []
   )
@@ -209,13 +209,13 @@ function AlbumsToolbar({
         ))}
       </div>
       <div className="relative w-full md:w-72">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+        <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
         <input
           type="search"
           value={search}
           onChange={event => onSearchChange(event.target.value)}
-          placeholder="Tìm kiếm album..."
-          className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-9 pr-3 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+          placeholder="Tìm kiếm bộ ảnh..."
+          className="w-full rounded-lg border border-gray-300 bg-white py-2 pr-3 pl-9 text-sm text-gray-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none"
         />
       </div>
     </div>
@@ -242,7 +242,7 @@ function AlbumsContent({
   if (loading) {
     return (
       <div className="py-12 text-center">
-        <p className="text-gray-500">Đang tải danh sách albums...</p>
+        <p className="text-gray-500">Đang tải danh sách bộ ảnh...</p>
       </div>
     )
   }
@@ -342,12 +342,12 @@ function AlbumsTable({
     <table className="w-full min-w-[840px]">
       <thead className="border-b border-gray-200 bg-gray-50">
         <tr>
-          <TableHeader>Album</TableHeader>
-          <TableHeader>Category</TableHeader>
-          <TableHeader>Status</TableHeader>
-          <TableHeader>Images</TableHeader>
-          <TableHeader>Views</TableHeader>
-          <TableHeader align="right">Actions</TableHeader>
+          <TableHeader>Bộ ảnh</TableHeader>
+          <TableHeader>Danh mục</TableHeader>
+          <TableHeader>Trạng thái</TableHeader>
+          <TableHeader>Hình ảnh</TableHeader>
+          <TableHeader>Lượt xem</TableHeader>
+          <TableHeader align="right">Thao tác</TableHeader>
         </tr>
       </thead>
       <tbody className="divide-y divide-gray-200">
@@ -408,7 +408,7 @@ function AlbumRow({
             className={`inline-flex items-center justify-center rounded p-2 transition-colors hover:bg-gray-100 ${
               album.isFeatured ? 'text-yellow-500' : 'text-gray-400'
             }`}
-            title={album.isFeatured ? 'Đang featured' : 'Chưa featured'}
+            title={album.isFeatured ? 'Đang nổi bật' : 'Chưa nổi bật'}
           >
             <Star size={18} fill={album.isFeatured ? 'currentColor' : 'none'} />
           </button>
@@ -434,7 +434,7 @@ function EmptyState({ isSearching }: { isSearching: boolean }) {
   return (
     <div className="rounded-lg border-2 border-dashed border-gray-300 bg-white py-12 text-center">
       <p className="mb-4 text-gray-500">
-        {isSearching ? 'Không tìm thấy album nào khớp với từ khóa.' : 'Chưa có album nào.'}
+        {isSearching ? 'Không tìm thấy bộ ảnh nào khớp với từ khóa.' : 'Chưa có bộ ảnh nào.'}
       </p>
       {!isSearching && (
         <Link
@@ -442,7 +442,7 @@ function EmptyState({ isSearching }: { isSearching: boolean }) {
           className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white transition-colors hover:bg-blue-700"
         >
           <Plus size={16} />
-          Tạo Album Đầu Tiên
+          Tạo bộ ảnh đầu tiên
         </Link>
       )}
     </div>
@@ -452,7 +452,7 @@ function EmptyState({ isSearching }: { isSearching: boolean }) {
 function TableHeader({ children, align = 'left' }: { children: ReactNode; align?: 'left' | 'right' }) {
   const alignment = align === 'right' ? 'text-right' : 'text-left'
   return (
-    <th className={`px-6 py-3 text-xs font-medium uppercase tracking-wide text-gray-500 ${alignment}`}>{children}</th>
+    <th className={`px-6 py-3 text-xs font-medium tracking-wide text-gray-500 uppercase ${alignment}`}>{children}</th>
   )
 }
 
@@ -477,12 +477,18 @@ function StatusBadge({ status }: { status: string }) {
     draft: 'bg-gray-100 text-gray-800',
     scheduled: 'bg-blue-100 text-blue-800'
   } as const
+  const labels = {
+    published: 'Đã xuất bản',
+    draft: 'Nháp',
+    scheduled: 'Đã lên lịch'
+  } as const
 
   const colorClass = colors[status as keyof typeof colors] ?? colors.draft
+  const label = labels[status as keyof typeof labels] ?? 'Không xác định'
 
   return (
     <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${colorClass}`}>
-      {status}
+      {label}
     </span>
   )
 }

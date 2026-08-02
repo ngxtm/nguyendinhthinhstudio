@@ -33,10 +33,10 @@ export default function AdminLoginPage() {
     <main className="flex min-h-screen items-center justify-center bg-gray-100 px-4">
       <form onSubmit={submit} className="w-full max-w-md space-y-5 rounded-xl bg-white p-8 shadow">
         <div>
-          <h1 className="text-2xl font-semibold">NDT Studio Admin</h1>
+          <h1 className="text-2xl font-semibold">NDT Studio Quản trị</h1>
           <p className="mt-1 text-sm text-gray-500">Đăng nhập bằng tài khoản quản trị Supabase.</p>
         </div>
-        <label className="block text-sm">Email<input required type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1 w-full rounded border p-2" /></label>
+        <label className="block text-sm">Địa chỉ email<input required type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1 w-full rounded border p-2" /></label>
         <label className="block text-sm">Mật khẩu<input required type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} className="mt-1 w-full rounded border p-2" /></label>
         {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
         <button disabled={busy} className="w-full rounded bg-gray-900 px-4 py-2 text-white disabled:opacity-50">{busy ? 'Đang đăng nhập…' : 'Đăng nhập'}</button>

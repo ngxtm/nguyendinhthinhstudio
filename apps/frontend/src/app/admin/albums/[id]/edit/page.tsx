@@ -119,7 +119,7 @@ export default function EditAlbumPage() {
       })
     } catch (error) {
       console.error('Failed to load data:', error)
-      toast.error('Không thể tải album')
+      toast.error('Không thể tải bộ ảnh')
     } finally {
       setLoadingData(false)
     }
@@ -195,12 +195,12 @@ export default function EditAlbumPage() {
     e.preventDefault()
 
     if (!formData.title?.trim()) {
-      toast.error('Vui lòng nhập tên album')
+      toast.error('Vui lòng nhập tên bộ ảnh')
       return
     }
 
     if (!formData.categoryIds || formData.categoryIds.length === 0) {
-      toast.error('Vui lòng chọn ít nhất một category')
+      toast.error('Vui lòng chọn ít nhất một danh mục')
       return
     }
 
@@ -209,7 +209,7 @@ export default function EditAlbumPage() {
     try {
       setLoading(true)
       const updated = await updateAlbum(album.id, formData)
-      toast.success('Đã cập nhật album!')
+      toast.success('Đã cập nhật bộ ảnh!')
 
       // If slug changed, redirect to new URL
       if (updated.slug !== slug) {
@@ -219,7 +219,7 @@ export default function EditAlbumPage() {
       }
     } catch (error) {
       console.error('Failed to update album:', error)
-      toast.error('Không thể cập nhật album. Vui lòng thử lại.')
+      toast.error('Không thể cập nhật bộ ảnh. Vui lòng thử lại.')
     } finally {
       setLoading(false)
     }
@@ -235,11 +235,11 @@ export default function EditAlbumPage() {
     try {
       setDeleting(true)
       await deleteAlbum(album.id)
-      toast.success('Đã xóa album!')
+      toast.success('Đã xóa bộ ảnh!')
       router.replace('/admin/albums')
     } catch (error) {
       console.error('Failed to delete album:', error)
-      toast.error('Không thể xóa album')
+      toast.error('Không thể xóa bộ ảnh')
       setDeleting(false)
     }
   }
@@ -255,9 +255,9 @@ export default function EditAlbumPage() {
   if (!album) {
     return (
       <div className="py-12 text-center">
-        <p className="mb-4 text-gray-500">Không tìm thấy album</p>
+        <p className="mb-4 text-gray-500">Không tìm thấy bộ ảnh</p>
         <Link href="/admin/albums" className="text-blue-600 hover:underline">
-          Quay lại danh sách albums
+          Quay lại danh sách bộ ảnh
         </Link>
       </div>
     )
@@ -274,7 +274,7 @@ export default function EditAlbumPage() {
           <ArrowLeft size={20} />
           Quay lại
         </Link>
-        <h1 className="text-3xl font-bold text-gray-900">Chỉnh Sửa Album</h1>
+        <h1 className="text-3xl font-bold text-gray-900">Chỉnh sửa bộ ảnh</h1>
         <p className="mt-1 text-gray-500">{album.title}</p>
       </div>
 
@@ -284,30 +284,30 @@ export default function EditAlbumPage() {
           {/* Title */}
           <div>
             <label className="mb-2 block text-sm font-medium text-gray-700">
-              Tên Album <span className="text-red-500">*</span>
+              Tên bộ ảnh <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
               value={formData.title}
               onChange={e => handleTitleChange(e.target.value)}
               className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-transparent focus:ring-2 focus:ring-blue-500"
-              placeholder="Nàng Sen - Beauty Collection"
+              placeholder="Nàng Sen - Bộ ảnh làm đẹp"
               required
             />
           </div>
 
           {/* Slug */}
           <div>
-            <label className="mb-2 block text-sm font-medium text-gray-700">Slug (URL-friendly)</label>
+            <label className="mb-2 block text-sm font-medium text-gray-700">Đường dẫn (slug)</label>
             <input
               type="text"
               value={formData.slug}
               onChange={e => setFormData(current => ({ ...current, slug: e.target.value }))}
               className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-transparent focus:ring-2 focus:ring-blue-500"
-              placeholder="nang-sen-beauty-collection"
+              placeholder="nang-sen-bo-anh-lam-dep"
             />
-            <p className="mt-1 text-sm text-gray-500">URL: /thu-vien/{formData.slug || 'album-slug'}</p>
-            <p className="mt-1 text-sm text-amber-600">⚠️ Thay đổi slug sẽ thay đổi URL của album</p>
+            <p className="mt-1 text-sm text-gray-500">Đường dẫn: /thu-vien/{formData.slug || 'bo-anh-slug'}</p>
+            <p className="mt-1 text-sm text-amber-600">⚠️ Thay đổi đường dẫn sẽ thay đổi URL của bộ ảnh</p>
           </div>
 
           {/* Description */}
@@ -341,7 +341,7 @@ export default function EditAlbumPage() {
                 categories={categories}
                 selected={selectedCategories}
                 onChange={handleCategoryChange}
-                label="Category"
+                label="Danh mục"
                 required={true}
                 disabled={loadingData}
               />
@@ -359,14 +359,14 @@ export default function EditAlbumPage() {
 
           {/* Tags */}
           <div>
-            <label className="mb-2 block text-sm font-medium text-gray-700">Tags</label>
+            <label className="mb-2 block text-sm font-medium text-gray-700">Thẻ</label>
             {loadingData ? (
-              <p className="text-sm text-gray-500">Đang tải tags...</p>
+              <p className="text-sm text-gray-500">Đang tải thẻ...</p>
             ) : tags.length === 0 ? (
               <p className="text-sm text-gray-500">
-                Chưa có tags.{' '}
+                Chưa có thẻ.{' '}
                 <Link href="/admin/tags" className="text-blue-600 hover:underline">
-                  Tạo tags mới
+                  Tạo thẻ mới
                 </Link>
               </p>
             ) : (
@@ -392,7 +392,7 @@ export default function EditAlbumPage() {
 
           {/* Status */}
           <div>
-            <label className="mb-2 block text-sm font-medium text-gray-700">Status</label>
+            <label className="mb-2 block text-sm font-medium text-gray-700">Trạng thái</label>
             <div className="flex gap-4">
               <label className="flex items-center">
                 <input
@@ -402,7 +402,7 @@ export default function EditAlbumPage() {
                   onChange={e => setFormData(current => ({ ...current, status: e.target.value as any }))}
                   className="mr-2"
                 />
-                <span>Draft</span>
+                <span>Nháp</span>
               </label>
               <label className="flex items-center">
                 <input
@@ -412,7 +412,7 @@ export default function EditAlbumPage() {
                   onChange={e => setFormData(current => ({ ...current, status: e.target.value as any }))}
                   className="mr-2"
                 />
-                <span>Published</span>
+                <span>Đã xuất bản</span>
               </label>
             </div>
           </div>
@@ -426,28 +426,28 @@ export default function EditAlbumPage() {
                 onChange={e => setFormData(current => ({ ...current, isFeatured: e.target.checked }))}
                 className="mr-2 rounded"
               />
-              <span className="text-sm font-medium text-gray-700">Featured (hiển thị ưu tiên trên homepage)</span>
+              <span className="text-sm font-medium text-gray-700">Nổi bật (hiển thị ưu tiên trên trang chủ)</span>
             </label>
           </div>
 
           {/* SEO Section */}
           <div className="border-t pt-6">
-            <h3 className="mb-4 text-lg font-semibold">SEO Settings (Optional)</h3>
+            <h3 className="mb-4 text-lg font-semibold">Cài đặt SEO (Không bắt buộc)</h3>
 
             <div className="space-y-4">
               <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700">Meta Title</label>
+                <label className="mb-2 block text-sm font-medium text-gray-700">Tiêu đề SEO</label>
                 <input
                   type="text"
                   value={formData.metaTitle}
                   onChange={e => setFormData(current => ({ ...current, metaTitle: e.target.value }))}
                   className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-transparent focus:ring-2 focus:ring-blue-500"
-                  placeholder="Nàng Sen - Bộ ảnh Beauty | NDT Studio"
+                  placeholder="Nàng Sen - Bộ ảnh làm đẹp | NDT Studio"
                 />
               </div>
 
               <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700">Meta Description</label>
+                <label className="mb-2 block text-sm font-medium text-gray-700">Mô tả SEO</label>
                 <textarea
                   value={formData.metaDescription}
                   onChange={e => setFormData(current => ({ ...current, metaDescription: e.target.value }))}
@@ -467,7 +467,7 @@ export default function EditAlbumPage() {
                 disabled={loading || deleting}
                 className="rounded-lg bg-blue-600 px-6 py-3 font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {loading ? 'Đang lưu...' : 'Lưu Thay Đổi'}
+                {loading ? 'Đang lưu...' : 'Lưu thay đổi'}
               </button>
               <Link
                 href={`/admin/albums/${slug}`}
@@ -484,20 +484,20 @@ export default function EditAlbumPage() {
               className="inline-flex items-center gap-2 rounded-lg border border-red-300 px-4 py-3 font-medium text-red-600 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Trash2 size={18} />
-              {deleting ? 'Đang xóa...' : 'Xóa album'}
+              {deleting ? 'Đang xóa...' : 'Xóa bộ ảnh'}
             </button>
           </div>
         </div>
       </form>
       <ConfirmDialog
         open={deleteConfirmOpen}
-        title="Xóa album?"
+        title="Xóa bộ ảnh?"
         description={
           <>
-            Xóa album <strong>&quot;{album.title}&quot;</strong>? Hành động này không thể hoàn tác.
+            Xóa bộ ảnh <strong>&quot;{album.title}&quot;</strong>? Hành động này không thể hoàn tác.
           </>
         }
-        confirmLabel="Xóa album"
+        confirmLabel="Xóa bộ ảnh"
         isPending={deleting}
         onClose={() => setDeleteConfirmOpen(false)}
         onConfirm={handleConfirmDeleteAlbum}

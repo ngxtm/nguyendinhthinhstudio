@@ -15,6 +15,7 @@ import {
   type CreateTagDto
 } from '@/lib/api'
 import DeleteConfirmModal from '../components/DeleteConfirmModal'
+import { getAdminErrorMessage } from '../error-message'
 
 export default function TagsPage() {
   const [tags, setTags] = useState<Tag[]>([])
@@ -46,7 +47,7 @@ export default function TagsPage() {
       setTags(data)
     } catch (error) {
       console.error('Failed to load tags:', error)
-      toast.error('Không thể tải danh sách tags')
+      toast.error('Không thể tải danh sách thẻ')
     } finally {
       setLoading(false)
     }
@@ -89,16 +90,16 @@ export default function TagsPage() {
     try {
       if (editingTag) {
         await updateTag(editingTag.id, formData)
-        toast.success('Cập nhật tag thành công!')
+        toast.success('Cập nhật thẻ thành công!')
       } else {
         await createTag(formData)
-        toast.success('Tạo tag thành công!')
+        toast.success('Tạo thẻ thành công!')
       }
       setIsModalOpen(false)
       loadTags()
     } catch (error: any) {
       console.error('Error:', error)
-      toast.error(error.message || 'Có lỗi xảy ra')
+      toast.error(getAdminErrorMessage(error, 'Có lỗi xảy ra'))
     } finally {
       setIsSubmitting(false)
     }
@@ -111,7 +112,7 @@ export default function TagsPage() {
       setIsDeleteModalOpen(true)
     } catch (error) {
       console.error('Error checking usage:', error)
-      toast.error('Không thể kiểm tra usage của tag')
+      toast.error('Không thể kiểm tra tình trạng sử dụng của thẻ')
     }
   }
 
@@ -121,13 +122,13 @@ export default function TagsPage() {
     setIsSubmitting(true)
     try {
       await deleteTag(deletingTag.tag.id)
-      toast.success('Xóa tag thành công!')
+      toast.success('Xóa thẻ thành công!')
       setIsDeleteModalOpen(false)
       setDeletingTag(null)
       loadTags()
     } catch (error: any) {
       console.error('Error:', error)
-      toast.error(error.message || 'Không thể xóa tag')
+      toast.error(getAdminErrorMessage(error, 'Không thể xóa thẻ'))
     } finally {
       setIsSubmitting(false)
     }
@@ -139,13 +140,13 @@ export default function TagsPage() {
     setIsSubmitting(true)
     try {
       const result = await bulkRemoveTagFromAlbums(deletingTag.tag.id)
-      toast.success(`Đã xóa tag khỏi ${result.removed} album!`)
+      toast.success(`Đã xóa thẻ khỏi ${result.removed} bộ ảnh!`)
       const newUsage = await checkTagUsage(deletingTag.tag.id)
       setDeletingTag({ ...deletingTag, usage: newUsage })
       return true
     } catch (error: any) {
       console.error('Error:', error)
-      toast.error(error.message || 'Không thể xóa hàng loạt')
+      toast.error(getAdminErrorMessage(error, 'Không thể xóa hàng loạt'))
       return false
     } finally {
       setIsSubmitting(false)
@@ -170,13 +171,13 @@ export default function TagsPage() {
     <div className="mx-auto w-full max-w-6xl space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">Quản lý Tags</h1>
+        <h1 className="text-3xl font-bold text-gray-900">Quản lý thẻ</h1>
         <p className="mt-2 text-sm text-gray-600">
-          Quản lý các thẻ phân loại album (Tết, Mùa xuân, Nàng thơ, Cá tính, Sexy...)
+          Quản lý các thẻ phân loại bộ ảnh (Tết, Mùa xuân, Nàng thơ, Cá tính, Quyến rũ...)
         </p>
         <div className="mt-3 flex items-center gap-4 text-sm">
           <span className="text-gray-700">
-            <span className="font-semibold text-blue-600">{tags.length}</span> tags tổng cộng
+            <span className="font-semibold text-blue-600">{tags.length}</span> thẻ tổng cộng
           </span>
           {searchQuery && (
             <span className="text-gray-700">
@@ -192,7 +193,7 @@ export default function TagsPage() {
           <Search className="absolute top-1/2 left-3 h-5 w-5 -translate-y-1/2 text-gray-400" />
           <input
             type="text"
-            placeholder="Tìm kiếm tag..."
+            placeholder="Tìm kiếm thẻ..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             className="w-full rounded-lg border border-gray-300 py-2 pr-4 pl-10 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none"
@@ -203,7 +204,7 @@ export default function TagsPage() {
           className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 sm:w-auto"
         >
           <Plus size={18} />
-          Thêm Tag
+          Thêm thẻ
         </button>
       </div>
 
@@ -229,7 +230,7 @@ export default function TagsPage() {
                     <button
                       onClick={() => handleCopySlug(tag.slug)}
                       className="text-gray-400 transition-colors hover:text-blue-600"
-                      title="Copy slug"
+                      title="Sao chép slug"
                     >
                       {copiedSlug === tag.slug ? (
                         <span className="text-xs font-medium text-green-600">✓</span>
@@ -273,7 +274,7 @@ export default function TagsPage() {
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline"
-                title="Xem albums có tag này trên trang chủ"
+                title="Xem bộ ảnh có thẻ này trên trang chủ"
               >
                 Xem trên trang chủ
                 <ExternalLink size={12} />
@@ -288,10 +289,10 @@ export default function TagsPage() {
         <div className="rounded-lg bg-white p-12 text-center shadow">
           <TagIcon className="mx-auto mb-4 h-12 w-12 text-gray-400" />
           <h3 className="mb-2 text-lg font-medium text-gray-900">
-            {searchQuery ? 'Không tìm thấy tag' : 'Chưa có tag nào'}
+            {searchQuery ? 'Không tìm thấy thẻ' : 'Chưa có thẻ nào'}
           </h3>
           <p className="mb-6 text-sm text-gray-500">
-            {searchQuery ? 'Thử tìm kiếm với từ khóa khác' : 'Tạo tag đầu tiên để bắt đầu phân loại album của bạn'}
+            {searchQuery ? 'Thử tìm kiếm với từ khóa khác' : 'Tạo thẻ đầu tiên để bắt đầu phân loại bộ ảnh của bạn'}
           </p>
           {!searchQuery && (
             <button
@@ -299,7 +300,7 @@ export default function TagsPage() {
               className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
             >
               <Plus size={18} />
-              Thêm Tag Đầu Tiên
+              Thêm thẻ đầu tiên
             </button>
           )}
         </div>
@@ -309,21 +310,21 @@ export default function TagsPage() {
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-lg rounded-lg bg-white p-6 shadow-xl">
-            <h2 className="text-xl font-semibold text-gray-900">{editingTag ? 'Chỉnh sửa Tag' : 'Thêm Tag Mới'}</h2>
+            <h2 className="text-xl font-semibold text-gray-900">{editingTag ? 'Chỉnh sửa thẻ' : 'Thêm thẻ mới'}</h2>
             <form onSubmit={handleSubmit} className="mt-4 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700">Tên Tag *</label>
+                <label className="block text-sm font-medium text-gray-700">Tên thẻ *</label>
                 <input
                   type="text"
                   required
                   value={formData.name}
                   onChange={e => handleNameChange(e.target.value)}
-                  placeholder="VD: Tết, Mùa xuân, Nàng thơ, Cá tính, Sexy..."
+                  placeholder="VD: Tết, Mùa xuân, Nàng thơ, Cá tính, Quyến rũ..."
                   className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Slug *</label>
+                <label className="block text-sm font-medium text-gray-700">Đường dẫn (slug) *</label>
                 <input
                   type="text"
                   required
@@ -340,7 +341,7 @@ export default function TagsPage() {
                   value={formData.description}
                   onChange={e => setFormData({ ...formData, description: e.target.value })}
                   rows={3}
-                  placeholder="Mô tả ngắn về tag..."
+                  placeholder="Mô tả ngắn về thẻ..."
                   className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none"
                 />
               </div>
@@ -375,7 +376,7 @@ export default function TagsPage() {
           }}
           onConfirm={handleConfirmDelete}
           onBulkRemove={deletingTag.usage.isUsed ? handleBulkRemove : undefined}
-          title="Xóa Tag"
+          title="Xóa thẻ"
           itemName={deletingTag.tag.name}
           itemType="tag"
           isUsed={deletingTag.usage.isUsed}

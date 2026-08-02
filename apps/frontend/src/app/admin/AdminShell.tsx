@@ -24,14 +24,14 @@ type NavGroup = { group: string; icon: React.ReactNode; items: NavItem[] }
 type NavEntry = NavItem | NavGroup
 
 const NAV_ENTRIES: NavEntry[] = [
-  { href: '/admin', label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
+  { href: '/admin', label: 'Bảng điều khiển', icon: <LayoutDashboard size={18} /> },
   {
     group: 'Quản lý thư viện',
     icon: <LibraryBig size={18} />,
     items: [
-      { href: '/admin/albums', label: 'Albums', icon: <ImageIcon size={18} /> },
-      { href: '/admin/categories', label: 'Categories', icon: <FolderOpen size={18} /> },
-      { href: '/admin/tags', label: 'Tags', icon: <Tag size={18} /> },
+      { href: '/admin/albums', label: 'Bộ ảnh', icon: <ImageIcon size={18} /> },
+      { href: '/admin/categories', label: 'Danh mục', icon: <FolderOpen size={18} /> },
+      { href: '/admin/tags', label: 'Thẻ', icon: <Tag size={18} /> },
       { href: '/admin/library', label: 'Cấu hình thư viện', icon: <LibraryBig size={18} /> }
     ]
   },
@@ -88,7 +88,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
         {sidebarOpen && (
           <button
             type="button"
-            aria-label="Close sidebar"
+            aria-label="Đóng thanh bên"
             className="fixed inset-0 z-40 bg-black/25 backdrop-blur-sm lg:hidden"
             onClick={closeSidebar}
           />
@@ -98,15 +98,15 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
           className={`fixed inset-y-0 left-0 z-50 flex w-64 transform flex-col overflow-hidden border-r border-gray-200 bg-white transition-transform duration-300 ease-in-out lg:z-30 lg:translate-x-0 lg:border-r lg:shadow-none ${
             sidebarOpen ? 'translate-x-0 shadow-xl' : '-translate-x-full lg:translate-x-0'
           }`}
-          aria-label="Sidebar navigation"
+          aria-label="Điều hướng thanh bên"
         >
           <div className="flex shrink-0 items-center justify-between px-6 py-5 lg:py-6">
             <Link href="/admin" className="text-2xl font-bold text-gray-900" onClick={closeSidebar}>
-              NDT Studio <span className="text-amber-400">Admin</span>
+              NDT Studio <span className="text-amber-400">Quản trị</span>
             </Link>
             <button
               type="button"
-              aria-label="Hide sidebar"
+              aria-label="Ẩn thanh bên"
               className="rounded-md p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 lg:hidden"
               onClick={closeSidebar}
             >
@@ -172,14 +172,14 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
           <header className="sticky top-0 z-20 flex items-center justify-between border-b border-gray-200 bg-white px-4 py-3 shadow-sm lg:hidden">
             <button
               type="button"
-              aria-label="Open sidebar"
+              aria-label="Mở thanh bên"
               className="rounded-md p-2 text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-800"
               onClick={() => setSidebarOpen(true)}
             >
               <Menu size={22} />
             </button>
             <Link href="/admin" className="text-lg font-semibold text-gray-900">
-              NDT Studio Admin
+              NDT Studio Quản trị
             </Link>
             <span className="w-9" aria-hidden="true" />
           </header>

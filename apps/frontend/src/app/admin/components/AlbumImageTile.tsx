@@ -51,7 +51,7 @@ export default function AlbumImageTile({
 
       {image.id === coverImageId && (
         <div className="absolute top-2 left-2 z-10 rounded bg-yellow-500 px-2 py-1 text-xs font-medium text-white">
-          Cover
+          Ảnh bìa
         </div>
       )}
 
@@ -126,7 +126,7 @@ export default function AlbumImageTile({
       <div className="mt-1 flex min-h-11 items-start justify-between gap-2">
         <div className="min-w-0 pt-1">
           <p className="truncate text-xs text-gray-500">{image.filename}</p>
-          <p className="text-xs text-gray-400">Order: {image.orderIndex}</p>
+          <p className="text-xs text-gray-400">Thứ tự: {image.orderIndex}</p>
         </div>
 
         {!selectionMode && (

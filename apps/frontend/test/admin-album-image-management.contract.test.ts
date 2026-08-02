@@ -36,7 +36,7 @@ test('publish keeps the gallery mounted, disables duplicate submits, and refresh
     /const updated = await publishAlbum\(album\.id\)[\s\S]*?setAlbum\(updated\)[\s\S]*?await loadAlbum\(\{ showLoading: false \}\)/
   )
   assert.match(detailSource, /disabled=\{isPublishing\}/)
-  assert.match(detailSource, /isPublishing \? 'Đang publish\.\.\.' : 'Publish'/)
+  assert.match(detailSource, /isPublishing \? 'Đang xuất bản\.\.\.' : 'Xuất bản'/)
 })
 
 test('album bulk selection is explicit, snapshot-based, and touch-safe', () => {
@@ -59,10 +59,10 @@ test('album selection exposes a searchable move-to-album action', () => {
 
   assert.match(imageGridSource, /moveAlbumImages\(/)
   assert.match(imageGridSource, /<MoveImagesDialog/)
-  assert.match(imageGridSource, /Chuyển album/)
+  assert.match(imageGridSource, /Chuyển bộ ảnh/)
   assert.match(moveDialogSource, /listAlbums\(/)
   assert.match(moveDialogSource, /type="search"/)
-  assert.match(moveDialogSource, /Tìm album đích/)
+  assert.match(moveDialogSource, /Tìm bộ ảnh đích/)
   assert.match(albumsApiSource, /`\/albums\/\$\{sourceAlbumId\}\/images\/move`/)
 })
 
@@ -116,6 +116,6 @@ test('album edit normalizes the API date before binding it to the date input', (
 test('album edit exposes a guarded destructive delete action', () => {
   assert.match(editSource, /deleteAlbum\(album\.id\)/)
   assert.match(editSource, /router\.replace\('\/admin\/albums'\)/)
-  assert.match(editSource, /Xóa album/)
+  assert.match(editSource, /Xóa bộ ảnh/)
   assert.match(editSource, /disabled=\{loading \|\| deleting\}/)
 })

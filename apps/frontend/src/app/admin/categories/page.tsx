@@ -16,6 +16,7 @@ import {
 } from '@/lib/api'
 import DeleteConfirmModal from '../components/DeleteConfirmModal'
 import SearchableCombobox from '../components/SearchableCombobox'
+import { getAdminErrorMessage } from '../error-message'
 
 export default function CategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([])
@@ -49,7 +50,7 @@ export default function CategoriesPage() {
       setCategories(data)
     } catch (error) {
       console.error('Failed to load categories:', error)
-      toast.error('Không thể tải danh sách categories')
+      toast.error('Không thể tải danh sách danh mục')
     } finally {
       setLoading(false)
     }
@@ -102,16 +103,16 @@ export default function CategoriesPage() {
     try {
       if (editingCategory) {
         await updateCategory(editingCategory.id, formData)
-        toast.success('Cập nhật category thành công!')
+        toast.success('Cập nhật danh mục thành công!')
       } else {
         await createCategory(formData)
-        toast.success('Tạo category thành công!')
+        toast.success('Tạo danh mục thành công!')
       }
       setIsModalOpen(false)
       loadCategories()
     } catch (error: any) {
       console.error('Error:', error)
-      toast.error(error.message || 'Có lỗi xảy ra')
+      toast.error(getAdminErrorMessage(error, 'Có lỗi xảy ra'))
     } finally {
       setIsSubmitting(false)
     }
@@ -124,7 +125,7 @@ export default function CategoriesPage() {
       setIsDeleteModalOpen(true)
     } catch (error) {
       console.error('Error checking usage:', error)
-      toast.error('Không thể kiểm tra usage của category')
+      toast.error('Không thể kiểm tra tình trạng sử dụng của danh mục')
     }
   }
 
@@ -134,13 +135,13 @@ export default function CategoriesPage() {
     setIsSubmitting(true)
     try {
       await deleteCategory(deletingCategory.category.id)
-      toast.success('Xóa category thành công!')
+      toast.success('Xóa danh mục thành công!')
       setIsDeleteModalOpen(false)
       setDeletingCategory(null)
       loadCategories()
     } catch (error: any) {
       console.error('Error:', error)
-      toast.error(error.message || 'Không thể xóa category')
+      toast.error(getAdminErrorMessage(error, 'Không thể xóa danh mục'))
     } finally {
       setIsSubmitting(false)
     }
@@ -152,13 +153,13 @@ export default function CategoriesPage() {
     setIsSubmitting(true)
     try {
       const result = await bulkRemoveCategoryFromAlbums(deletingCategory.category.id)
-      toast.success(`Đã xóa category khỏi ${result.removed} album!`)
+      toast.success(`Đã xóa danh mục khỏi ${result.removed} bộ ảnh!`)
       const newUsage = await checkCategoryUsage(deletingCategory.category.id)
       setDeletingCategory({ ...deletingCategory, usage: newUsage })
       return true
     } catch (error: any) {
       console.error('Error:', error)
-      toast.error(error.message || 'Không thể xóa hàng loạt')
+      toast.error(getAdminErrorMessage(error, 'Không thể xóa hàng loạt'))
       return false
     } finally {
       setIsSubmitting(false)
@@ -177,8 +178,8 @@ export default function CategoriesPage() {
     <div className="mx-auto w-full max-w-6xl space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">Quản lý Categories</h1>
-        <p className="mt-2 text-sm text-gray-600">Quản lý các danh mục album (Wedding, Couple, Family...)</p>
+        <h1 className="text-3xl font-bold text-gray-900">Quản lý danh mục</h1>
+        <p className="mt-2 text-sm text-gray-600">Quản lý các danh mục bộ ảnh (Cưới, Cặp đôi, Gia đình...)</p>
       </div>
 
       {/* Search & Actions */}
@@ -187,7 +188,7 @@ export default function CategoriesPage() {
           <Search className="absolute top-1/2 left-3 h-5 w-5 -translate-y-1/2 text-gray-400" />
           <input
             type="text"
-            placeholder="Tìm kiếm category..."
+            placeholder="Tìm kiếm danh mục..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             className="w-full rounded-lg border border-gray-300 py-2 pr-4 pl-10 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none"
@@ -198,7 +199,7 @@ export default function CategoriesPage() {
           className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 sm:w-auto"
         >
           <Plus size={18} />
-          Thêm Category
+          Thêm danh mục
         </button>
       </div>
 
@@ -211,13 +212,13 @@ export default function CategoriesPage() {
                 <th className="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">Tên</th>
                 <th className="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">Slug</th>
                 <th className="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">
-                  Parent
+                  Danh mục cha
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">
-                  Số Album / Children
+                  Số bộ ảnh / Danh mục con
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">
-                  Menu / Thứ tự
+                  Hiển thị / Thứ tự
                 </th>
                 <th className="px-6 py-3 text-right text-xs font-medium tracking-wider text-gray-500 uppercase">
                   Hành động
@@ -228,7 +229,7 @@ export default function CategoriesPage() {
               {filteredCategories.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center text-sm text-gray-500">
-                    {searchQuery ? 'Không tìm thấy category' : 'Chưa có category nào'}
+                    {searchQuery ? 'Không tìm thấy danh mục' : 'Chưa có danh mục nào'}
                   </td>
                 </tr>
               ) : (
@@ -255,11 +256,11 @@ export default function CategoriesPage() {
                     <td className="px-6 py-4">
                       <div className="flex gap-2">
                         <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800">
-                          {category.albumCount} album
+                          {category.albumCount} bộ ảnh
                         </span>
                         {category.childrenCount !== undefined && category.childrenCount > 0 && (
                           <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
-                            {category.childrenCount} children
+                            {category.childrenCount} danh mục con
                           </span>
                         )}
                       </div>
@@ -307,35 +308,35 @@ export default function CategoriesPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-lg rounded-lg bg-white p-6 shadow-xl">
             <h2 className="text-xl font-semibold text-gray-900">
-              {editingCategory ? 'Chỉnh sửa Category' : 'Thêm Category Mới'}
+              {editingCategory ? 'Chỉnh sửa danh mục' : 'Thêm danh mục mới'}
             </h2>
             <form onSubmit={handleSubmit} className="mt-4 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700">Tên Category *</label>
+                <label className="block text-sm font-medium text-gray-700">Tên danh mục *</label>
                 <input
                   type="text"
                   required
                   value={formData.name}
                   onChange={e => handleNameChange(e.target.value)}
-                  placeholder="VD: Wedding, Couple, Family..."
+                  placeholder="VD: Cưới, Cặp đôi, Gia đình..."
                   className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Slug *</label>
+                <label className="block text-sm font-medium text-gray-700">Đường dẫn (slug) *</label>
                 <input
                   type="text"
                   required
                   value={formData.slug}
                   onChange={e => setFormData({ ...formData, slug: e.target.value })}
-                  placeholder="wedding, couple, family..."
+                  placeholder="cuoi, cap-doi, gia-dinh..."
                   className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none"
                 />
                 <p className="mt-1 text-xs text-gray-500">Tự động tạo từ tên, có thể chỉnh sửa</p>
               </div>
               <div>
                 <SearchableCombobox
-                  label="Parent Category"
+                  label="Danh mục cha"
                   options={categories
                     .filter(c => !editingCategory || c.id !== editingCategory.id)
                     .map(cat => ({ id: cat.id, name: cat.name, slug: cat.slug }))}
@@ -347,11 +348,11 @@ export default function CategoriesPage() {
                       : null
                   }
                   onChange={option => setFormData({ ...formData, parentId: option?.id || undefined })}
-                  placeholder="Tìm kiếm parent category..."
+                  placeholder="Tìm kiếm danh mục cha..."
                 />
                 <p className="mt-1 text-xs text-gray-500">
-                  Chọn parent category nếu đây là category con (VD: Cưới truyền thống thuộc Wedding). Bỏ trống nếu đây
-                  là category gốc.
+                  Chọn danh mục cha nếu đây là danh mục con (VD: Cưới truyền thống thuộc Cưới). Bỏ trống nếu đây là danh
+                  mục gốc.
                 </p>
               </div>
               <div>
@@ -360,7 +361,7 @@ export default function CategoriesPage() {
                   value={formData.description}
                   onChange={e => setFormData({ ...formData, description: e.target.value })}
                   rows={3}
-                  placeholder="Mô tả ngắn về category..."
+                  placeholder="Mô tả ngắn về danh mục..."
                   className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none"
                 />
               </div>
@@ -375,7 +376,7 @@ export default function CategoriesPage() {
                   <span>
                     <span className="block text-sm font-medium text-gray-700">Hiện trên menu thư viện</span>
                     <span className="mt-1 block text-xs text-gray-500">
-                      Danh mục chỉ thực sự xuất hiện khi có ít nhất một album đã xuất bản.
+                      Danh mục chỉ thực sự xuất hiện khi có ít nhất một bộ ảnh đã xuất bản.
                     </span>
                   </span>
                 </label>
@@ -422,7 +423,7 @@ export default function CategoriesPage() {
           }}
           onConfirm={handleConfirmDelete}
           onBulkRemove={deletingCategory.usage.isUsed ? handleBulkRemove : undefined}
-          title="Xóa Category"
+          title="Xóa danh mục"
           itemName={deletingCategory.category.name}
           itemType="category"
           isUsed={deletingCategory.usage.isUsed}

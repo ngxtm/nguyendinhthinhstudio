@@ -63,7 +63,7 @@ export default function MoveImagesDialog({
         } catch (error) {
           if (!signal.aborted && (error as Error)?.name !== 'AbortError') {
             console.error('Failed to load destination albums:', error)
-            setLoadError('Không thể tải danh sách album đích')
+            setLoadError('Không thể tải danh sách bộ ảnh đích')
           }
         } finally {
           if (!signal.aborted) setLoading(false)
@@ -108,9 +108,9 @@ export default function MoveImagesDialog({
               <Dialog.Panel className="w-full max-w-lg rounded-2xl bg-white p-5 text-left shadow-xl motion-reduce:transition-none sm:p-6">
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
-                    <Dialog.Title className="text-lg font-semibold text-gray-900">Chuyển ảnh sang album</Dialog.Title>
+                    <Dialog.Title className="text-lg font-semibold text-gray-900">Chuyển ảnh sang bộ ảnh</Dialog.Title>
                     <Dialog.Description className="mt-1 text-sm leading-6 text-gray-600">
-                      Chọn album đích cho {selectedCount} ảnh đã chọn.
+                      Chọn bộ ảnh đích cho {selectedCount} ảnh đã chọn.
                     </Dialog.Description>
                   </div>
                   <button
@@ -129,7 +129,7 @@ export default function MoveImagesDialog({
                     htmlFor="move-images-destination-search"
                     className="mb-2 block text-sm font-medium text-gray-700"
                   >
-                    Tìm album đích
+                    Tìm bộ ảnh đích
                   </label>
                   <Search
                     size={18}
@@ -151,12 +151,12 @@ export default function MoveImagesDialog({
                   {loading ? (
                     <div className="flex items-center justify-center gap-2 py-8 text-sm text-gray-500">
                       <LoaderCircle size={18} className="animate-spin" aria-hidden="true" />
-                      Đang tải album...
+                      Đang tải bộ ảnh...
                     </div>
                   ) : loadError ? (
                     <p className="py-8 text-center text-sm text-red-600">{loadError}</p>
                   ) : albums.length === 0 ? (
-                    <p className="py-8 text-center text-sm text-gray-500">Không tìm thấy album đích.</p>
+                    <p className="py-8 text-center text-sm text-gray-500">Không tìm thấy bộ ảnh đích.</p>
                   ) : (
                     albums.map(album => {
                       const selected = selectedAlbum?.id === album.id

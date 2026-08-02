@@ -33,7 +33,7 @@ export default function CategoryCombobox({
   categories,
   selected,
   onChange,
-  placeholder = 'Chọn category...',
+  placeholder = 'Chọn danh mục...',
   label,
   required = false,
   disabled = false
@@ -92,7 +92,7 @@ export default function CategoryCombobox({
             <Combobox.Options className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-lg bg-white py-1 text-base shadow-lg ring-1 ring-black/5 focus:outline-none sm:text-sm">
               {filteredCategories.length === 0 && query !== '' ? (
                 <div className="relative cursor-default select-none px-4 py-2 text-gray-700">
-                  Không tìm thấy category
+                  Không tìm thấy danh mục
                 </div>
               ) : (
                 <div>

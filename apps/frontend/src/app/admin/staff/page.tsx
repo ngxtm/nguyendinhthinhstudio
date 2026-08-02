@@ -22,10 +22,11 @@ import {
 } from '@/lib/api'
 import { useAbortableEffect } from '@/app/admin/hooks'
 import ConfirmDialog from '../components/ConfirmDialog'
+import { getAdminErrorMessage } from '../error-message'
 
 const ROLES: { value: StaffRole; label: string }[] = [
   { value: 'photographer', label: 'Thợ chụp' },
-  { value: 'makeup_artist', label: 'Người makeup' }
+  { value: 'makeup_artist', label: 'Chuyên viên trang điểm' }
 ]
 
 const STATUSES: { value: StaffStatus; label: string; badge: string }[] = [
@@ -98,11 +99,11 @@ export default function StaffPage() {
     const file = e.target.files?.[0]
     if (!file) return
     if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
-      toast.error('Avatar phải là ảnh JPEG/PNG/WebP')
+      toast.error('Ảnh đại diện phải là ảnh JPEG/PNG/WebP')
       return
     }
     if (file.size > 5 * 1024 * 1024) {
-      toast.error('Avatar tối đa 5MB')
+      toast.error('Ảnh đại diện tối đa 5MB')
       return
     }
     setAvatarFile(file)
@@ -140,8 +141,7 @@ export default function StaffPage() {
       setModalOpen(false)
       await loadStaff()
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Lưu thất bại'
-      toast.error(message)
+      toast.error(getAdminErrorMessage(err, 'Lưu thất bại'))
     } finally {
       setSaving(false)
     }
@@ -175,7 +175,7 @@ export default function StaffPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Quản lý nhân viên</h1>
-          <p className="mt-1 text-sm text-gray-500">Hồ sơ thợ chụp và người makeup của studio.</p>
+          <p className="mt-1 text-sm text-gray-500">Hồ sơ thợ chụp và chuyên viên trang điểm của NDT Studio.</p>
         </div>
         <button
           type="button"
@@ -249,7 +249,7 @@ export default function StaffPage() {
                         )}
                         {s.email && (
                           <div className="flex min-w-0 items-center gap-1.5">
-                            <span className="shrink-0 text-gray-400">Email:</span>
+                            <span className="shrink-0 text-gray-400">Địa chỉ email:</span>
                             <span title={s.email} className="truncate text-gray-500">
                               {s.email}
                             </span>
@@ -339,7 +339,7 @@ export default function StaffPage() {
                         size={64}
                       />
                       <label className="block flex-1">
-                        <span className="mb-1 block text-sm font-medium text-gray-700">Ảnh avatar</span>
+                        <span className="mb-1 block text-sm font-medium text-gray-700">Ảnh đại diện</span>
                         <input
                           type="file"
                           accept="image/jpeg,image/png,image/webp"
@@ -347,7 +347,7 @@ export default function StaffPage() {
                           className="block w-full text-sm text-gray-600 file:mr-3 file:rounded-md file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:text-sm file:font-medium file:text-blue-700 hover:file:bg-blue-100"
                         />
                         <span className="mt-1 block text-xs text-gray-400">
-                          JPEG/PNG/WebP, tối đa 5MB. Tự resize 256×256 WebP khi hiển thị.
+                          JPEG/PNG/WebP, tối đa 5MB. Tự điều chỉnh kích thước 256×256 WebP khi hiển thị.
                         </span>
                       </label>
                     </div>
@@ -373,7 +373,7 @@ export default function StaffPage() {
                         />
                       </label>
                       <label className="block sm:col-span-2">
-                        <span className="mb-1 block text-sm font-medium text-gray-700">Email</span>
+                        <span className="mb-1 block text-sm font-medium text-gray-700">Địa chỉ email</span>
                         <input
                           type="email"
                           value={form.email ?? ''}

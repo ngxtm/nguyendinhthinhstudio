@@ -109,13 +109,13 @@ export default function DeleteConfirmModal({
                       <div className="rounded-lg bg-amber-50 p-4">
                         <p className="text-sm text-amber-800">
                           <strong>&quot;{itemName}&quot;</strong> đang được sử dụng trong <strong>{albumCount}</strong>{' '}
-                          album. Bạn cần xóa {typeText} khỏi các album trước khi có thể xóa nó.
+                          bộ ảnh. Bạn cần xóa {typeText} khỏi các bộ ảnh trước khi có thể xóa nó.
                         </p>
                       </div>
 
                       {/* Albums List */}
                       <div className="mt-4">
-                        <h4 className="text-sm font-medium text-gray-900">Các album đang sử dụng {typeText} này:</h4>
+                        <h4 className="text-sm font-medium text-gray-900">Các bộ ảnh đang sử dụng {typeText} này:</h4>
                         <div className="mt-3 max-h-64 space-y-2 overflow-y-auto rounded-lg border border-gray-200 bg-gray-50 p-3">
                           {albums.map(album => (
                             <div
@@ -129,7 +129,7 @@ export default function DeleteConfirmModal({
                                 rel="noopener noreferrer"
                                 className="text-xs text-blue-600 hover:text-blue-800 hover:underline"
                               >
-                                Xem album →
+                                Xem bộ ảnh →
                               </a>
                             </div>
                           ))}
@@ -139,9 +139,9 @@ export default function DeleteConfirmModal({
                       {/* Bulk Remove Section */}
                       {onBulkRemove && (
                         <div className="mt-4 rounded-lg border-2 border-red-200 bg-red-50 p-4">
-                          <h4 className="text-sm font-semibold text-red-900">Xóa hàng loạt (Bulk Remove)</h4>
+                          <h4 className="text-sm font-semibold text-red-900">Xóa hàng loạt</h4>
                           <p className="mt-1 text-xs text-red-700">
-                            Xóa <strong>&quot;{itemName}&quot;</strong> khỏi tất cả {albumCount} album cùng lúc. Hành
+                            Xóa <strong>&quot;{itemName}&quot;</strong> khỏi tất cả {albumCount} bộ ảnh cùng lúc. Hành
                             động này không thể hoàn tác.
                           </p>
                           <button
@@ -150,7 +150,7 @@ export default function DeleteConfirmModal({
                             disabled={isLoading}
                             className="mt-3 w-full rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
                           >
-                            {isLoading ? 'Đang xóa...' : `Xóa "${itemName}" khỏi tất cả ${albumCount} album`}
+                            {isLoading ? 'Đang xóa...' : `Xóa "${itemName}" khỏi tất cả ${albumCount} bộ ảnh`}
                           </button>
                         </div>
                       )}
@@ -190,10 +190,10 @@ export default function DeleteConfirmModal({
                 {onBulkRemove && (
                   <ConfirmDialog
                     open={bulkConfirmOpen}
-                    title={`Xóa ${typeText} khỏi album?`}
+                    title={`Xóa ${typeText} khỏi bộ ảnh?`}
                     description={
                       <>
-                        Xóa <strong>&quot;{itemName}&quot;</strong> khỏi <strong>{albumCount}</strong> album? Hành động
+                        Xóa <strong>&quot;{itemName}&quot;</strong> khỏi <strong>{albumCount}</strong> bộ ảnh? Hành động
                         này không thể hoàn tác.
                       </>
                     }

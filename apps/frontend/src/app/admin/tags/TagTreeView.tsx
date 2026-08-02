@@ -44,10 +44,10 @@ export default function TagTreeView({
     <div className="mb-8 rounded-lg bg-white shadow">
       <div className="border-b border-gray-200 bg-gradient-to-r from-blue-50 to-purple-50 px-6 py-4">
         <h2 className="text-lg font-semibold text-gray-900">
-          📂 Cấu trúc phân cấp Tags
+          📂 Cấu trúc phân cấp thẻ
         </h2>
         <p className="mt-1 text-sm text-gray-600">
-          Xem mối quan hệ parent-child giữa các tags
+          Xem mối quan hệ cha-con giữa các thẻ
         </p>
       </div>
 
@@ -63,10 +63,10 @@ export default function TagTreeView({
               </div>
               <div>
                 <h3 className="font-semibold text-blue-900">
-                  Thể loại có phân cấp
+                  Thẻ có phân cấp
                 </h3>
                 <p className="text-xs text-blue-600">
-                  {mainCategories.length} thể loại chính, {subCategories.length} thể loại con
+                  {mainCategories.length} thẻ chính, {subCategories.length} thẻ con
                 </p>
               </div>
             </div>
@@ -112,11 +112,11 @@ export default function TagTreeView({
                             <div className="flex items-center gap-2">
                               <span className="font-semibold text-gray-900">{main.name}</span>
                               <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
-                                PARENT
+                                CHA
                               </span>
                               {hasChildren && (
                                 <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
-                                  {children.length} con
+                                  {children.length} thẻ con
                                 </span>
                               )}
                             </div>
@@ -167,13 +167,13 @@ export default function TagTreeView({
                                   <div className="flex items-center gap-2">
                                     <span className="font-medium text-gray-900">{child.name}</span>
                                     <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
-                                      CHILD
+                                      CON
                                     </span>
                                   </div>
                                   <div className="mt-0.5 flex items-center gap-2 text-xs">
                                     <code className="text-gray-500">{child.slug}</code>
                                     <span className="text-gray-400">→</span>
-                                    <span className="text-green-600">Parent: {main.name}</span>
+                                    <span className="text-green-600">Cha: {main.name}</span>
                                   </div>
                                 </div>
                               </div>
@@ -208,7 +208,7 @@ export default function TagTreeView({
               <div className="rounded-lg border-2 border-dashed border-blue-200 bg-blue-50 p-8 text-center">
                 <div className="text-4xl mb-2">🌱</div>
                 <p className="text-sm text-gray-600">
-                  Chưa có thể loại chính nào. Tạo thể loại chính để bắt đầu phân cấp.
+                  Chưa có thẻ chính nào. Tạo thẻ chính để bắt đầu phân cấp.
                 </p>
               </div>
             )}
@@ -228,7 +228,7 @@ export default function TagTreeView({
               <div>
                 <h3 className="font-semibold text-purple-900">Phong cách</h3>
                 <p className="text-xs text-purple-600">
-                  {stylesTags.length} tags, không có phân cấp
+                  {stylesTags.length} thẻ, không có phân cấp
                 </p>
               </div>
             </div>
@@ -258,7 +258,7 @@ export default function TagTreeView({
                 ))
               ) : (
                 <div className="rounded-lg border-2 border-dashed border-purple-200 bg-purple-50 p-4 text-center text-sm text-gray-600 w-full">
-                  Chưa có tag phong cách
+                  Chưa có thẻ phong cách
                 </div>
               )}
             </div>
@@ -273,7 +273,7 @@ export default function TagTreeView({
               <div>
                 <h3 className="font-semibold text-orange-900">Địa điểm</h3>
                 <p className="text-xs text-orange-600">
-                  {locationsTags.length} tags, không có phân cấp
+                  {locationsTags.length} thẻ, không có phân cấp
                 </p>
               </div>
             </div>
@@ -303,7 +303,7 @@ export default function TagTreeView({
                 ))
               ) : (
                 <div className="rounded-lg border-2 border-dashed border-orange-200 bg-orange-50 p-4 text-center text-sm text-gray-600 w-full">
-                  Chưa có tag địa điểm
+                  Chưa có thẻ địa điểm
                 </div>
               )}
             </div>
@@ -316,23 +316,23 @@ export default function TagTreeView({
           <div className="grid gap-2 text-xs text-gray-600 sm:grid-cols-2">
             <div className="flex items-center gap-2">
               <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
-                PARENT
+                CHA
               </span>
-              <span>Thể loại chính, có thể có tags con</span>
+              <span>Thẻ chính, có thể có thẻ con</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
-                CHILD
+                CON
               </span>
-              <span>Thể loại con, thuộc về 1 parent</span>
+              <span>Thẻ con, thuộc về 1 thẻ cha</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-purple-600">🎨 Phong cách:</span>
-              <span>Tags độc lập, không có phân cấp</span>
+              <span>Thẻ độc lập, không có phân cấp</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-orange-600">📍 Địa điểm:</span>
-              <span>Tags độc lập, không có phân cấp</span>
+              <span>Thẻ độc lập, không có phân cấp</span>
             </div>
           </div>
         </div>
