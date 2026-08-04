@@ -2,7 +2,7 @@ import { listAlbums } from '@/lib/api'
 import { createPublicMetadata } from '@/lib/seo'
 import GalleryClient from './GalleryClient'
 
-export const dynamic = 'force-dynamic'
+export const revalidate = 60
 
 export const metadata = createPublicMetadata({
   title: 'Thư viện ảnh NDT Studio',

@@ -1,10 +1,18 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import Link from 'next/link'
 import { Eye } from 'lucide-react'
 import Masonry from 'react-masonry-css'
-import { listAlbums, type Album, type PaginatedResponse } from '@/lib/api'
+import useSWRInfinite from 'swr/infinite'
+import { type Album, type PaginatedResponse } from '@/lib/api'
+import {
+  fetchGalleryPage,
+  getGalleryPageKey,
+  mergeAlbumPages,
+  publicGallerySWRConfig,
+  type GalleryPage
+} from '@/lib/public-gallery-swr'
 import DividerWithText from '../../components/common/DividerWithText'
 import NavigationLinks from '../../components/common/NavigationLinks'
 
@@ -23,54 +31,41 @@ export default function GalleryClient({
   title = 'Thư Viện Ảnh',
   description = 'Thư viện ảnh với hơn 1000 concept được cập nhật liên tục và “Ready to Shoot”.'
 }: GalleryClientProps) {
-  const [albums, setAlbums] = useState(initialAlbums)
-  const [animationDelays, setAnimationDelays] = useState<Map<string, number>>(
-    () => new Map(initialAlbums.map((album, index) => [album.id, (index % 8) * 40]))
+  const fallbackData = useMemo<GalleryPage[]>(
+    () => [{ data: initialAlbums, pagination: initialPagination }],
+    [initialAlbums, initialPagination]
   )
-  const [loadingMore, setLoadingMore] = useState(false)
-  const [hasMore, setHasMore] = useState(initialPagination.hasMore)
-  const [cursor, setCursor] = useState<string | null>(initialPagination.nextCursor)
-  const [error, setError] = useState<string | null>(null)
+
+  const { data, error, isLoading, isValidating, setSize, size } = useSWRInfinite<GalleryPage, Error>(
+    getGalleryPageKey(categorySlug),
+    fetchGalleryPage,
+    { ...publicGallerySWRConfig, fallbackData }
+  )
+
+  const pages = data ?? fallbackData
+  const albums = useMemo(() => mergeAlbumPages(pages), [pages])
+  const animationDelays = useMemo(
+    () => new Map(albums.map((album, index) => [album.id, (index % 8) * 40])),
+    [albums]
+  )
+  const lastPage = pages[pages.length - 1] ?? fallbackData[0]
+  const hasMore = lastPage.pagination.hasMore && Boolean(lastPage.pagination.nextCursor)
+  const loadingMore = isLoading || (isValidating && size > 1)
   const loadMoreRef = useRef<HTMLDivElement>(null)
   const requestInFlightRef = useRef(false)
 
-  const loadMore = useCallback(async () => {
-    if (requestInFlightRef.current || !hasMore || !cursor) return
+  const loadMore = useCallback(() => {
+    if (requestInFlightRef.current || loadingMore || !hasMore) return
 
     requestInFlightRef.current = true
-    setLoadingMore(true)
-    setError(null)
-
-    try {
-      const response = await listAlbums({
-        status: 'published',
-        category: categorySlug,
-        limit: 8,
-        cursor,
-        sortBy: 'gallery'
+    void setSize(currentSize => currentSize + 1)
+      .catch(loadError => {
+        console.error('Failed to load more albums:', loadError)
       })
-      const incoming = response.data.filter(album => !albums.some(current => current.id === album.id))
-      setAlbums(current => {
-        const ids = new Set(current.map(album => album.id))
-        return [...current, ...response.data.filter(album => !ids.has(album.id))]
+      .finally(() => {
+        requestInFlightRef.current = false
       })
-      if (incoming.length > 0) {
-        setAnimationDelays(current => {
-          const next = new Map(current)
-          incoming.forEach((album, index) => next.set(album.id, index * 40))
-          return next
-        })
-      }
-      setHasMore(response.pagination.hasMore)
-      setCursor(response.pagination.nextCursor)
-    } catch (loadError) {
-      console.error('Failed to load more albums:', loadError)
-      setError('Không thể tải thêm album. Vui lòng thử lại.')
-    } finally {
-      setLoadingMore(false)
-      requestInFlightRef.current = false
-    }
-  }, [albums, categorySlug, cursor, hasMore])
+  }, [hasMore, loadingMore, setSize])
 
   useEffect(() => {
     const target = loadMoreRef.current
@@ -131,7 +126,7 @@ export default function GalleryClient({
             </Masonry>
             <div ref={loadMoreRef} className="flex h-20 items-center justify-center">
               {loadingMore ? <p className="text-sm text-neutral-500">Đang tải thêm...</p> : null}
-              {error ? <p className="text-sm text-red-500">{error}</p> : null}
+              {error ? <p className="text-sm text-red-500">Không thể tải thêm album. Vui lòng thử lại.</p> : null}
               {!loadingMore && !hasMore ? <p className="text-sm text-neutral-400">Đã hiển thị tất cả albums</p> : null}
             </div>
           </>

@@ -1,12 +1,19 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import Link from 'next/link'
 import Masonry from 'react-masonry-css'
+import useSWRInfinite from 'swr/infinite'
 import { Eye } from 'lucide-react'
 import DividerWithText from '../../../../components/common/DividerWithText'
 import NavigationLinks from '../../../../components/common/NavigationLinks'
-import { getTagAlbums, type Album, type Tag, type TagAlbumsResponse } from '@/lib/api'
+import { type Album, type Tag, type TagAlbumsResponse } from '@/lib/api'
+import {
+  fetchTagPage,
+  getTagPageKey,
+  mergeTagPages,
+  publicGallerySWRConfig
+} from '@/lib/public-gallery-swr'
 
 interface Props {
   slug: string
@@ -16,53 +23,41 @@ interface Props {
 }
 
 export default function TagGalleryClient({ slug, initialTag, initialAlbums, initialPagination }: Props) {
-  const [albums, setAlbums] = useState<Album[]>(initialAlbums)
-  const [hasMore, setHasMore] = useState(initialPagination.hasMore)
-  const [nextOffset, setNextOffset] = useState<number | null>(initialPagination.nextOffset)
-  const [loadingMore, setLoadingMore] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const pageLimit = initialPagination.limit || 20
+  const fallbackData = useMemo<TagAlbumsResponse[]>(
+    () => [{ tag: initialTag, data: initialAlbums, pagination: initialPagination }],
+    [initialAlbums, initialPagination, initialTag]
+  )
+  const { data, error, isLoading, isValidating, setSize, size } = useSWRInfinite<TagAlbumsResponse, Error>(
+    getTagPageKey(slug, pageLimit),
+    fetchTagPage,
+    { ...publicGallerySWRConfig, fallbackData }
+  )
+
+  const pages = data ?? fallbackData
+  const tag = pages[0]?.tag ?? initialTag
+  const albums = useMemo(() => mergeTagPages(pages), [pages])
+  const lastPage = pages[pages.length - 1] ?? fallbackData[0]
+  const hasMore = lastPage.pagination.hasMore && lastPage.pagination.nextOffset !== null
+  const loadingMore = isLoading || (isValidating && size > 1)
   const observerRef = useRef<IntersectionObserver | null>(null)
   const loadMoreRef = useRef<HTMLDivElement | null>(null)
-  const pageLimit = useMemo(() => initialPagination.limit || 20, [initialPagination.limit])
   const requestInFlightRef = useRef(false)
 
-  const mergeAlbums = useCallback((current: Album[], incoming: Album[]) => {
-    const seen = new Set(current.map(album => album.id))
-    const merged = [...current]
-
-    incoming.forEach(album => {
-      if (seen.has(album.id)) {
-        return
-      }
-      seen.add(album.id)
-      merged.push(album)
-    })
-
-    return merged
-  }, [])
-
-  const loadMore = useCallback(async () => {
-    if (requestInFlightRef.current || loadingMore || !hasMore || nextOffset === null) {
+  const loadMore = useCallback(() => {
+    if (requestInFlightRef.current || loadingMore || !hasMore) {
       return
     }
 
     requestInFlightRef.current = true
-    setLoadingMore(true)
-    setError(null)
-
-    try {
-      const response = await getTagAlbums(slug, { limit: pageLimit, offset: nextOffset })
-      setAlbums(prev => mergeAlbums(prev, response.data))
-      setHasMore(response.pagination.hasMore)
-      setNextOffset(response.pagination.nextOffset)
-    } catch (err) {
-      console.error('Failed to load more tag albums:', err)
-      setError('Không thể tải thêm album. Vui lòng thử lại.')
-    } finally {
-      setLoadingMore(false)
-      requestInFlightRef.current = false
-    }
-  }, [loadingMore, hasMore, nextOffset, slug, pageLimit, mergeAlbums])
+    void setSize(currentSize => currentSize + 1)
+      .catch(loadError => {
+        console.error('Failed to load more tag albums:', loadError)
+      })
+      .finally(() => {
+        requestInFlightRef.current = false
+      })
+  }, [hasMore, loadingMore, setSize])
 
   useEffect(() => {
     observerRef.current = new IntersectionObserver(
@@ -91,7 +86,7 @@ export default function TagGalleryClient({ slug, initialTag, initialAlbums, init
       <div className="space-y-6 py-10 sm:py-14">
         <div className="text-center">
           <h1 className="text-3xl font-bold tracking-tight text-neutral-900 sm:text-4xl md:text-5xl">
-            #{initialTag.name}
+            #{tag.name}
           </h1>
 
           <div className="mt-6 flex justify-center">
@@ -107,7 +102,7 @@ export default function TagGalleryClient({ slug, initialTag, initialAlbums, init
           </div>
 
           <p className="mx-auto mt-6 max-w-2xl text-sm leading-relaxed text-neutral-600 md:text-base">
-            {initialTag.description || `Các album thuộc tag ${initialTag.name} được tuyển chọn bởi Nguyen Dinh Thinh Studio.`}
+            {tag.description || `Các album thuộc tag ${tag.name} được tuyển chọn bởi Nguyen Dinh Thinh Studio.`}
           </p>
           <DividerWithText
             text="NGUYEN DINH THINH STUDIO"
@@ -141,7 +136,7 @@ export default function TagGalleryClient({ slug, initialTag, initialAlbums, init
 
           <div ref={loadMoreRef} className="flex h-20 items-center justify-center">
             {loadingMore && <p className="text-sm text-neutral-500">Đang tải thêm...</p>}
-            {error && <p className="text-sm text-red-500">{error}</p>}
+            {error && <p className="text-sm text-red-500">Không thể tải thêm album. Vui lòng thử lại.</p>}
             {!loadingMore && !hasMore && albums.length > 0 && (
               <p className="text-sm text-neutral-400">Đã hiển thị tất cả albums cho tag này</p>
             )}

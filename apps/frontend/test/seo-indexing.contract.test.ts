@@ -111,8 +111,9 @@ test('main gallery starts with eight albums and uses the curated gallery sort', 
 
 test('gallery client preloads eight albums and animates appended cards before the sentinel', () => {
   const gallery = readSource('../src/app/(public)/thu-vien/GalleryClient.tsx')
+  const gallerySWR = readSource('../src/lib/public-gallery-swr.ts')
 
-  assert.match(gallery, /limit:\s*8/)
+  assert.match(gallerySWR, /limit:\s*8/)
   assert.match(gallery, /rootMargin:\s*['"]0px 0px 800px 0px['"]/)
   assert.match(gallery, /fadeInUp/i)
   assert.match(gallery, /prefers-reduced-motion/)
@@ -200,15 +201,17 @@ test('complete SEO titles bypass the root title template without duplicating the
   assert.match(albumPage, /title:\s*{\s*absolute:\s*title\s*}/)
 })
 
-test('database-owned navigation refreshes and dynamic gallery facts are not frozen at build time', () => {
+test('database-owned navigation and public gallery data revalidate every 60 seconds', () => {
   const publicLayout = readSource('../src/app/(public)/layout.tsx')
+  const galleryPage = readSource('../src/app/(public)/thu-vien/page.tsx')
   const categoryPage = readSource('../src/app/(public)/thu-vien/danh-muc/[slug]/page.tsx')
   const tagPage = readSource('../src/app/(public)/thu-vien/tag/[slug]/page.tsx')
   const albumPage = readSource('../src/app/(public)/thu-vien/[slug]/page.tsx')
 
   assert.match(publicLayout, /export const revalidate\s*=\s*60/)
-  for (const page of [categoryPage, tagPage, albumPage]) {
-    assert.match(page, /export const dynamic\s*=\s*['"]force-dynamic['"]/)
+  for (const page of [galleryPage, categoryPage, tagPage, albumPage]) {
+    assert.match(page, /export const revalidate\s*=\s*60/)
+    assert.doesNotMatch(page, /export const dynamic\s*=\s*['"]force-dynamic['"]/)
   }
 })
 

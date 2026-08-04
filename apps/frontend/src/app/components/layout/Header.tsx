@@ -132,12 +132,16 @@ const Header: React.FC<HeaderProps> = ({
                     >
                       {child.children ? (
                         <div className="relative">
-                          <div className="flex w-full cursor-pointer items-center justify-between px-4 py-3 text-left text-white transition-colors hover:bg-[#ededed] hover:text-[#585858]">
+                          <Link
+                            href={child.href}
+                            className="flex w-full items-center justify-between px-4 py-3 text-left text-white transition-colors hover:bg-[#ededed] hover:text-[#585858]"
+                            onClick={closeDropdowns}
+                          >
                             <div className="text-sm font-medium">{child.label}</div>
-                            <div className="-rotate-90 text-2xl">
+                            <div className="-rotate-90 text-2xl" aria-hidden="true">
                               <MdArrowDropDown />
                             </div>
-                          </div>
+                          </Link>
 
                           {/* Sub-dropdown Menu */}
                           <div
