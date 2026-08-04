@@ -6,6 +6,7 @@
 'use client'
 
 import { useMemo, useState, type ReactNode } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import ConfirmDialog from '../components/ConfirmDialog'
 import Link from 'next/link'
 import { Plus, Edit, Trash2, Eye, Star, Search } from 'lucide-react'
@@ -13,15 +14,23 @@ import { toast } from 'sonner'
 import { listAlbums, deleteAlbum, toggleFeatured, type Album, type PaginatedResponse } from '@/lib/api'
 import { formatFullCount } from '@/lib/format'
 import { useAbortableEffect, useDebouncedValue } from '../hooks'
-
-type AlbumFilter = 'all' | 'published' | 'draft'
+import {
+  getAdminAlbumDetailHref,
+  getAdminAlbumListHref,
+  parseAdminAlbumListContext,
+  type AdminAlbumListContext,
+  type AlbumFilter
+} from './list-context'
 
 export default function AlbumsPage() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const initialContext = parseAdminAlbumListContext(searchParams)
   const [albums, setAlbums] = useState<Album[]>([])
   const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState<AlbumFilter>('all')
-  const [searchTerm, setSearchTerm] = useState('')
-  const [page, setPage] = useState(1)
+  const [filter, setFilter] = useState<AlbumFilter>(initialContext.filter)
+  const [searchTerm, setSearchTerm] = useState(initialContext.search)
+  const [page, setPage] = useState(initialContext.page)
   const [pagination, setPagination] = useState<PaginatedResponse<Album>['pagination']>({
     hasMore: false,
     nextCursor: null,
@@ -82,14 +91,25 @@ export default function AlbumsPage() {
   const [deleteCandidate, setDeleteCandidate] = useState<Album | null>(null)
   const [isDeletePending, setIsDeletePending] = useState(false)
 
+  const updateListContext = (context: AdminAlbumListContext) => {
+    router.replace(getAdminAlbumListHref(context), { scroll: false })
+  }
+
   const handleFilterChange = (nextFilter: AlbumFilter) => {
     setFilter(nextFilter)
     setPage(1)
+    updateListContext({ page: 1, filter: nextFilter, search: searchTerm })
   }
 
   const handleSearchChange = (value: string) => {
     setSearchTerm(value)
     setPage(1)
+    updateListContext({ page: 1, filter, search: value })
+  }
+
+  const handlePageChange = (nextPage: number) => {
+    setPage(nextPage)
+    updateListContext({ page: nextPage, filter, search: searchTerm })
   }
 
   const requestDelete = (album: Album) => {
@@ -139,7 +159,8 @@ export default function AlbumsPage() {
         onDelete={requestDelete}
         isSearching={isSearching}
         pagination={pagination}
-        onPageChange={setPage}
+        onPageChange={handlePageChange}
+        listContext={{ page, filter, search: searchTerm }}
       />
       <ConfirmDialog
         open={deleteCandidate !== null}
@@ -229,7 +250,8 @@ function AlbumsContent({
   onDelete,
   isSearching,
   pagination,
-  onPageChange
+  onPageChange,
+  listContext
 }: {
   albums: Album[]
   loading: boolean
@@ -238,6 +260,7 @@ function AlbumsContent({
   isSearching: boolean
   pagination: PaginatedResponse<Album>['pagination']
   onPageChange: (page: number) => void
+  listContext: AdminAlbumListContext
 }) {
   if (loading) {
     return (
@@ -254,7 +277,12 @@ function AlbumsContent({
   return (
     <div className="rounded-lg bg-white shadow">
       <div className="overflow-x-auto">
-        <AlbumsTable albums={albums} onToggleFeatured={onToggleFeatured} onDelete={onDelete} />
+        <AlbumsTable
+          albums={albums}
+          onToggleFeatured={onToggleFeatured}
+          onDelete={onDelete}
+          listContext={listContext}
+        />
       </div>
       <AlbumsPagination pagination={pagination} onPageChange={onPageChange} />
     </div>
@@ -332,11 +360,13 @@ function PaginationButton({
 function AlbumsTable({
   albums,
   onToggleFeatured,
-  onDelete
+  onDelete,
+  listContext
 }: {
   albums: Album[]
   onToggleFeatured: (album: Album) => void
   onDelete: (album: Album) => void
+  listContext: AdminAlbumListContext
 }) {
   return (
     <table className="w-full min-w-[840px]">
@@ -352,7 +382,13 @@ function AlbumsTable({
       </thead>
       <tbody className="divide-y divide-gray-200">
         {albums.map(album => (
-          <AlbumRow key={album.id} album={album} onToggleFeatured={onToggleFeatured} onDelete={onDelete} />
+          <AlbumRow
+            key={album.id}
+            album={album}
+            onToggleFeatured={onToggleFeatured}
+            onDelete={onDelete}
+            listContext={listContext}
+          />
         ))}
       </tbody>
     </table>
@@ -362,11 +398,13 @@ function AlbumsTable({
 function AlbumRow({
   album,
   onToggleFeatured,
-  onDelete
+  onDelete,
+  listContext
 }: {
   album: Album
   onToggleFeatured: (album: Album) => void
   onDelete: (album: Album) => void
+  listContext: AdminAlbumListContext
 }) {
   const manualCategories = album.categories?.filter(cat => cat.source === 'manual') ?? []
 
@@ -413,7 +451,7 @@ function AlbumRow({
             <Star size={18} fill={album.isFeatured ? 'currentColor' : 'none'} />
           </button>
           <Link
-            href={`/admin/albums/${album.slug}`}
+            href={getAdminAlbumDetailHref(album.slug, listContext)}
             className="inline-flex items-center justify-center rounded p-2 text-blue-600 transition-colors hover:bg-gray-100"
           >
             <Edit size={18} />

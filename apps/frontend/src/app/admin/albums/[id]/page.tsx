@@ -6,7 +6,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Upload, Edit, ListChecks } from 'lucide-react';
 import { toast } from 'sonner';
@@ -19,10 +19,13 @@ import {
 import { formatFullCount } from '@/lib/format';
 import ImageUploadZone from '../../components/ImageUploadZone';
 import ImageGrid from '../../components/ImageGrid';
+import { getAdminAlbumListHref, parseAdminAlbumListContext } from '../list-context';
 
 export default function AlbumDetailPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const slug = params.id as string; // This is actually a slug, not an ID
+  const albumListHref = getAdminAlbumListHref(parseAdminAlbumListContext(searchParams));
 
   const [album, setAlbum] = useState<Album | null>(null);
   const [loading, setLoading] = useState(true);
@@ -109,7 +112,7 @@ export default function AlbumDetailPage() {
     return (
       <div className="text-center py-12">
         <p className="text-gray-500 mb-4">Không tìm thấy bộ ảnh</p>
-        <Link href="/admin/albums" className="text-blue-600 hover:underline">
+        <Link href={albumListHref} className="text-blue-600 hover:underline">
           Quay lại danh sách bộ ảnh
         </Link>
       </div>
@@ -121,7 +124,7 @@ export default function AlbumDetailPage() {
       {/* Header */}
       <div className="mb-8">
         <Link
-          href="/admin/albums"
+          href={albumListHref}
           className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
         >
           <ArrowLeft size={20} />

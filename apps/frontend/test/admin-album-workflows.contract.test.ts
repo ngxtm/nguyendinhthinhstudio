@@ -3,6 +3,11 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import * as imagesApi from '../src/lib/api/images'
 import { getImageUploadErrorMessage } from '../src/app/admin/components/ImageUploadErrors'
+import {
+  getAdminAlbumDetailHref,
+  getAdminAlbumListHref,
+  parseAdminAlbumListContext
+} from '../src/app/admin/albums/list-context'
 
 test('admin album list always requests the authenticated admin collection', () => {
   const source = readFileSync(new URL('../src/app/admin/albums/page.tsx', import.meta.url), 'utf8')
@@ -19,6 +24,21 @@ test('admin album list requests 24-item pages and renders pagination totals', ()
   assert.match(source, /page:\s*page/)
   assert.match(source, /totalPages/)
   assert.match(source, /Đang xem/)
+})
+
+test('admin album navigation preserves page, filter, and search context', () => {
+  const context = parseAdminAlbumListContext(new URLSearchParams('page=3&status=published&search=Pearlescent+Halo'))
+
+  assert.deepEqual(context, {
+    page: 3,
+    filter: 'published',
+    search: 'Pearlescent Halo'
+  })
+  assert.equal(
+    getAdminAlbumDetailHref('pearlescent-halo', context),
+    '/admin/albums/pearlescent-halo?page=3&status=published&search=Pearlescent+Halo'
+  )
+  assert.equal(getAdminAlbumListHref(context), '/admin/albums?page=3&status=published&search=Pearlescent+Halo')
 })
 
 test('admin album actions share an aligned inline-flex icon button frame', () => {
