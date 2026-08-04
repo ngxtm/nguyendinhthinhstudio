@@ -52,3 +52,8 @@ export function getAdminAlbumDetailHref(slug: string, context: AdminAlbumListCon
   const query = serializeAdminAlbumListContext(context)
   return `/admin/albums/${slug}${query ? `?${query}` : ''}`
 }
+
+export function getAdminAlbumEditHref(slug: string, context: AdminAlbumListContext): string {
+  const query = serializeAdminAlbumListContext(context)
+  return `/admin/albums/${slug}/edit${query ? `?${query}` : ''}`
+}

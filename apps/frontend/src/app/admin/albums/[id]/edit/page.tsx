@@ -6,7 +6,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, RefreshCw, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -24,11 +24,15 @@ import {
 } from '@/lib/api'
 import CategoryCombobox from '../../../components/CategoryCombobox'
 import ConfirmDialog from '../../../components/ConfirmDialog'
+import { getAdminAlbumDetailHref, getAdminAlbumListHref, parseAdminAlbumListContext } from '../../list-context'
 
 export default function EditAlbumPage() {
   const params = useParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const slug = params.id as string // Using 'id' param which is actually a slug
+  const listContext = parseAdminAlbumListContext(searchParams)
+  const albumListHref = getAdminAlbumListHref(listContext)
 
   const [album, setAlbum] = useState<Album | null>(null)
   const [loading, setLoading] = useState(false)
@@ -212,11 +216,8 @@ export default function EditAlbumPage() {
       toast.success('Đã cập nhật bộ ảnh!')
 
       // If slug changed, redirect to new URL
-      if (updated.slug !== slug) {
-        router.push(`/admin/albums/${updated.slug}`)
-      } else {
-        router.push(`/admin/albums/${slug}`)
-      }
+      const nextSlug = updated.slug !== slug ? updated.slug : slug
+      router.push(getAdminAlbumDetailHref(nextSlug, listContext))
     } catch (error) {
       console.error('Failed to update album:', error)
       toast.error('Không thể cập nhật bộ ảnh. Vui lòng thử lại.')
@@ -236,7 +237,7 @@ export default function EditAlbumPage() {
       setDeleting(true)
       await deleteAlbum(album.id)
       toast.success('Đã xóa bộ ảnh!')
-      router.replace('/admin/albums')
+      router.replace(albumListHref)
     } catch (error) {
       console.error('Failed to delete album:', error)
       toast.error('Không thể xóa bộ ảnh')
@@ -256,7 +257,7 @@ export default function EditAlbumPage() {
     return (
       <div className="py-12 text-center">
         <p className="mb-4 text-gray-500">Không tìm thấy bộ ảnh</p>
-        <Link href="/admin/albums" className="text-blue-600 hover:underline">
+        <Link href={albumListHref} className="text-blue-600 hover:underline">
           Quay lại danh sách bộ ảnh
         </Link>
       </div>
@@ -268,7 +269,7 @@ export default function EditAlbumPage() {
       {/* Header */}
       <div className="mb-8">
         <Link
-          href={`/admin/albums/${slug}`}
+          href={getAdminAlbumDetailHref(slug, listContext)}
           className="mb-4 inline-flex items-center gap-2 text-gray-600 hover:text-gray-900"
         >
           <ArrowLeft size={20} />
@@ -470,7 +471,7 @@ export default function EditAlbumPage() {
                 {loading ? 'Đang lưu...' : 'Lưu thay đổi'}
               </button>
               <Link
-                href={`/admin/albums/${slug}`}
+                href={getAdminAlbumDetailHref(slug, listContext)}
                 className="rounded-lg border border-gray-300 px-6 py-3 font-medium transition-colors hover:bg-gray-50"
               >
                 Hủy

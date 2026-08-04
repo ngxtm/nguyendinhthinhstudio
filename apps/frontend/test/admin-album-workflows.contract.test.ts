@@ -41,6 +41,34 @@ test('admin album navigation preserves page, filter, and search context', () => 
   assert.equal(getAdminAlbumListHref(context), '/admin/albums?page=3&status=published&search=Pearlescent+Halo')
 })
 
+test('admin album edit keeps list context through detail, save, and delete navigation', async () => {
+  const listContextModule = await import(new URL('../src/app/admin/albums/list-context.ts', import.meta.url).href)
+  const getAdminAlbumEditHref = listContextModule.getAdminAlbumEditHref as
+    | ((slug: string, context: { page: number; filter: 'all' | 'published' | 'draft'; search: string }) => string)
+    | undefined
+
+  assert.equal(typeof getAdminAlbumEditHref, 'function', 'edit href helper must exist')
+  if (!getAdminAlbumEditHref) return
+
+  const context = { page: 3, filter: 'published' as const, search: 'Pearlescent Halo' }
+  assert.equal(
+    getAdminAlbumEditHref('pearlescent-halo', context),
+    '/admin/albums/pearlescent-halo/edit?page=3&status=published&search=Pearlescent+Halo'
+  )
+
+  const detailSource = readFileSync(new URL('../src/app/admin/albums/[id]/page.tsx', import.meta.url), 'utf8')
+  const editSource = readFileSync(new URL('../src/app/admin/albums/[id]/edit/page.tsx', import.meta.url), 'utf8')
+
+  assert.match(detailSource, /getAdminAlbumEditHref/)
+  assert.doesNotMatch(detailSource, /href=\{`\/admin\/albums\/\$\{album\.slug\}\/edit`\}/)
+  assert.match(editSource, /useSearchParams/)
+  assert.match(editSource, /getAdminAlbumDetailHref/)
+  assert.match(editSource, /getAdminAlbumListHref/)
+  assert.doesNotMatch(editSource, /router\.push\(`\/admin\/albums\/\$\{(?:updated\.slug|slug)\}`\)/)
+  assert.doesNotMatch(editSource, /router\.replace\('\/admin\/albums'\)/)
+  assert.doesNotMatch(editSource, /href=\{`\/admin\/albums\/\$\{slug\}`\}/)
+})
+
 test('admin album actions share an aligned inline-flex icon button frame', () => {
   const source = readFileSync(new URL('../src/app/admin/albums/page.tsx', import.meta.url), 'utf8')
 

@@ -19,13 +19,15 @@ import {
 import { formatFullCount } from '@/lib/format';
 import ImageUploadZone from '../../components/ImageUploadZone';
 import ImageGrid from '../../components/ImageGrid';
-import { getAdminAlbumListHref, parseAdminAlbumListContext } from '../list-context';
+import { getAdminAlbumEditHref, getAdminAlbumListHref, parseAdminAlbumListContext } from '../list-context';
 
 export default function AlbumDetailPage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const slug = params.id as string; // This is actually a slug, not an ID
-  const albumListHref = getAdminAlbumListHref(parseAdminAlbumListContext(searchParams));
+  const listContext = parseAdminAlbumListContext(searchParams);
+  const albumListHref = getAdminAlbumListHref(listContext);
+  const albumEditHref = getAdminAlbumEditHref(slug, listContext);
 
   const [album, setAlbum] = useState<Album | null>(null);
   const [loading, setLoading] = useState(true);
@@ -137,7 +139,7 @@ export default function AlbumDetailPage() {
           </div>
           <div className="flex items-center gap-3">
             <Link
-              href={`/admin/albums/${album.slug}/edit`}
+              href={albumEditHref}
               className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
             >
               <Edit size={18} />

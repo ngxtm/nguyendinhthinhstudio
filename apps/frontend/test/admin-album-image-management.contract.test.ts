@@ -115,7 +115,7 @@ test('album edit normalizes the API date before binding it to the date input', (
 
 test('album edit exposes a guarded destructive delete action', () => {
   assert.match(editSource, /deleteAlbum\(album\.id\)/)
-  assert.match(editSource, /router\.replace\('\/admin\/albums'\)/)
+  assert.match(editSource, /router\.replace\(albumListHref\)/)
   assert.match(editSource, /Xóa bộ ảnh/)
   assert.match(editSource, /disabled=\{loading \|\| deleting\}/)
 })
