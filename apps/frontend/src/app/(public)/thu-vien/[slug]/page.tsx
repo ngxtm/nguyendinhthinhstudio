@@ -6,7 +6,13 @@
 import { Metadata } from 'next';
 import Script from 'next/script';
 import { notFound } from 'next/navigation';
-import { getAlbum, getRelatedAlbums, normalizeAlbumTags, normalizeAlbumCategories } from '@/lib/api';
+import {
+  getAlbum,
+  getAlbumImageBatch,
+  getRelatedAlbums,
+  normalizeAlbumTags,
+  normalizeAlbumCategories,
+} from '@/lib/api';
 import { absoluteUrl } from '@/lib/seo';
 import AlbumDetailClient from './AlbumDetailClient';
 
@@ -43,19 +49,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     const canonical = absoluteUrl(`/thu-vien/${album.slug}`);
 
     // Get cover image for Open Graph
-    const coverImageUrl = album.coverImage?.largeUrl || album.images?.[0]?.largeUrl;
+    const coverImageUrl = album.coverImage?.largeUrl;
 
     return {
       title: { absolute: title },
       description,
-      keywords: [
-        album.title,
-        categoryName,
-        ...tagNames,
-        'nhiếp ảnh',
-        'chụp ảnh',
-        'NDT Studio',
-      ].join(', '),
+      keywords: [album.title, categoryName, ...tagNames, 'nhiếp ảnh', 'chụp ảnh', 'NDT Studio'].join(', '),
       authors: [{ name: 'NDT Studio' }],
       creator: 'NDT Studio',
       publisher: 'NDT Studio',
@@ -121,12 +120,11 @@ export default async function AlbumDetailPage({ params }: Props) {
   const { slug } = await params;
   let album;
   let relatedAlbums;
+  let initialImagePage;
 
   try {
-    [album, relatedAlbums] = await Promise.all([
-      getAlbum(slug),
-      getRelatedAlbums(slug),
-    ]);
+    [album, relatedAlbums] = await Promise.all([getAlbum(slug), getRelatedAlbums(slug)]);
+    initialImagePage = await getAlbumImageBatch(album.id);
   } catch (error) {
     notFound();
   }
@@ -167,7 +165,7 @@ export default async function AlbumDetailPage({ params }: Props) {
       url: 'https://ndtstudio.site',
     },
     datePublished: album.publishedAt,
-    image: album.images?.map((img) => ({
+    image: initialImagePage.data.map((img) => ({
       '@type': 'ImageObject',
       contentUrl: img.largeUrl,
       thumbnail: img.thumbnailUrl,
@@ -175,7 +173,7 @@ export default async function AlbumDetailPage({ params }: Props) {
       height: img.height,
       caption: img.altText || album.title,
     })),
-    associatedMedia: album.images?.map((img) => ({
+    associatedMedia: initialImagePage.data.map((img) => ({
       '@type': 'ImageObject',
       contentUrl: img.largeUrl,
       thumbnail: img.thumbnailUrl,
@@ -220,7 +218,7 @@ export default async function AlbumDetailPage({ params }: Props) {
   return (
     <>
       {/* Client Component handles interactivity */}
-      <AlbumDetailClient album={albumForClient} relatedAlbums={relatedForClient} />
+      <AlbumDetailClient album={albumForClient} relatedAlbums={relatedForClient} initialImagePage={initialImagePage} />
 
       {/* JSON-LD Structured Data for Google */}
       <Script

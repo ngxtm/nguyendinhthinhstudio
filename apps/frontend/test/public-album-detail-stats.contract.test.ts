@@ -8,10 +8,14 @@ const source = readFileSync(
 )
 const statsMarkup = source.match(/\{\/\* Stats \*\/\}([\s\S]*?)\{\/\* Category Badges \*\/\}/)?.[1]
 
-test('album detail pairs image and view counts with their semantic icons', () => {
+test('public album detail keeps the image count but hides the view count', () => {
   assert.ok(statsMarkup, 'album stats markup must remain present')
   assert.match(statsMarkup, /<ImageIcon[\s\S]*?\/>\s*\{album\.imageCount\} ảnh/)
-  assert.match(statsMarkup, /<Eye[\s\S]*?\/>\s*\{formatCompactCount\(album\.viewCount\)\} lượt xem/)
+  assert.doesNotMatch(statsMarkup, /viewCount|lượt xem|<Eye/)
+})
+
+test('public album detail does not render the shoot date', () => {
+  assert.doesNotMatch(source, /Calendar|formatDate|album\.shootDate|Ngày chụp/)
 })
 
 test('album detail stats wrap complete items without a bullet separator', () => {

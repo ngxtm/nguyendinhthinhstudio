@@ -526,10 +526,6 @@ export class AlbumsService {
           },
         },
         coverImage: true,
-        images: {
-          where: { uploadStatus: 'completed' },
-          orderBy: { orderIndex: 'asc' },
-        },
       },
     });
 

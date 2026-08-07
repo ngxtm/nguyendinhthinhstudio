@@ -91,6 +91,74 @@ describe('ImagesService read presentation', () => {
       { id: 'image-2', thumbnailUrl: 'stored://two' },
     ]);
   });
+
+  it('returns a cursor-paginated public image batch and asks for one lookahead row', async () => {
+    const harness = createHarness();
+    const rows = Array.from({ length: 9 }, (_, index) => ({
+      id: `image-${index + 1}`,
+      albumId: ALBUM_ID,
+      orderIndex: index + 1,
+      uploadStatus: 'completed',
+      r2ObjectKey: `albums/${ALBUM_ID}/image-${index + 1}.webp`,
+    }));
+    harness.prisma.image.findMany.mockResolvedValueOnce(rows);
+
+    const result = await harness.createService().findByAlbumBatch(ALBUM_ID, {
+      limit: 8,
+    });
+
+    expect(result.data.map((image: any) => image.id)).toEqual(
+      rows.slice(0, 8).map((image) => image.id),
+    );
+    expect(result.pagination).toEqual({
+      hasMore: true,
+      nextCursor: expect.any(String),
+      limit: 8,
+    });
+    expect(harness.prisma.image.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        take: 9,
+        orderBy: [{ orderIndex: 'asc' }, { id: 'asc' }],
+      }),
+    );
+    expect(harness.imagePresenter.presentImage).toHaveBeenCalledTimes(8);
+  });
+
+  it('uses the returned image cursor to start the next batch after the previous image', async () => {
+    const harness = createHarness();
+    const firstRows = Array.from({ length: 9 }, (_, index) => ({
+      id: `image-${index + 1}`,
+      albumId: ALBUM_ID,
+      orderIndex: index + 1,
+      uploadStatus: 'completed',
+      r2ObjectKey: `albums/${ALBUM_ID}/image-${index + 1}.webp`,
+    }));
+    harness.prisma.image.findMany.mockResolvedValueOnce(firstRows);
+
+    const firstPage = await harness.createService().findByAlbumBatch(ALBUM_ID, {
+      limit: 8,
+    });
+    const cursor = firstPage.pagination.nextCursor;
+    harness.prisma.image.findMany.mockResolvedValueOnce([]);
+
+    await harness.createService().findByAlbumBatch(ALBUM_ID, {
+      limit: 8,
+      cursor: cursor as string,
+    });
+
+    expect(harness.prisma.image.findMany).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        where: {
+          albumId: ALBUM_ID,
+          uploadStatus: 'completed',
+          OR: [
+            { orderIndex: { gt: 8 } },
+            { orderIndex: 8, id: { gt: 'image-8' } },
+          ],
+        },
+      }),
+    );
+  });
 });
 
 function createHarness(session = activeUpload()) {

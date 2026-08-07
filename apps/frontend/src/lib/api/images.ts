@@ -16,6 +16,17 @@ import { probeUploadCapability } from '../image-upload/capability-probe'
 import { optimizeImage } from '../image-upload/optimizer'
 import type { OptimizedImage, UploadCapability } from '../image-upload/types'
 
+export const PUBLIC_ALBUM_IMAGE_BATCH_SIZE = 8
+
+export interface AlbumImagePage {
+  data: Image[]
+  pagination: {
+    hasMore: boolean
+    nextCursor: string | null
+    limit: number
+  }
+}
+
 export class UploadApiError extends Error {
   constructor(
     readonly code: string,
@@ -245,6 +256,13 @@ export async function uploadMultipleImages(
 
 export async function getAlbumImages(albumId: string): Promise<Image[]> {
   return apiClient<Image[]>(`/images/album/${albumId}`)
+}
+
+export async function getAlbumImageBatch(albumId: string, cursor?: string): Promise<AlbumImagePage> {
+  const params = new URLSearchParams({ limit: String(PUBLIC_ALBUM_IMAGE_BATCH_SIZE) })
+  if (cursor) params.set('cursor', cursor)
+
+  return apiClient<AlbumImagePage>(`/images/album/${encodeURIComponent(albumId)}/batch?${params.toString()}`)
 }
 
 export async function updateImage(imageId: string, data: { altText?: string; filename?: string }): Promise<Image> {

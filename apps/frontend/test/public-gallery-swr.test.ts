@@ -108,12 +108,43 @@ test('public gallery SWR revalidates on focus and reconnect without polling', as
   assert.equal(publicGallerySWRConfig.refreshInterval, 0)
 })
 
-test('SWR is scoped to gallery and tag clients while album detail stays server-first', () => {
+test('album detail image page keys advance by cursor and stop after the final batch', async () => {
+  const detailModule = new URL('../src/lib/public-album-detail-swr.ts', import.meta.url)
+  assert.equal(existsSync(detailModule), true, 'public-album-detail-swr.ts must exist')
+  if (!existsSync(detailModule)) return
+
+  const { getAlbumImagePageKey, mergeAlbumImagePages } = await import(detailModule.href)
+  const getKey = getAlbumImagePageKey('album-1')
+  const firstPage = {
+    data: [album('image-1'), album('image-2')],
+    pagination: { hasMore: true, nextCursor: 'cursor-3', limit: 8 }
+  }
+  const secondPage = {
+    data: [album('image-2'), album('image-3')],
+    pagination: { hasMore: false, nextCursor: null, limit: 8 }
+  }
+
+  assert.deepEqual(getKey(0, null), ['album-images', 'album-1', null])
+  assert.deepEqual(getKey(1, firstPage), ['album-images', 'album-1', 'cursor-3'])
+  assert.equal(getKey(2, secondPage), null)
+  assert.deepEqual(
+    mergeAlbumImagePages([firstPage, secondPage]).map((image: Album) => image.id),
+    ['image-1', 'image-2', 'image-3']
+  )
+})
+
+test('gallery and album detail clients use cursor batches while the first album batch stays server-provided', () => {
   const galleryClient = readSource('../src/app/(public)/thu-vien/GalleryClient.tsx')
   const tagClient = readSource('../src/app/(public)/thu-vien/tag/[slug]/TagGalleryClient.tsx')
   const albumDetailClient = readSource('../src/app/(public)/thu-vien/[slug]/AlbumDetailClient.tsx')
+  const albumDetailPage = readSource('../src/app/(public)/thu-vien/[slug]/page.tsx')
 
   assert.match(galleryClient, /useSWRInfinite/)
   assert.match(tagClient, /useSWRInfinite/)
-  assert.doesNotMatch(albumDetailClient, /useSWR/)
+  assert.match(albumDetailClient, /useSWRInfinite/)
+  assert.match(albumDetailClient, /IntersectionObserver/)
+  assert.match(albumDetailClient, /nextCursor/)
+  assert.match(albumDetailClient, /hasMore/)
+  assert.match(albumDetailPage, /getAlbumImageBatch/)
+  assert.match(albumDetailPage, /initialImagePage/)
 })

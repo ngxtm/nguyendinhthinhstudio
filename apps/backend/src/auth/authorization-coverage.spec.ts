@@ -34,7 +34,7 @@ const contracts: Array<{
   },
   {
     controller: ImagesController,
-    public: ['findByAlbum'],
+    public: ['findByAlbum', 'findByAlbumBatch'],
     admin: ['getUploadUrl', 'confirmUpload', 'update', 'remove', 'reorder'],
   },
   {

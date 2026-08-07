@@ -5,6 +5,7 @@ import {
   BadRequestException,
   ConflictException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { createHash, randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { ImagePresenterService } from './image-presenter.service';
@@ -16,6 +17,7 @@ import { UpdateImageDto } from './dto/update-image.dto';
 import { BulkDeleteImagesDto } from './dto/bulk-delete-images.dto';
 import { MoveImagesDto } from './dto/move-images.dto';
 import { ReorderImagesDto } from './dto/reorder-images.dto';
+import { QueryAlbumImagesDto } from './dto/query-album-images.dto';
 import { runSerializableWithRetry } from '../prisma/serializable-retry';
 import { createImageUploadRequestFingerprint } from './image-upload-fingerprint';
 import {
@@ -29,6 +31,34 @@ import { canonicalizeEtag } from './canonical-etag';
 
 const FINALIZATION_LEASE_MS = 10 * 60 * 1000;
 const MAX_ALBUM_IMAGES = 50;
+
+type PublicImageCursor = {
+  id: string;
+  orderIndex: number;
+};
+
+function encodePublicImageCursor(image: PublicImageCursor): string {
+  return Buffer.from(JSON.stringify(image)).toString('base64url');
+}
+
+function decodePublicImageCursor(cursor: string): PublicImageCursor {
+  try {
+    const payload = JSON.parse(
+      Buffer.from(cursor, 'base64url').toString('utf8'),
+    ) as Partial<PublicImageCursor>;
+
+    if (
+      typeof payload.id !== 'string' ||
+      !Number.isInteger(payload.orderIndex)
+    ) {
+      throw new Error('Invalid image cursor payload');
+    }
+
+    return { id: payload.id, orderIndex: payload.orderIndex };
+  } catch {
+    throw new BadRequestException('Invalid image cursor');
+  }
+}
 
 function isClientRequestWinnerConflict(error: unknown): boolean {
   if (typeof error !== 'object' || error === null) return false;
@@ -872,13 +902,7 @@ export class ImagesService {
    * Get all images for an album
    */
   async findByAlbum(albumId: string) {
-    const album = await this.prisma.album.findUnique({
-      where: { id: albumId, status: 'published', deleteStatus: 'active' },
-    });
-
-    if (!album) {
-      throw new NotFoundException('Album not found');
-    }
+    await this.assertPublicAlbum(albumId);
 
     const images = await this.prisma.image.findMany({
       where: {
@@ -888,18 +912,87 @@ export class ImagesService {
       orderBy: { orderIndex: 'asc' },
     });
 
-    return images.map((image) => {
-      const presented: any = this.imagePresenter.presentImage(image);
-      const {
-        albumId: _albumId,
-        r2ObjectKey,
-        uploadStatus,
-        fileSizeKb,
-        createdAt,
-        ...safe
-      } = presented;
-      return safe;
+    return images.map((image) => this.presentPublicImage(image));
+  }
+
+  /**
+   * Get one cursor-paginated batch of images for a public album.
+   */
+  async findByAlbumBatch(
+    albumId: string,
+    query: QueryAlbumImagesDto = new QueryAlbumImagesDto(),
+  ) {
+    await this.assertPublicAlbum(albumId);
+
+    const limit = Math.min(Math.max(query.limit ?? 8, 1), 50);
+    const cursor = query.cursor
+      ? decodePublicImageCursor(query.cursor)
+      : undefined;
+    const cursorFilter: Prisma.ImageWhereInput | undefined = cursor
+      ? {
+          OR: [
+            { orderIndex: { gt: cursor.orderIndex } },
+            {
+              orderIndex: cursor.orderIndex,
+              id: { gt: cursor.id },
+            },
+          ],
+        }
+      : undefined;
+
+    const images = await this.prisma.image.findMany({
+      where: {
+        albumId,
+        uploadStatus: 'completed',
+        ...(cursorFilter ?? {}),
+      },
+      orderBy: [{ orderIndex: 'asc' }, { id: 'asc' }],
+      take: limit + 1,
     });
+
+    const hasMore = images.length > limit;
+    const data = images.slice(0, limit);
+    const lastImage = data[data.length - 1];
+
+    return {
+      data: data.map((image) => this.presentPublicImage(image)),
+      pagination: {
+        hasMore,
+        nextCursor:
+          hasMore && lastImage
+            ? encodePublicImageCursor({
+                id: lastImage.id,
+                orderIndex: lastImage.orderIndex,
+              })
+            : null,
+        limit,
+      },
+    };
+  }
+
+  private async assertPublicAlbum(albumId: string) {
+    const album = await this.prisma.album.findUnique({
+      where: { id: albumId, status: 'published', deleteStatus: 'active' },
+    });
+
+    if (!album) {
+      throw new NotFoundException('Album not found');
+    }
+
+    return album;
+  }
+
+  private presentPublicImage(image: any) {
+    const presented: any = this.imagePresenter.presentImage(image);
+    const {
+      albumId: _albumId,
+      r2ObjectKey,
+      uploadStatus,
+      fileSizeKb,
+      createdAt,
+      ...safe
+    } = presented;
+    return safe;
   }
 
   /**

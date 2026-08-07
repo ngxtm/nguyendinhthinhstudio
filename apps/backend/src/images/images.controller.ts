@@ -17,6 +17,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   Req,
   UnauthorizedException,
   UseFilters,
@@ -37,6 +38,7 @@ import { UploadConfirmDto } from './dto/upload-confirm.dto';
 import { UploadRequestDto } from './dto/upload-request.dto';
 import { UploadSessionAbandonDto } from './dto/upload-session-abandon.dto';
 import { UploadSessionStatusDto } from './dto/upload-session-status.dto';
+import { QueryAlbumImagesDto } from './dto/query-album-images.dto';
 import {
   ImageUploadRateLimitService,
   type ImageUploadRouteScope,
@@ -336,6 +338,15 @@ export class ImagesController {
   @Public()
   findByAlbum(@Param('albumId') albumId: string) {
     return this.imagesService.findByAlbum(albumId);
+  }
+
+  @Get('album/:albumId/batch')
+  @Public()
+  findByAlbumBatch(
+    @Param('albumId') albumId: string,
+    @Query() query: QueryAlbumImagesDto,
+  ) {
+    return this.imagesService.findByAlbumBatch(albumId, query);
   }
 
   @Patch(':id')

@@ -537,22 +537,19 @@ describe('AlbumsService image presentation', () => {
     });
   });
 
-  it('presents the cover and gallery returned by findBySlug', async () => {
+  it('presents the cover without hydrating the full public gallery in findBySlug', async () => {
     const { prisma, imagePresenter, service } = createPresentationHarness();
     const coverImage = imageRecord('detail-cover');
-    const images = [imageRecord('detail-1'), imageRecord('detail-2')];
-    prisma.album.findUnique.mockResolvedValueOnce(
-      albumRecord({ coverImage, images }),
-    );
+    prisma.album.findUnique.mockResolvedValueOnce(albumRecord({ coverImage }));
 
     const result = await service.findBySlug('wedding-album');
 
     expect(result.coverImage.thumbnailUrl).toBe('presented://detail-cover');
-    expect(result.images.map((image: any) => image.thumbnailUrl)).toEqual([
-      'presented://detail-1',
-      'presented://detail-2',
-    ]);
-    expect(imagePresenter.presentImage).toHaveBeenCalledTimes(3);
+    expect(result.images).toBeUndefined();
+    expect(prisma.album.findUnique.mock.calls[0][0].include).not.toHaveProperty(
+      'images',
+    );
+    expect(imagePresenter.presentImage).toHaveBeenCalledTimes(1);
   });
 
   it('incrementView increments viewCount for an active published album via a single guarded updateMany', async () => {

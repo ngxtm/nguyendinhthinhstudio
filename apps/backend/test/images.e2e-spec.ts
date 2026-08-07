@@ -49,6 +49,7 @@ describe('Images current upload routes (e2e)', () => {
     getUploadStatus: jest.fn(),
     abandonUpload: jest.fn(),
     findByAlbum: jest.fn(),
+    findByAlbumBatch: jest.fn(),
     update: jest.fn(),
     remove: jest.fn(),
     reorder: jest.fn(),
@@ -95,6 +96,10 @@ describe('Images current upload routes (e2e)', () => {
       message: 'Upload session was abandoned',
     });
     imagesService.findByAlbum.mockResolvedValue([]);
+    imagesService.findByAlbumBatch.mockResolvedValue({
+      data: [],
+      pagination: { hasMore: false, nextCursor: null, limit: 8 },
+    });
     imagesService.update.mockResolvedValue({ id: 'image-id' });
     imagesService.remove.mockResolvedValue({ id: 'image-id' });
     imagesService.reorder.mockResolvedValue([]);
@@ -386,5 +391,19 @@ describe('Images current upload routes (e2e)', () => {
       .get('/images/album/album-id')
       .expect(200)
       .expect([]);
+  });
+
+  it('allows public album image batches without a JWT', async () => {
+    await request(app.getHttpServer())
+      .get('/images/album/album-id/batch?limit=8')
+      .expect(200)
+      .expect({
+        data: [],
+        pagination: { hasMore: false, nextCursor: null, limit: 8 },
+      });
+    expect(imagesService.findByAlbumBatch).toHaveBeenCalledWith(
+      'album-id',
+      expect.objectContaining({ limit: '8' }),
+    );
   });
 });

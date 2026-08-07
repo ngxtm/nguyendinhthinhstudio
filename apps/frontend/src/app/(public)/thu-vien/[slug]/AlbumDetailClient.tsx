@@ -5,29 +5,79 @@
 
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Eye, Calendar, Image as ImageIcon } from 'lucide-react'
-import { type Album, normalizeAlbumTags, normalizeAlbumCategories, incrementAlbumView } from '@/lib/api'
-import { formatCompactCount } from '@/lib/format'
+import { ArrowLeft, Eye, Image as ImageIcon } from 'lucide-react'
+import useSWRInfinite from 'swr/infinite'
+import {
+  type Album,
+  type AlbumImagePage,
+  incrementAlbumView,
+  normalizeAlbumCategories,
+  normalizeAlbumTags
+} from '@/lib/api'
 import Masonry from 'react-masonry-css'
 import PhotoSwipeLightbox from 'photoswipe/lightbox'
 import 'photoswipe/style.css'
 import DividerWithText from '../../../components/common/DividerWithText'
 import { getDefaultPhotoSwipeOptions, registerPhotoSwipeUI } from '@/lib/photoswipe'
+import { fetchAlbumImagePage, getAlbumImagePageKey, mergeAlbumImagePages } from '@/lib/public-album-detail-swr'
+import { publicGallerySWRConfig } from '@/lib/public-gallery-swr'
 
 type Props = {
   album: Album
   relatedAlbums: Album[]
+  initialImagePage: AlbumImagePage
 }
 
-export default function AlbumDetailClient({ album, relatedAlbums }: Props) {
+export default function AlbumDetailClient({ album, relatedAlbums, initialImagePage }: Props) {
   const [imagesLoaded, setImagesLoaded] = useState(false)
   const [imageDimensions, setImageDimensions] = useState<Record<string, { width: number; height: number }>>({})
   const lightboxRef = useRef<PhotoSwipeLightbox | null>(null)
+  const loadMoreRef = useRef<HTMLDivElement>(null)
+  const requestInFlightRef = useRef(false)
   // In-memory dedupe for environments where sessionStorage is unavailable
   // (Safari private mode). Survives re-mounts within the same tab session.
   const viewedRef = useRef<Set<string>>(new Set())
+
+  const fallbackData = useMemo(() => [initialImagePage], [initialImagePage])
+  const { data, error, isLoading, isValidating, setSize, size } = useSWRInfinite<AlbumImagePage, Error>(
+    getAlbumImagePageKey(album.id),
+    fetchAlbumImagePage,
+    { ...publicGallerySWRConfig, revalidateFirstPage: false, fallbackData }
+  )
+  const pages = data ?? fallbackData
+  const images = useMemo(() => mergeAlbumImagePages(pages), [pages])
+  const lastPage = pages[pages.length - 1] ?? fallbackData[0]
+  const hasMore = lastPage.pagination.hasMore && Boolean(lastPage.pagination.nextCursor)
+  const loadingMore = isLoading || (isValidating && size > 1)
+
+  const loadMore = useCallback(() => {
+    if (!imagesLoaded || requestInFlightRef.current || loadingMore || !hasMore) return
+
+    requestInFlightRef.current = true
+    void setSize(currentSize => currentSize + 1)
+      .catch(loadError => {
+        console.error('Failed to load more album images:', loadError)
+      })
+      .finally(() => {
+        requestInFlightRef.current = false
+      })
+  }, [hasMore, imagesLoaded, loadingMore, setSize])
+
+  useEffect(() => {
+    const target = loadMoreRef.current
+    if (!target) return
+
+    const observer = new IntersectionObserver(
+      entries => {
+        if (entries[0].isIntersecting) void loadMore()
+      },
+      { threshold: 0.1, rootMargin: '0px 0px 800px 0px' }
+    )
+    observer.observe(target)
+    return () => observer.disconnect()
+  }, [loadMore])
 
   const displayTags = normalizeAlbumTags(album.tags)
   const displayCategories = normalizeAlbumCategories(album.categories)
@@ -65,20 +115,28 @@ export default function AlbumDetailClient({ album, relatedAlbums }: Props) {
       })
   }, [album.slug])
 
-  // Preload all images before showing and get real dimensions
+  // Preload the currently loaded batch and get real dimensions without
+  // blocking later batches from being appended.
   useEffect(() => {
     if (typeof window === 'undefined') {
       return
     }
 
-    if (!album.images || album.images.length === 0) {
+    if (images.length === 0) {
       setImagesLoaded(true)
       return
     }
 
+    const pendingImages = images.filter(image => !imageDimensions[image.id])
+    if (pendingImages.length === 0) {
+      setImagesLoaded(true)
+      return
+    }
+
+    let cancelled = false
     const dimensions: Record<string, { width: number; height: number }> = {}
 
-    const imagePromises = album.images.map(img => {
+    const imagePromises = pendingImages.map(img => {
       return new Promise(resolve => {
         const image = new window.Image()
         image.onload = () => {
@@ -102,14 +160,19 @@ export default function AlbumDetailClient({ album, relatedAlbums }: Props) {
     })
 
     Promise.all(imagePromises).then(() => {
-      setImageDimensions(dimensions)
+      if (cancelled) return
+      setImageDimensions(current => ({ ...current, ...dimensions }))
       setImagesLoaded(true)
     })
-  }, [album.images])
+
+    return () => {
+      cancelled = true
+    }
+  }, [images, imageDimensions])
 
   // Initialize PhotoSwipe
   useEffect(() => {
-    if (!album.images || album.images.length === 0) return
+    if (images.length === 0) return
 
     // Initialize PhotoSwipe with centralized config
     lightboxRef.current = new PhotoSwipeLightbox(getDefaultPhotoSwipeOptions())
@@ -139,18 +202,7 @@ export default function AlbumDetailClient({ album, relatedAlbums }: Props) {
         lightboxRef.current = null
       }
     }
-  }, [album.images])
-
-  // Format shoot date
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return null
-    const date = new Date(dateString)
-    return date.toLocaleDateString('vi-VN', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    })
-  }
+  }, [images])
 
   return (
     <>
@@ -208,25 +260,11 @@ export default function AlbumDetailClient({ album, relatedAlbums }: Props) {
                   </div>
                 )}
 
-                {/* Shoot Date */}
-                {album.shootDate && (
-                  <div className="mb-3 flex items-center gap-2 text-neutral-600 md:mb-4">
-                    <Calendar size={16} className="md:h-[18px] md:w-[18px]" />
-                    <span className="text-xs md:text-sm">
-                      Ngày chụp: <span className="font-medium">{formatDate(album.shootDate)}</span>
-                    </span>
-                  </div>
-                )}
-
                 {/* Stats */}
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-neutral-200 pt-3 text-xs text-neutral-500 md:gap-x-4 md:pt-4 md:text-sm">
                   <span className="inline-flex items-center gap-1 whitespace-nowrap">
                     <ImageIcon size={14} className="md:h-4 md:w-4" />
                     {album.imageCount} ảnh
-                  </span>
-                  <span className="inline-flex items-center gap-1 whitespace-nowrap">
-                    <Eye size={14} className="md:h-4 md:w-4" />
-                    {formatCompactCount(album.viewCount)} lượt xem
                   </span>
                 </div>
 
@@ -257,12 +295,12 @@ export default function AlbumDetailClient({ album, relatedAlbums }: Props) {
           <DividerWithText text="" className="mb-12" />
 
           {/* Images Masonry Grid - PhotoSwipe Gallery */}
-          {album.images && album.images.length > 0 ? (
+          {images.length > 0 ? (
             <div className="mb-12 md:mb-16">
               {/* Skeleton Loading */}
               {!imagesLoaded && (
                 <div className="grid grid-cols-2 gap-4 md:grid-cols-3 md:gap-6 lg:grid-cols-4">
-                  {Array.from({ length: Math.min(album.images.length, 12) }).map((_, i) => (
+                  {Array.from({ length: Math.min(images.length, 12) }).map((_, i) => (
                     <div
                       key={`skeleton-${i}`}
                       className="aspect-[3/4] animate-pulse rounded-md bg-neutral-200 md:rounded-lg"
@@ -293,7 +331,7 @@ export default function AlbumDetailClient({ album, relatedAlbums }: Props) {
                   style={{ maxWidth: 'none' }}
                   columnClassName="pl-4 md:pl-6 bg-clip-padding"
                 >
-                  {album.images.map((image, index) => {
+                  {images.map((image, index) => {
                     const highQualityUrl =
                       image.xlargeUrl || image.largeUrl || image.mediumUrl || image.smallUrl || image.thumbnailUrl
                     // Use real dimensions from state (loaded from image) or fallback to DB values
@@ -336,6 +374,20 @@ export default function AlbumDetailClient({ album, relatedAlbums }: Props) {
           ) : (
             <div className="py-8 text-center md:py-12">
               <p className="text-sm text-neutral-500 md:text-base">Album này chưa có ảnh</p>
+            </div>
+          )}
+
+          {images.length > 0 && (
+            <div ref={loadMoreRef} className="flex min-h-16 items-center justify-center">
+              {loadingMore ? <p className="text-sm text-neutral-500">Đang tải thêm ảnh...</p> : null}
+              {error ? (
+                <button type="button" onClick={loadMore} className="text-sm text-red-500 underline underline-offset-2">
+                  Không thể tải thêm ảnh. Vui lòng thử lại.
+                </button>
+              ) : null}
+              {!loadingMore && !error && !hasMore ? (
+                <p className="text-sm text-neutral-400">Đã hiển thị tất cả ảnh</p>
+              ) : null}
             </div>
           )}
 
