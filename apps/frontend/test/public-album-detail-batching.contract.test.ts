@@ -8,9 +8,9 @@ const detailClient = readFileSync(
   'utf8'
 )
 
-test('public album image API requests eight-image cursor batches', () => {
+test('public album image API requests three-image cursor batches', () => {
   assert.match(imagesApi, /\/images\/album\/\$\{encodeURIComponent\(albumId\)\}\/batch/)
-  assert.match(imagesApi, /PUBLIC_ALBUM_IMAGE_BATCH_SIZE\s*=\s*8/)
+  assert.match(imagesApi, /PUBLIC_ALBUM_IMAGE_BATCH_SIZE\s*=\s*3/)
   assert.match(imagesApi, /cursor/)
 })
 

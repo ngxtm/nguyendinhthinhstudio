@@ -924,7 +924,7 @@ export class ImagesService {
   ) {
     await this.assertPublicAlbum(albumId);
 
-    const limit = Math.min(Math.max(query.limit ?? 8, 1), 50);
+    const limit = Math.min(Math.max(query.limit ?? 3, 1), 50);
     const cursor = query.cursor
       ? decodePublicImageCursor(query.cursor)
       : undefined;

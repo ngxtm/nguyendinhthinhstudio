@@ -70,6 +70,30 @@ const activeUpload = (overrides: Partial<UploadRow> = {}): UploadRow => ({
 });
 
 describe('ImagesService read presentation', () => {
+  it('defaults public album image batches to three images', async () => {
+    const harness = createHarness();
+    const rows = Array.from({ length: 4 }, (_, index) => ({
+      id: `image-${index + 1}`,
+      albumId: ALBUM_ID,
+      orderIndex: index + 1,
+      uploadStatus: 'completed',
+      r2ObjectKey: `albums/${ALBUM_ID}/image-${index + 1}.webp`,
+    }));
+    harness.prisma.image.findMany.mockResolvedValueOnce(rows);
+
+    const result = await harness.createService().findByAlbumBatch(ALBUM_ID);
+
+    expect(result.data).toHaveLength(3);
+    expect(result.pagination).toEqual({
+      hasMore: true,
+      nextCursor: expect.any(String),
+      limit: 3,
+    });
+    expect(harness.prisma.image.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ take: 4 }),
+    );
+  });
+
   it('presents every image returned for an album without mutating query rows', async () => {
     const harness = createHarness();
     const rows = [
