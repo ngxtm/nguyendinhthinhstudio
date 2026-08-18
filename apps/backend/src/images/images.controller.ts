@@ -40,10 +40,6 @@ import { UploadSessionAbandonDto } from './dto/upload-session-abandon.dto';
 import { UploadSessionStatusDto } from './dto/upload-session-status.dto';
 import { QueryAlbumImagesDto } from './dto/query-album-images.dto';
 import {
-  ImageUploadRateLimitService,
-  type ImageUploadRouteScope,
-} from './image-upload-rate-limit.service';
-import {
   IMAGE_UPLOAD_OPERATOR_SMOKE_HEADER,
   type ImageUploadIngressRuntime,
   matchesOperatorSmokeToken,
@@ -93,7 +89,6 @@ type SessionRouteService = {
 export class ImagesController {
   constructor(
     private readonly imagesService: ImagesService,
-    private readonly rateLimit: ImageUploadRateLimitService,
     @Optional()
     @Inject(IMAGE_UPLOAD_CONTROLLER_RUNTIME)
     private readonly runtime: ImageUploadIngressRuntime = {
@@ -124,15 +119,6 @@ export class ImagesController {
         'Authentication is required',
       );
     }
-    return adminId;
-  }
-
-  private async admit(
-    request: AdminRequest,
-    routeScope: ImageUploadRouteScope,
-  ): Promise<string> {
-    const adminId = this.adminId(request);
-    await this.rateLimit.admit(adminId, routeScope);
     return adminId;
   }
 
@@ -242,7 +228,7 @@ export class ImagesController {
   @ApiOperation({ summary: 'Get a WebP upload URL (Admin only)' })
   async getUploadUrl(@Body() body: unknown, @Req() request: AdminRequest) {
     this.assertUploadIngress(request, { creation: true });
-    const adminId = await this.admit(request, 'upload_url');
+    const adminId = this.adminId(request);
 
     const upload = this.validateDto(body, UploadRequestDto);
     if (
@@ -269,7 +255,7 @@ export class ImagesController {
   @Roles('admin')
   async confirmUpload(@Body() body: unknown, @Req() request: AdminRequest) {
     this.assertUploadIngress(request, { creation: false });
-    const adminId = await this.admit(request, 'confirm_upload');
+    const adminId = this.adminId(request);
     const confirm = this.validateDto(body, UploadConfirmDto);
     return this.invokeBusiness(
       () => this.imagesService.confirmUpload(confirm, adminId),
@@ -285,7 +271,7 @@ export class ImagesController {
     @Req() request: AdminRequest,
   ) {
     this.assertUploadIngress(request, { creation: false });
-    const adminId = await this.admit(request, 'upload_status');
+    const adminId = this.adminId(request);
     const routeUploadId =
       typeof uploadId === 'string'
         ? uploadId
@@ -314,7 +300,7 @@ export class ImagesController {
     @Req() request: AdminRequest,
   ) {
     this.assertUploadIngress(request, { creation: false });
-    const adminId = await this.admit(request, 'abandon_upload');
+    const adminId = this.adminId(request);
     const routeUploadId =
       typeof uploadId === 'string'
         ? uploadId

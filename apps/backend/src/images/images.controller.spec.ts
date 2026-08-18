@@ -18,7 +18,6 @@ describe('ImagesController simplified upload contract', () => {
     headers: { 'x-image-upload-smoke-token': smokeToken },
   }
   const runtime = { presignEnabled: true, mode: 'general' as const }
-  const rateLimit = { admit: jest.fn().mockResolvedValue({ admitted: true }) }
   const images = {
     getUploadUrl: jest.fn().mockResolvedValue({ uploadId: 'upload-1' }),
     confirmUpload: jest.fn().mockResolvedValue({ outcome: 'finalizing' }),
@@ -31,7 +30,6 @@ describe('ImagesController simplified upload contract', () => {
   function controller(enabled = true, override: Record<string, unknown> = {}) {
     return new ImagesController(
       images as never,
-      rateLimit as never,
       {
         ...runtime,
         presignEnabled: enabled,
@@ -63,13 +61,12 @@ describe('ImagesController simplified upload contract', () => {
     expect('getUploadPolicy' in ImagesController.prototype).toBe(false)
   })
 
-  it('checks disabled ingress before rate admission or session work', async () => {
+  it('checks disabled ingress before business work', async () => {
     await expect(
       controller(false).getUploadUrl(validPresignBody(), adminRequest as never),
     ).rejects.toMatchObject({
       response: { statusCode: 503, code: 'upload_presign_disabled' },
     })
-    expect(rateLimit.admit).not.toHaveBeenCalled()
     expect(images.getUploadUrl).not.toHaveBeenCalled()
   })
 
@@ -87,7 +84,7 @@ describe('ImagesController simplified upload contract', () => {
       'abandonUpload',
       ['00000000-0000-4000-8000-000000000030', adminRequest],
     ],
-  ])('checks operator ingress before rate admission for %s', async (method, args) => {
+  ])('checks operator ingress before business work for %s', async (method, args) => {
     await expect(
       (operatorController() as unknown as Record<
         string,
@@ -96,7 +93,6 @@ describe('ImagesController simplified upload contract', () => {
     ).rejects.toMatchObject({
       response: { statusCode: 403, code: 'upload_operator_smoke_required' },
     })
-    expect(rateLimit.admit).not.toHaveBeenCalled()
   })
 
   it('admits a valid WebP-only request and delegates it unchanged', async () => {
@@ -105,7 +101,6 @@ describe('ImagesController simplified upload contract', () => {
       controller().getUploadUrl(body, adminRequest as never),
     ).resolves.toEqual({ uploadId: 'upload-1' })
 
-    expect(rateLimit.admit).toHaveBeenCalledWith('admin-1', 'upload_url')
     expect(images.getUploadUrl).toHaveBeenCalledWith(body, 'admin-1')
   })
 
@@ -115,7 +110,7 @@ describe('ImagesController simplified upload contract', () => {
     ['a non-UUID album ID', { albumId: 'not-a-uuid' }],
     ['an invalid digest', { processedSha256: 'A'.repeat(64) }],
     ['an unknown field', { unknown: true }],
-  ])('rejects %s as upload_invalid_request after admission', async (_name, change) => {
+  ])('rejects %s as upload_invalid_request before business work', async (_name, change) => {
     await expect(
       controller().getUploadUrl(
         { ...validPresignBody(), ...change },
@@ -124,22 +119,20 @@ describe('ImagesController simplified upload contract', () => {
     ).rejects.toMatchObject({
       response: { statusCode: 400, code: 'upload_invalid_request' },
     })
-    expect(rateLimit.admit).toHaveBeenCalledWith('admin-1', 'upload_url')
     expect(images.getUploadUrl).not.toHaveBeenCalled()
   })
 
   it.each([
-    ['confirmUpload', 'confirm_upload'],
-    ['getUploadStatus', 'upload_status'],
-    ['abandonUpload', 'abandon_upload'],
-  ])('admits before %s business lookup', async (method, scope) => {
+    ['confirmUpload'],
+    ['getUploadStatus'],
+    ['abandonUpload'],
+  ])('delegates %s without upload rate admission', async (method) => {
     const uploadId = '00000000-0000-4000-8000-000000000030'
     await expect(
       (controller() as unknown as Record<string, (...args: unknown[]) => unknown>)[
         method
       ]({ uploadId }, adminRequest),
     ).resolves.toBeDefined()
-    expect(rateLimit.admit).toHaveBeenCalledWith('admin-1', scope)
   })
 
   it.each([

@@ -6,7 +6,7 @@ import * as ConflictEntrypoint from './scripts/resolve-image-upload-promotion-co
 
 export const IMAGE_UPLOAD_ENTRYPOINTS = [ReconcileEntrypoint, ConflictEntrypoint];
 import { ConfigModule } from '@nestjs/config';
-import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -20,6 +20,7 @@ import { SiteSettingsModule } from './site-settings/site-settings.module';
 import { StaffModule } from './staff/staff.module';
 import { validateEnv } from './config/env.validation';
 import { AuditInterceptor } from './audit/audit.interceptor';
+import { ApiThrottlerGuard } from './throttling/api-throttler.guard';
 
 @Module({
   imports: [
@@ -45,7 +46,7 @@ import { AuditInterceptor } from './audit/audit.interceptor';
     AppService,
     {
       provide: APP_GUARD,
-      useClass: ThrottlerGuard,
+      useClass: ApiThrottlerGuard,
     },
     {
       provide: APP_INTERCEPTOR,

@@ -3,17 +3,12 @@ import {
   ConflictException,
   INestApplication,
   NotFoundException,
-  ServiceUnavailableException,
 } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { createHmac } from 'crypto';
 import request from 'supertest';
 import * as bodyParser from 'body-parser';
 import { AppModule } from '../src/app.module';
-import {
-  ImageUploadRateLimitService,
-  UploadRateLimitedException,
-} from '../src/images/image-upload-rate-limit.service';
 import { ImagesService } from '../src/images/images.service';
 import { PrismaService } from '../src/prisma/prisma.service';
 
@@ -54,7 +49,6 @@ describe('Images current upload routes (e2e)', () => {
     remove: jest.fn(),
     reorder: jest.fn(),
   };
-  const rateLimit = { admit: jest.fn() };
 
   async function createApp(): Promise<INestApplication> {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -64,8 +58,6 @@ describe('Images current upload routes (e2e)', () => {
       .useValue({})
       .overrideProvider(ImagesService)
       .useValue(imagesService)
-      .overrideProvider(ImageUploadRateLimitService)
-      .useValue(rateLimit)
       .compile();
 
     const created = moduleFixture.createNestApplication({ bodyParser: false });
@@ -103,8 +95,6 @@ describe('Images current upload routes (e2e)', () => {
     imagesService.update.mockResolvedValue({ id: 'image-id' });
     imagesService.remove.mockResolvedValue({ id: 'image-id' });
     imagesService.reorder.mockResolvedValue([]);
-    rateLimit.admit.mockResolvedValue({ admitted: true });
-
     app = await createApp();
   });
 
@@ -115,7 +105,7 @@ describe('Images current upload routes (e2e)', () => {
     delete process.env.IMAGE_UPLOAD_OPERATOR_SMOKE_TOKEN;
   });
 
-  it('requires the exact operator token before rate admission', async () => {
+  it('requires the exact operator token before business work', async () => {
     await app.close();
     process.env.IMAGE_UPLOAD_INGRESS_MODE = 'operator-smoke';
     process.env.IMAGE_UPLOAD_OPERATOR_SMOKE_TOKEN = SMOKE_TOKEN;
@@ -137,15 +127,12 @@ describe('Images current upload routes (e2e)', () => {
     expect(denied.body).toEqual(
       expect.objectContaining({ code: 'upload_operator_smoke_required' }),
     );
-    expect(rateLimit.admit).not.toHaveBeenCalled();
-
     await request(app.getHttpServer())
       .post('/images/upload-url')
       .set('Authorization', `Bearer ${signJwt('admin')}`)
       .set('X-Image-Upload-Smoke-Token', SMOKE_TOKEN)
       .send(body)
       .expect(200);
-    expect(rateLimit.admit).toHaveBeenCalledTimes(1);
   });
 
   it.each([
@@ -199,7 +186,7 @@ describe('Images current upload routes (e2e)', () => {
   });
 
   it.each(['clientRequestId', 'processedSha256', 'policyVersion'])(
-    'admits then rejects %s as upload_invalid_request',
+    'rejects %s as upload_invalid_request',
     async (field) => {
       const body: Record<string, unknown> = {
         clientRequestId: '00000000-0000-4000-8000-000000000010',
@@ -223,28 +210,9 @@ describe('Images current upload routes (e2e)', () => {
           code: 'upload_invalid_request',
         }),
       );
-      expect(rateLimit.admit).toHaveBeenCalledWith(ADMIN_ID, 'upload_url');
       expect(imagesService.getUploadUrl).not.toHaveBeenCalled();
     },
   );
-
-  it('returns rate limiting before malformed request validation', async () => {
-    rateLimit.admit.mockRejectedValueOnce(
-      new UploadRateLimitedException('2026-07-19T10:01:00.000Z'),
-    );
-
-    const response = await request(app.getHttpServer())
-      .post('/images/upload-url')
-      .set('Authorization', `Bearer ${signJwt('admin')}`)
-      .send({})
-      .expect(429);
-    expect(response.body).toEqual(
-      expect.objectContaining({
-        code: 'upload_rate_limited',
-        retryAfter: '2026-07-19T10:01:00.000Z',
-      }),
-    );
-  });
 
   it('accepts bodies below 1 MiB for validation and rejects bodies above 1 MiB', async () => {
     const token = `Bearer ${signJwt('admin')}`;
@@ -264,7 +232,7 @@ describe('Images current upload routes (e2e)', () => {
       .expect(413);
   });
 
-  it('returns upload_invalid_request after rate admission', async () => {
+  it('returns upload_invalid_request for invalid business input', async () => {
     const response = await request(app.getHttpServer())
       .post('/images/upload-url')
       .set('Authorization', `Bearer ${signJwt('admin')}`)
@@ -336,43 +304,7 @@ describe('Images current upload routes (e2e)', () => {
     );
   });
 
-  it('returns upload_rate_limit_unavailable without business admission', async () => {
-    rateLimit.admit.mockRejectedValueOnce(
-      new ServiceUnavailableException({
-        statusCode: 503,
-        code: 'upload_rate_limit_unavailable',
-        message: 'Upload rate limit store is unavailable',
-      }),
-    );
-    const response = await request(app.getHttpServer())
-      .post('/images/confirm-upload')
-      .set('Authorization', `Bearer ${signJwt('admin')}`)
-      .send({ uploadId: '00000000-0000-4000-8000-000000000030' })
-      .expect(503);
-    expect(response.body).toEqual(
-      expect.objectContaining({ code: 'upload_rate_limit_unavailable' }),
-    );
-    expect(imagesService.confirmUpload).not.toHaveBeenCalled();
-  });
-
-  it('never uses an untrusted forwarded IP as the admission identity', async () => {
-    await request(app.getHttpServer())
-      .post('/images/upload-url')
-      .set('Authorization', `Bearer ${signJwt('admin')}`)
-      .set('X-Forwarded-For', '203.0.113.99')
-      .send({
-        clientRequestId: '00000000-0000-4000-8000-000000000010',
-        albumId: '00000000-0000-4000-8000-000000000020',
-        filename: 'photo.webp',
-        contentType: 'image/webp',
-        fileSize: 1024,
-        processedSha256: 'a'.repeat(64),
-      })
-      .expect(200);
-    expect(rateLimit.admit).toHaveBeenCalledWith(ADMIN_ID, 'upload_url');
-  });
-
-  it('returns presign disabled before admission', async () => {
+  it('returns presign disabled before business work', async () => {
     process.env.IMAGE_UPLOAD_PRESIGN_ENABLED = 'false';
 
     const response = await request(app.getHttpServer())
@@ -383,7 +315,6 @@ describe('Images current upload routes (e2e)', () => {
     expect(response.body).toEqual(
       expect.objectContaining({ code: 'upload_presign_disabled' }),
     );
-    expect(rateLimit.admit).not.toHaveBeenCalled();
   });
 
   it('allows public album reads without a JWT', async () => {

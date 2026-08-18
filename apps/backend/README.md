@@ -45,7 +45,8 @@ open http://localhost:3000/api
 - ✅ Infinite scroll with cursor-based pagination
 - ✅ Featured albums system
 - ✅ SEO-friendly slugs (Vietnamese support)
-- ✅ Rate limiting (10 req/min)
+- ✅ Public GET reads and administrator routes bypass the global request throttler
+- ✅ Public POST routes retain their explicit limits (album view: 30 requests/min/IP)
 - ✅ Role-based access control
 
 ## 📡 API Endpoints
