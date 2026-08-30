@@ -123,8 +123,16 @@ export default async function AlbumDetailPage({ params }: Props) {
   let initialImagePage;
 
   try {
-    [album, relatedAlbums] = await Promise.all([getAlbum(slug), getRelatedAlbums(slug)]);
-    initialImagePage = await getAlbumImageBatch(album.id);
+    const albumPromise = getAlbum(slug);
+    const initialImagePagePromise = albumPromise.then((resolvedAlbum) => getAlbumImageBatch(resolvedAlbum.id));
+    const [resolvedAlbum, resolvedRelatedAlbums, resolvedInitialImagePage] = await Promise.all([
+      albumPromise,
+      getRelatedAlbums(slug),
+      initialImagePagePromise,
+    ]);
+    album = resolvedAlbum;
+    relatedAlbums = resolvedRelatedAlbums;
+    initialImagePage = resolvedInitialImagePage;
   } catch (error) {
     notFound();
   }
@@ -218,7 +226,12 @@ export default async function AlbumDetailPage({ params }: Props) {
   return (
     <>
       {/* Client Component handles interactivity */}
-      <AlbumDetailClient album={albumForClient} relatedAlbums={relatedForClient} initialImagePage={initialImagePage} />
+      <AlbumDetailClient
+        key={album.id}
+        album={albumForClient}
+        relatedAlbums={relatedForClient}
+        initialImagePage={initialImagePage}
+      />
 
       {/* JSON-LD Structured Data for Google */}
       <Script

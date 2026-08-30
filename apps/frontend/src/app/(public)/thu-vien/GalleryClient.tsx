@@ -124,11 +124,10 @@ export default function GalleryClient({
                 <AlbumCard key={album.id} album={album} animationDelay={animationDelays.get(album.id) ?? 0} />
               ))}
             </Masonry>
-            <div ref={loadMoreRef} className="flex h-20 items-center justify-center">
-              {loadingMore ? <p className="text-sm text-neutral-500">Đang tải thêm...</p> : null}
-              {error ? <p className="text-sm text-red-500">Không thể tải thêm album. Vui lòng thử lại.</p> : null}
-              {!loadingMore && !hasMore ? <p className="text-sm text-neutral-400">Đã hiển thị tất cả albums</p> : null}
-            </div>
+            <div ref={loadMoreRef} className="h-px" aria-hidden="true" />
+            {error ? (
+              <p className="py-4 text-center text-sm text-red-500">Không thể tải thêm album. Vui lòng thử lại.</p>
+            ) : null}
           </>
         )}
       </div>

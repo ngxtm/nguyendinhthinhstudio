@@ -4,10 +4,10 @@ import { IsNumber, IsOptional, IsString, Max, Min } from 'class-validator';
 
 export class QueryAlbumImagesDto {
   @ApiProperty({
-    example: 3,
+    example: 4,
     description: 'Number of public album images to return',
     required: false,
-    default: 3,
+    default: 4,
     minimum: 1,
     maximum: 50,
   })
@@ -16,7 +16,7 @@ export class QueryAlbumImagesDto {
   @Max(50)
   @Type(() => Number)
   @IsOptional()
-  limit: number = 3;
+  limit: number = 4;
 
   @ApiProperty({
     example: 'eyJvcmRlckluZGV4Ijo4LCJpZCI6ImltYWdlLTgifQ',

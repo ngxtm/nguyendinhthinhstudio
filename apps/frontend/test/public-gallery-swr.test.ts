@@ -148,3 +148,15 @@ test('gallery and album detail clients use cursor batches while the first album 
   assert.match(albumDetailPage, /getAlbumImageBatch/)
   assert.match(albumDetailPage, /initialImagePage/)
 })
+
+test('public cursor galleries keep their sentinel but do not render progress or completion footer labels', () => {
+  const galleryClient = readSource('../src/app/(public)/thu-vien/GalleryClient.tsx')
+  const tagClient = readSource('../src/app/(public)/thu-vien/tag/[slug]/TagGalleryClient.tsx')
+  const albumDetailClient = readSource('../src/app/(public)/thu-vien/[slug]/AlbumDetailClient.tsx')
+
+  for (const source of [galleryClient, tagClient, albumDetailClient]) {
+    assert.match(source, /loadMoreRef/)
+    assert.doesNotMatch(source, /Đang tải thêm/)
+    assert.doesNotMatch(source, /Đã hiển thị tất cả/)
+  }
+})

@@ -134,13 +134,8 @@ export default function TagGalleryClient({ slug, initialTag, initialAlbums, init
             ))}
           </Masonry>
 
-          <div ref={loadMoreRef} className="flex h-20 items-center justify-center">
-            {loadingMore && <p className="text-sm text-neutral-500">Đang tải thêm...</p>}
-            {error && <p className="text-sm text-red-500">Không thể tải thêm album. Vui lòng thử lại.</p>}
-            {!loadingMore && !hasMore && albums.length > 0 && (
-              <p className="text-sm text-neutral-400">Đã hiển thị tất cả albums cho tag này</p>
-            )}
-          </div>
+          <div ref={loadMoreRef} className="h-px" aria-hidden="true" />
+          {error && <p className="text-sm text-red-500 py-4 text-center">Không thể tải thêm album. Vui lòng thử lại.</p>}
         </>
       )}
     </div>

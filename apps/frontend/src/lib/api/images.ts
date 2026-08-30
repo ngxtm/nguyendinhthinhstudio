@@ -16,7 +16,7 @@ import { probeUploadCapability } from '../image-upload/capability-probe'
 import { optimizeImage } from '../image-upload/optimizer'
 import type { OptimizedImage, UploadCapability } from '../image-upload/types'
 
-export const PUBLIC_ALBUM_IMAGE_BATCH_SIZE = 3
+export const PUBLIC_ALBUM_IMAGE_BATCH_SIZE = 4
 
 export interface AlbumImagePage {
   data: Image[]

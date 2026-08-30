@@ -21,7 +21,13 @@ import PhotoSwipeLightbox from 'photoswipe/lightbox'
 import 'photoswipe/style.css'
 import DividerWithText from '../../../components/common/DividerWithText'
 import { getDefaultPhotoSwipeOptions, registerPhotoSwipeUI } from '@/lib/photoswipe'
-import { fetchAlbumImagePage, getAlbumImagePageKey, mergeAlbumImagePages } from '@/lib/public-album-detail-swr'
+import {
+  fetchAlbumImagePage,
+  getAlbumImagePageKey,
+  getAlbumImagePrefetchPolicy,
+  mergeAlbumImagePages,
+  type AlbumImageConnection
+} from '@/lib/public-album-detail-swr'
 import { publicGallerySWRConfig } from '@/lib/public-gallery-swr'
 
 type Props = {
@@ -30,12 +36,51 @@ type Props = {
   initialImagePage: AlbumImagePage
 }
 
+type ImageLoadState = 'loaded' | 'failed'
+type ImageDimensions = { width: number; height: number }
+
+function getAlbumImageConnection(): AlbumImageConnection | undefined {
+  if (typeof navigator === 'undefined') return undefined
+
+  return (navigator as Navigator & { connection?: AlbumImageConnection }).connection
+}
+
+function loadImage(src: string, fetchPriority: 'high' | 'low'): Promise<ImageDimensions | null> {
+  return new Promise(resolve => {
+    const image = new window.Image()
+    image.decoding = 'async'
+    image.fetchPriority = fetchPriority
+    image.onload = () => {
+      const decoded = typeof image.decode === 'function' ? image.decode().catch(() => undefined) : Promise.resolve()
+      void decoded.then(() => {
+        resolve({ width: image.naturalWidth, height: image.naturalHeight })
+      })
+    }
+    image.onerror = () => resolve(null)
+    image.src = src
+  })
+}
+
+async function loadImageWithRetry(src: string, fetchPriority: 'high' | 'low'): Promise<ImageDimensions | null> {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const dimensions = await loadImage(src, fetchPriority)
+    if (dimensions) return dimensions
+  }
+
+  return null
+}
+
 export default function AlbumDetailClient({ album, relatedAlbums, initialImagePage }: Props) {
-  const [imagesLoaded, setImagesLoaded] = useState(false)
-  const [imageDimensions, setImageDimensions] = useState<Record<string, { width: number; height: number }>>({})
+  const [imageLoadStates, setImageLoadStates] = useState<Record<string, ImageLoadState>>({})
+  const [imageDimensions, setImageDimensions] = useState<Record<string, ImageDimensions>>({})
   const lightboxRef = useRef<PhotoSwipeLightbox | null>(null)
   const loadMoreRef = useRef<HTMLDivElement>(null)
   const requestInFlightRef = useRef(false)
+  const loadingImageIdsRef = useRef(new Set<string>())
+  const imageLoadStatesRef = useRef<Record<string, ImageLoadState>>({})
+  const initialPrefetchStartedRef = useRef(false)
+  const loadMoreHandlerRef = useRef<() => void>(() => undefined)
+  const mountedRef = useRef(false)
   // In-memory dedupe for environments where sessionStorage is unavailable
   // (Safari private mode). Survives re-mounts within the same tab session.
   const viewedRef = useRef<Set<string>>(new Set())
@@ -51,9 +96,16 @@ export default function AlbumDetailClient({ album, relatedAlbums, initialImagePa
   const lastPage = pages[pages.length - 1] ?? fallbackData[0]
   const hasMore = lastPage.pagination.hasMore && Boolean(lastPage.pagination.nextCursor)
   const loadingMore = isLoading || (isValidating && size > 1)
+  const readyImages = useMemo(
+    () => images.filter(image => imageLoadStates[image.id] === 'loaded'),
+    [imageLoadStates, images]
+  )
+  const hasReadyImages = readyImages.length > 0
+  const initialImageIds = useMemo(() => new Set(initialImagePage.data.map(image => image.id)), [initialImagePage])
+  const prefetchPolicy = useMemo(() => getAlbumImagePrefetchPolicy(getAlbumImageConnection()), [])
 
   const loadMore = useCallback(() => {
-    if (!imagesLoaded || requestInFlightRef.current || loadingMore || !hasMore) return
+    if (requestInFlightRef.current || loadingMore || !hasMore) return
 
     requestInFlightRef.current = true
     void setSize(currentSize => currentSize + 1)
@@ -63,7 +115,18 @@ export default function AlbumDetailClient({ album, relatedAlbums, initialImagePa
       .finally(() => {
         requestInFlightRef.current = false
       })
-  }, [hasMore, imagesLoaded, loadingMore, setSize])
+  }, [hasMore, loadingMore, setSize])
+
+  useEffect(() => {
+    loadMoreHandlerRef.current = loadMore
+  }, [loadMore])
+
+  useEffect(() => {
+    if (!prefetchPolicy.immediate || initialPrefetchStartedRef.current || !hasMore) return
+
+    initialPrefetchStartedRef.current = true
+    loadMore()
+  }, [hasMore, loadMore, prefetchPolicy.immediate])
 
   useEffect(() => {
     const target = loadMoreRef.current
@@ -71,13 +134,13 @@ export default function AlbumDetailClient({ album, relatedAlbums, initialImagePa
 
     const observer = new IntersectionObserver(
       entries => {
-        if (entries[0].isIntersecting) void loadMore()
+        if (entries[0]?.isIntersecting) loadMoreHandlerRef.current()
       },
-      { threshold: 0.1, rootMargin: '0px 0px 800px 0px' }
+      { threshold: 0.1, rootMargin: prefetchPolicy.rootMargin }
     )
     observer.observe(target)
     return () => observer.disconnect()
-  }, [loadMore])
+  }, [prefetchPolicy.rootMargin])
 
   const displayTags = normalizeAlbumTags(album.tags)
   const displayCategories = normalizeAlbumCategories(album.categories)
@@ -115,75 +178,59 @@ export default function AlbumDetailClient({ album, relatedAlbums, initialImagePa
       })
   }, [album.slug])
 
-  // Preload the currently loaded batch and get real dimensions without
-  // blocking later batches from being appended.
   useEffect(() => {
-    if (typeof window === 'undefined') {
-      return
-    }
-
-    if (images.length === 0) {
-      setImagesLoaded(true)
-      return
-    }
-
-    const pendingImages = images.filter(image => !imageDimensions[image.id])
-    if (pendingImages.length === 0) {
-      setImagesLoaded(true)
-      return
-    }
-
-    let cancelled = false
-    const dimensions: Record<string, { width: number; height: number }> = {}
-
-    const imagePromises = pendingImages.map(img => {
-      return new Promise(resolve => {
-        const image = new window.Image()
-        image.onload = () => {
-          // Store real dimensions from loaded image
-          dimensions[img.id] = {
-            width: img.width || image.naturalWidth,
-            height: img.height || image.naturalHeight
-          }
-          resolve(true)
-        }
-        image.onerror = () => {
-          // Fallback to DB values or default
-          dimensions[img.id] = {
-            width: img.width || 3840,
-            height: img.height || 2560
-          }
-          resolve(false)
-        }
-        image.src = img.largeUrl
-      })
-    })
-
-    Promise.all(imagePromises).then(() => {
-      if (cancelled) return
-      setImageDimensions(current => ({ ...current, ...dimensions }))
-      setImagesLoaded(true)
-    })
-
+    mountedRef.current = true
     return () => {
-      cancelled = true
+      mountedRef.current = false
     }
-  }, [images, imageDimensions])
+  }, [])
+
+  // Preload each image independently so one slow image never blocks
+  // already-ready images from appearing in the gallery.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    for (const image of images) {
+      if (imageLoadStatesRef.current[image.id] || loadingImageIdsRef.current.has(image.id)) continue
+
+      loadingImageIdsRef.current.add(image.id)
+      const fetchPriority = initialImageIds.has(image.id) ? 'high' : 'low'
+
+      void loadImageWithRetry(image.largeUrl, fetchPriority).then(dimensions => {
+        loadingImageIdsRef.current.delete(image.id)
+        if (!mountedRef.current) return
+
+        const state: ImageLoadState = dimensions ? 'loaded' : 'failed'
+        imageLoadStatesRef.current[image.id] = state
+        if (dimensions) {
+          setImageDimensions(current => ({
+            ...current,
+            [image.id]: {
+              width: dimensions.width || image.width || 3840,
+              height: dimensions.height || image.height || 2560
+            }
+          }))
+        }
+        setImageLoadStates(current => ({ ...current, [image.id]: state }))
+      })
+    }
+  }, [images, initialImageIds])
 
   // Initialize PhotoSwipe
   useEffect(() => {
-    if (images.length === 0) return
+    if (!hasReadyImages) return
 
     // Initialize PhotoSwipe with centralized config
-    lightboxRef.current = new PhotoSwipeLightbox(getDefaultPhotoSwipeOptions())
+    const lightbox = new PhotoSwipeLightbox(getDefaultPhotoSwipeOptions())
+    lightboxRef.current = lightbox
 
-    lightboxRef.current.init()
+    lightbox.init()
 
     // Register custom UI elements
     let cleanupUI: (() => void) | undefined
 
-    lightboxRef.current.on('uiRegister', function () {
-      const pswp = lightboxRef.current?.pswp
+    lightbox.on('uiRegister', function () {
+      const pswp = lightbox.pswp
       if (!pswp) return
 
       // Register all custom UI elements (zoom out, fullscreen, keyboard shortcuts)
@@ -197,12 +244,12 @@ export default function AlbumDetailClient({ album, relatedAlbums, initialImagePa
       }
 
       // Destroy lightbox
-      if (lightboxRef.current) {
-        lightboxRef.current.destroy()
+      lightbox.destroy()
+      if (lightboxRef.current === lightbox) {
         lightboxRef.current = null
       }
     }
-  }, [images])
+  }, [hasReadyImages])
 
   return (
     <>
@@ -297,79 +344,60 @@ export default function AlbumDetailClient({ album, relatedAlbums, initialImagePa
           {/* Images Masonry Grid - PhotoSwipe Gallery */}
           {images.length > 0 ? (
             <div className="mb-12 md:mb-16">
-              {/* Skeleton Loading */}
-              {!imagesLoaded && (
-                <div className="grid grid-cols-2 gap-4 md:grid-cols-3 md:gap-6 lg:grid-cols-4">
-                  {Array.from({ length: Math.min(images.length, 12) }).map((_, i) => (
-                    <div
-                      key={`skeleton-${i}`}
-                      className="aspect-[3/4] animate-pulse rounded-md bg-neutral-200 md:rounded-lg"
-                    />
-                  ))}
+              {readyImages.length > 0 && (
+                <div id="album-gallery" className="mx-auto">
+                  <Masonry
+                    breakpointCols={{
+                      default: 4,
+                      1536: 4, // 2xl
+                      1280: 3, // xl
+                      1024: 3, // lg
+                      768: 2, // md
+                      640: 2, // sm
+                      480: 1 // xs
+                    }}
+                    className="-ml-4 flex w-auto md:-ml-6"
+                    style={{ maxWidth: 'none' }}
+                    columnClassName="pl-4 md:pl-6 bg-clip-padding"
+                  >
+                    {readyImages.map((image, index) => {
+                      const highQualityUrl =
+                        image.xlargeUrl || image.largeUrl || image.mediumUrl || image.smallUrl || image.thumbnailUrl
+                      const dimensions = imageDimensions[image.id] || {
+                        width: image.width || 3840,
+                        height: image.height || 2560
+                      }
+                      const isInitialImage = initialImageIds.has(image.id)
+
+                      return (
+                        <div key={image.id} className="album-image-reveal mb-4 md:mb-6">
+                          <a
+                            href={highQualityUrl}
+                            data-pswp-width={dimensions.width}
+                            data-pswp-height={dimensions.height}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="group block cursor-pointer"
+                          >
+                            <div className="relative overflow-hidden rounded-md bg-neutral-100 shadow-md transition-shadow hover:shadow-xl active:scale-[0.98] md:rounded-lg md:active:scale-100">
+                              <img
+                                src={image.largeUrl}
+                                alt={image.altText || `${album.title} - Ảnh ${index + 1}`}
+                                width={dimensions.width}
+                                height={dimensions.height}
+                                className="h-auto w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                                loading={isInitialImage ? 'eager' : 'lazy'}
+                                fetchPriority={isInitialImage ? 'high' : 'low'}
+                                decoding="async"
+                              />
+                            </div>
+                          </a>
+                        </div>
+                      )
+                    })}
+                  </Masonry>
                 </div>
               )}
-
-              {/* PhotoSwipe Gallery */}
-              <div
-                id="album-gallery"
-                className={`mx-auto transition-all duration-700 ${
-                  imagesLoaded ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'
-                }`}
-                style={{ display: imagesLoaded ? 'block' : 'none' }}
-              >
-                <Masonry
-                  breakpointCols={{
-                    default: 4,
-                    1536: 4, // 2xl
-                    1280: 3, // xl
-                    1024: 3, // lg
-                    768: 2, // md
-                    640: 2, // sm
-                    480: 1 // xs
-                  }}
-                  className="-ml-4 flex w-auto md:-ml-6"
-                  style={{ maxWidth: 'none' }}
-                  columnClassName="pl-4 md:pl-6 bg-clip-padding"
-                >
-                  {images.map((image, index) => {
-                    const highQualityUrl =
-                      image.xlargeUrl || image.largeUrl || image.mediumUrl || image.smallUrl || image.thumbnailUrl
-                    // Use real dimensions from state (loaded from image) or fallback to DB values
-                    const dimensions = imageDimensions[image.id] || {
-                      width: image.width || 3840,
-                      height: image.height || 2560
-                    }
-
-                    return (
-                      <div
-                        key={image.id}
-                        className="mb-4 md:mb-6"
-                        style={{
-                          animation: `fadeInUp 0.6s ease-out ${index * 0.05}s both`
-                        }}
-                      >
-                        <a
-                          href={highQualityUrl}
-                          data-pswp-width={dimensions.width}
-                          data-pswp-height={dimensions.height}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="group block cursor-pointer"
-                        >
-                          <div className="relative overflow-hidden rounded-md bg-neutral-100 shadow-md transition-shadow hover:shadow-xl active:scale-[0.98] md:rounded-lg md:active:scale-100">
-                            <img
-                              src={image.largeUrl}
-                              alt={image.altText || `${album.title} - Ảnh ${index + 1}`}
-                              className="h-auto w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                              loading="lazy"
-                            />
-                          </div>
-                        </a>
-                      </div>
-                    )
-                  })}
-                </Masonry>
-              </div>
             </div>
           ) : (
             <div className="py-8 text-center md:py-12">
@@ -378,17 +406,20 @@ export default function AlbumDetailClient({ album, relatedAlbums, initialImagePa
           )}
 
           {images.length > 0 && (
-            <div ref={loadMoreRef} className="flex min-h-16 items-center justify-center">
-              {loadingMore ? <p className="text-sm text-neutral-500">Đang tải thêm ảnh...</p> : null}
+            <>
+              <div ref={loadMoreRef} className="h-px" aria-hidden="true" />
               {error ? (
-                <button type="button" onClick={loadMore} className="text-sm text-red-500 underline underline-offset-2">
-                  Không thể tải thêm ảnh. Vui lòng thử lại.
-                </button>
+                <div className="flex justify-center py-4">
+                  <button
+                    type="button"
+                    onClick={() => loadMore()}
+                    className="text-sm text-red-500 underline underline-offset-2"
+                  >
+                    Không thể tải thêm ảnh. Vui lòng thử lại.
+                  </button>
+                </div>
               ) : null}
-              {!loadingMore && !error && !hasMore ? (
-                <p className="text-sm text-neutral-400">Đã hiển thị tất cả ảnh</p>
-              ) : null}
-            </div>
+            </>
           )}
 
           {/* Divider */}
@@ -472,14 +503,25 @@ export default function AlbumDetailClient({ album, relatedAlbums, initialImagePa
           }
         }
 
-        @keyframes fadeInUp {
+        .album-image-reveal {
+          transform-origin: center;
+          animation: albumImageReveal 420ms ease-out both;
+        }
+
+        @keyframes albumImageReveal {
           from {
             opacity: 0;
-            transform: translateY(30px);
+            transform: scale(1.06);
           }
           to {
             opacity: 1;
-            transform: translateY(0);
+            transform: scale(1);
+          }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .album-image-reveal {
+            animation: none;
           }
         }
       `}</style>
