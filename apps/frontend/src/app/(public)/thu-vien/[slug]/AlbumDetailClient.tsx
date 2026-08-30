@@ -143,6 +143,8 @@ export default function AlbumDetailClient({ album, relatedAlbums, initialImagePa
   const displayTags = normalizeAlbumTags(album.tags)
   const displayCategories = normalizeAlbumCategories(album.categories)
   const primaryCategory = album.primaryCategory || displayCategories.find(cat => cat.source === 'manual') || null
+  const categoriesForDisplay =
+    displayCategories.length > 0 ? displayCategories : primaryCategory ? [primaryCategory] : []
 
   // Record one real page view (server no longer increments on GET).
   // Deduped across re-mounts/reloads in the same tab via sessionStorage; the
@@ -309,28 +311,16 @@ export default function AlbumDetailClient({ album, relatedAlbums, initialImagePa
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-neutral-200 pt-3 text-xs text-neutral-500 md:gap-x-4 md:pt-4 md:text-sm">
                   <span className="inline-flex items-center gap-1 whitespace-nowrap">
                     <ImageIcon size={14} className="md:h-4 md:w-4" />
-                    {album.imageCount} ảnh
+                    Số lượng ảnh trong album: {album.imageCount} ảnh
                   </span>
                 </div>
 
-                {/* Category Badges */}
-                {(displayCategories.length > 0 || primaryCategory) && (
-                  <div className="mt-3 flex flex-wrap gap-2 md:mt-4">
-                    {(displayCategories.length > 0 ? displayCategories : primaryCategory ? [primaryCategory] : [])
-                      .filter(category => category)
-                      .map(category => (
-                        <span
-                          key={category.id}
-                          className={`inline-flex items-center rounded-lg px-3 py-1.5 text-xs font-medium md:px-4 md:py-2 md:text-sm ${
-                            category.source === 'manual'
-                              ? 'bg-blue-50 text-blue-700'
-                              : 'bg-neutral-100 text-neutral-600'
-                          }`}
-                        >
-                          {category.name}
-                        </span>
-                      ))}
-                  </div>
+                {/* Album Topic */}
+                {categoriesForDisplay.length > 0 && (
+                  <p className="mt-3 text-xs leading-6 md:mt-4 md:text-sm">
+                    <span className="font-medium">Chủ đề:</span>{' '}
+                    {categoriesForDisplay.map(category => category.name).join(', ')}
+                  </p>
                 )}
               </div>
             </div>
