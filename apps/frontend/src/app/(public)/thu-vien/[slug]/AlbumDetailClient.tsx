@@ -78,7 +78,6 @@ export default function AlbumDetailClient({ album, relatedAlbums, initialImagePa
   const requestInFlightRef = useRef(false)
   const loadingImageIdsRef = useRef(new Set<string>())
   const imageLoadStatesRef = useRef<Record<string, ImageLoadState>>({})
-  const initialPrefetchStartedRef = useRef(false)
   const loadMoreHandlerRef = useRef<() => void>(() => undefined)
   const mountedRef = useRef(false)
   // In-memory dedupe for environments where sessionStorage is unavailable
@@ -122,11 +121,10 @@ export default function AlbumDetailClient({ album, relatedAlbums, initialImagePa
   }, [loadMore])
 
   useEffect(() => {
-    if (!prefetchPolicy.immediate || initialPrefetchStartedRef.current || !hasMore) return
+    if (!prefetchPolicy.immediate || error || !hasMore) return
 
-    initialPrefetchStartedRef.current = true
     loadMore()
-  }, [hasMore, loadMore, prefetchPolicy.immediate])
+  }, [error, hasMore, loadMore, prefetchPolicy.immediate])
 
   useEffect(() => {
     const target = loadMoreRef.current
@@ -253,8 +251,8 @@ export default function AlbumDetailClient({ album, relatedAlbums, initialImagePa
 
   return (
     <>
-      <div className="min-h-screen bg-neutral-50 px-4 py-12">
-        <div className="mx-auto max-w-7xl">
+      <div className="min-h-screen bg-neutral-50 px-4 py-12 md:px-8 lg:px-16">
+        <div className="w-full">
           {/* Back Button */}
           <Link
             href="/thu-vien"
@@ -440,7 +438,7 @@ export default function AlbumDetailClient({ album, relatedAlbums, initialImagePa
                     <div className="relative overflow-hidden rounded-lg bg-neutral-100">
                       {related.coverImage ? (
                         <img
-                          src={related.coverImage.thumbnailUrl}
+                          src={related.coverImage.largeUrl}
                           alt={related.title}
                           className="h-auto w-full object-cover transition-transform duration-500 group-hover:scale-105"
                           loading="lazy"
