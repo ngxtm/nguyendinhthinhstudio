@@ -348,8 +348,8 @@ export default function AlbumDetailClient({ album, relatedAlbums, initialImagePa
                     breakpointCols={{
                       default: 4,
                       1536: 4, // 2xl
-                      1280: 3, // xl
-                      1024: 3, // lg
+                      1280: 4, // xl
+                      1024: 4, // lg
                       768: 2, // md
                       640: 2, // sm
                       480: 1 // xs
@@ -358,7 +358,7 @@ export default function AlbumDetailClient({ album, relatedAlbums, initialImagePa
                     style={{ maxWidth: 'none' }}
                     columnClassName="pl-4 md:pl-6 bg-clip-padding"
                   >
-                    {readyImages.map((image, index) => {
+                    {images.map((image, index) => {
                       const highQualityUrl =
                         image.xlargeUrl || image.largeUrl || image.mediumUrl || image.smallUrl || image.thumbnailUrl
                       const dimensions = imageDimensions[image.id] || {
@@ -366,30 +366,37 @@ export default function AlbumDetailClient({ album, relatedAlbums, initialImagePa
                         height: image.height || 2560
                       }
                       const isInitialImage = initialImageIds.has(image.id)
+                      const isImageLoaded = imageLoadStates[image.id] === 'loaded'
 
                       return (
-                        <div key={image.id} className="album-image-reveal mb-4 md:mb-6">
-                          <a
-                            href={highQualityUrl}
-                            data-pswp-width={dimensions.width}
-                            data-pswp-height={dimensions.height}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="group block cursor-pointer"
-                          >
-                            <div className="relative overflow-hidden rounded-md bg-neutral-100 shadow-md transition-shadow hover:shadow-xl active:scale-[0.98] md:rounded-lg md:active:scale-100">
-                              <img
-                                src={image.largeUrl}
-                                alt={image.altText || `${album.title} - Ảnh ${index + 1}`}
-                                width={dimensions.width}
-                                height={dimensions.height}
-                                className="h-auto w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                                loading={isInitialImage ? 'eager' : 'lazy'}
-                                fetchPriority={isInitialImage ? 'high' : 'low'}
-                                decoding="async"
-                              />
-                            </div>
-                          </a>
+                        <div
+                          key={image.id}
+                          className={`mb-4 md:mb-6 ${isImageLoaded ? 'album-image-reveal' : 'invisible'}`}
+                          style={{ aspectRatio: `${dimensions.width} / ${dimensions.height}` }}
+                        >
+                          {isImageLoaded ? (
+                            <a
+                              href={highQualityUrl}
+                              data-pswp-width={dimensions.width}
+                              data-pswp-height={dimensions.height}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="group block cursor-pointer"
+                            >
+                              <div className="relative overflow-hidden rounded-md bg-neutral-100 shadow-md transition-shadow hover:shadow-xl active:scale-[0.98] md:rounded-lg md:active:scale-100">
+                                <img
+                                  src={image.largeUrl}
+                                  alt={image.altText || `${album.title} - Ảnh ${index + 1}`}
+                                  width={dimensions.width}
+                                  height={dimensions.height}
+                                  className="h-auto w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                                  loading={isInitialImage ? 'eager' : 'lazy'}
+                                  fetchPriority={isInitialImage ? 'high' : 'low'}
+                                  decoding="async"
+                                />
+                              </div>
+                            </a>
+                          ) : null}
                         </div>
                       )
                     })}

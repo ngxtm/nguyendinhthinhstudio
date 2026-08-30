@@ -30,6 +30,18 @@ test('public album detail reveals ready images independently and prefetches with
   assert.doesNotMatch(detailClient, /Đã hiển thị tất cả/)
 })
 
+test('public album detail reserves invisible masonry slots until each image is ready', () => {
+  assert.match(detailClient, /\{images\.map\(\(image, index\) =>/)
+  assert.match(detailClient, /aspectRatio:\s*`\$\{dimensions\.width\}\s*\/\s*\$\{dimensions\.height\}`/)
+  assert.match(detailClient, /isImageLoaded[\s\S]*?invisible/)
+  assert.doesNotMatch(detailClient, /\{readyImages\.map\(/)
+})
+
+test('public album detail keeps four masonry columns across desktop breakpoints', () => {
+  assert.match(detailClient, /1280:\s*4/)
+  assert.match(detailClient, /1024:\s*4/)
+})
+
 test('public album detail keeps prefetching every remaining page on normal connections', () => {
   assert.match(detailClient, /if \(!prefetchPolicy\.immediate \|\| error \|\| !hasMore\) return[\s\S]*?loadMore\(\)/)
   assert.doesNotMatch(detailClient, /initialPrefetchStartedRef/)
