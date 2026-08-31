@@ -1285,7 +1285,12 @@ export class ImagesService {
     );
   }
 
-  private async queueImageDeletion(tx: any, image: any): Promise<void> {
+  /**
+   * Queue storage cleanup with the evidence required by the deletion
+   * authority constraint. Album deletion reuses this method so its queue
+   * records cannot drift from single-image deletion records.
+   */
+  async queueImageDeletion(tx: any, image: any): Promise<void> {
     if (!image.r2ObjectKey) return;
 
     const provider = image.r2ObjectKey.startsWith('albums/')

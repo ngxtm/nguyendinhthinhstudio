@@ -344,9 +344,9 @@ export default function AlbumDetailClient({ album, relatedAlbums, initialImagePa
                       640: 2, // sm
                       480: 1 // xs
                     }}
-                    className="-ml-4 flex w-auto md:-ml-6"
+                    className="-ml-2 flex w-auto md:-ml-3"
                     style={{ maxWidth: 'none' }}
-                    columnClassName="pl-4 md:pl-6 bg-clip-padding"
+                    columnClassName="bg-clip-padding pl-2 md:pl-3"
                   >
                     {images.map((image, index) => {
                       const highQualityUrl =
@@ -361,7 +361,7 @@ export default function AlbumDetailClient({ album, relatedAlbums, initialImagePa
                       return (
                         <div
                           key={image.id}
-                          className={`mb-4 md:mb-6 ${isImageLoaded ? '' : 'invisible'}`}
+                          className={`mb-2 md:mb-3 ${isImageLoaded ? '' : 'invisible'}`}
                           style={{ aspectRatio: `${dimensions.width} / ${dimensions.height}` }}
                         >
                           {isImageLoaded ? (
@@ -424,13 +424,9 @@ export default function AlbumDetailClient({ album, relatedAlbums, initialImagePa
           {relatedAlbums.length > 0 && (
             <div className="mt-8 md:mt-10">
               <h2 className="mb-6 text-left text-xl font-bold text-neutral-900 md:mb-8 md:text-2xl">KHÁM PHÁ THÊM</h2>
-              <div className="grid grid-cols-2 gap-4 md:grid-cols-3 md:gap-6 lg:grid-cols-4">
+              <div className="grid grid-cols-2 gap-2 md:grid-cols-3 md:gap-3 lg:grid-cols-4">
                 {relatedAlbums.slice(0, 8).map(related => (
-                  <Link
-                    key={related.id ?? related.slug}
-                    href={`/thu-vien/${related.slug}`}
-                    className="group mb-8 block"
-                  >
+                  <Link key={related.id ?? related.slug} href={`/thu-vien/${related.slug}`} className="group block">
                     {/* Cover Image */}
                     <div className="relative overflow-hidden rounded-lg bg-neutral-100">
                       {related.coverImage ? (

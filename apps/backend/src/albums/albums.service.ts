@@ -838,24 +838,7 @@ export class AlbumsService {
 
           for (const image of album.images) {
             if (!image.r2ObjectKey) continue;
-            const provider = image.r2ObjectKey.startsWith('albums/')
-              ? 'r2'
-              : 'cloudflare_legacy';
-            await tx.imageObjectDeletion.upsert({
-              where: {
-                provider_objectKey: {
-                  provider,
-                  objectKey: image.r2ObjectKey,
-                },
-              },
-              create: {
-                imageId: image.id,
-                provider,
-                objectKey: image.r2ObjectKey,
-                status: provider === 'r2' ? 'pending' : 'deferred',
-              },
-              update: {},
-            });
+            await this.imagesService.queueImageDeletion(tx, image);
           }
           await tx.album.update({
             where: { id },

@@ -44,10 +44,7 @@ export default function GalleryClient({
 
   const pages = data ?? fallbackData
   const albums = useMemo(() => mergeAlbumPages(pages), [pages])
-  const animationDelays = useMemo(
-    () => new Map(albums.map((album, index) => [album.id, (index % 8) * 40])),
-    [albums]
-  )
+  const animationDelays = useMemo(() => new Map(albums.map((album, index) => [album.id, (index % 8) * 40])), [albums])
   const lastPage = pages[pages.length - 1] ?? fallbackData[0]
   const hasMore = lastPage.pagination.hasMore && Boolean(lastPage.pagination.nextCursor)
   const loadingMore = isLoading || (isValidating && size > 1)
@@ -117,8 +114,8 @@ export default function GalleryClient({
           <>
             <Masonry
               breakpointCols={{ default: 4, 1280: 3, 1024: 3, 768: 2, 640: 1 }}
-              className="flex w-auto sm:-ml-6 lg:-ml-8"
-              columnClassName="pl-0 sm:pl-6 lg:pl-8 bg-clip-padding"
+              className="-ml-2 flex w-auto md:-ml-3"
+              columnClassName="bg-clip-padding pl-2 md:pl-3"
             >
               {albums.map(album => (
                 <AlbumCard key={album.id} album={album} animationDelay={animationDelays.get(album.id) ?? 0} />
@@ -161,7 +158,7 @@ function AlbumCard({ album, animationDelay }: { album: Album; animationDelay: nu
   return (
     <Link
       href={`/thu-vien/${album.slug}`}
-      className="gallery-card-enter group mb-8 block"
+      className="gallery-card-enter group mb-2 block md:mb-3"
       style={{ animationDelay: `${animationDelay}ms` }}
     >
       <div className="relative overflow-hidden rounded-lg bg-neutral-100">

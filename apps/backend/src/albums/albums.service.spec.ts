@@ -1,4 +1,5 @@
 import { AlbumsService } from './albums.service';
+import { ImagesService } from '../images/images.service';
 
 const ALBUM_ID = '00000000-0000-4000-8000-000000000001';
 const r2Image = { id: 'image-1', r2ObjectKey: 'albums/a/photo.jpg' };
@@ -133,6 +134,7 @@ function createHarness(
     },
     imageUploadPromotion: {
       count: jest.fn().mockResolvedValue(options.pendingPromotions ?? 0),
+      findFirst: jest.fn().mockResolvedValue(null),
     },
     album: {
       update: jest.fn(),
@@ -164,18 +166,29 @@ function createHarness(
   };
   const uploadCleanup = { cleanupExpired: jest.fn().mockResolvedValue({}) };
   const recommendationService = { clearCache: jest.fn() };
+  const imagesService = new ImagesService(
+    {} as any,
+    {} as any,
+    {} as any,
+    {} as any,
+    {} as any,
+    {} as any,
+    {} as any,
+  );
+  jest.spyOn(imagesService, 'queueImageDeletion');
   return {
     prisma,
     tx,
     uploadCleanup,
     queuedObjects,
+    imagesService,
     service: new (AlbumsService as any)(
       prisma,
       {} as any,
       uploadCleanup as any,
       { presentImage: jest.fn() },
       recommendationService,
-      { removeMany: jest.fn() },
+      imagesService,
     ) as AlbumsService,
   };
 }
@@ -225,9 +238,11 @@ describe('AlbumsService durable deletion', () => {
   });
 
   it('queues an image confirmed after the deletion lock by reading a fresh snapshot in the transaction', async () => {
-    const { prisma, tx, queuedObjects, service } = createHarness({
-      images: [r2Image, lateConfirmedImage],
-    });
+    const { prisma, tx, queuedObjects, imagesService, service } = createHarness(
+      {
+        images: [r2Image, lateConfirmedImage],
+      },
+    );
 
     await expect(service.remove(ALBUM_ID)).resolves.toEqual({
       message: 'Album deleted successfully',
@@ -243,6 +258,24 @@ describe('AlbumsService durable deletion', () => {
       `r2:${r2Image.r2ObjectKey}`,
       `r2:${lateConfirmedImage.r2ObjectKey}`,
     ]);
+    expect(queuedObjects.get(`r2:${r2Image.r2ObjectKey}`)).toEqual(
+      expect.objectContaining({
+        authority: 'legacy_image',
+        objectKeyHash: expect.stringMatching(/^[0-9a-f]{64}$/),
+        legacyImageSnapshotSha256: expect.stringMatching(/^[0-9a-f]{64}$/),
+        providerDisposition: null,
+      }),
+    );
+    expect(imagesService.queueImageDeletion).toHaveBeenNthCalledWith(
+      1,
+      tx,
+      r2Image,
+    );
+    expect(imagesService.queueImageDeletion).toHaveBeenNthCalledWith(
+      2,
+      tx,
+      lateConfirmedImage,
+    );
     expect(tx.album.update).toHaveBeenCalledWith({
       where: { id: ALBUM_ID },
       data: { deleteStatus: 'deleted' },
