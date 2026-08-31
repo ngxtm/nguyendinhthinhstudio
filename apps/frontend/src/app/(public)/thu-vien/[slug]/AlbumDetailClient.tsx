@@ -361,7 +361,7 @@ export default function AlbumDetailClient({ album, relatedAlbums, initialImagePa
                       return (
                         <div
                           key={image.id}
-                          className={`mb-4 md:mb-6 ${isImageLoaded ? 'album-image-reveal' : 'invisible'}`}
+                          className={`mb-4 md:mb-6 ${isImageLoaded ? '' : 'invisible'}`}
                           style={{ aspectRatio: `${dimensions.width} / ${dimensions.height}` }}
                         >
                           {isImageLoaded ? (
@@ -379,7 +379,7 @@ export default function AlbumDetailClient({ album, relatedAlbums, initialImagePa
                                   alt={image.altText || `${album.title} - Ảnh ${index + 1}`}
                                   width={dimensions.width}
                                   height={dimensions.height}
-                                  className="h-auto w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                                  className="album-image-reveal h-auto w-full object-cover transition-transform duration-300 group-hover:scale-105"
                                   loading={isInitialImage ? 'eager' : 'lazy'}
                                   fetchPriority={isInitialImage ? 'high' : 'low'}
                                   decoding="async"
@@ -500,13 +500,13 @@ export default function AlbumDetailClient({ album, relatedAlbums, initialImagePa
 
         .album-image-reveal {
           transform-origin: center;
-          animation: albumImageReveal 420ms ease-out both;
+          animation: albumImageReveal 700ms ease-out both;
         }
 
         @keyframes albumImageReveal {
           from {
             opacity: 0;
-            transform: scale(1.06);
+            transform: scale(1.1);
           }
           to {
             opacity: 1;

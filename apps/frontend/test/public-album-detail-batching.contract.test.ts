@@ -30,6 +30,15 @@ test('public album detail reveals ready images independently and prefetches with
   assert.doesNotMatch(detailClient, /Đã hiển thị tất cả/)
 })
 
+test('public album detail zoom-out reveal stays inside the fixed masonry image frame', () => {
+  assert.match(detailClient, /src=\{image\.largeUrl\}[\s\S]*?className="[^"]*album-image-reveal/)
+  assert.doesNotMatch(detailClient, /isImageLoaded \? 'album-image-reveal' : 'invisible'/)
+  assert.match(detailClient, /animation: albumImageReveal 700ms ease-out both/)
+  assert.match(detailClient, /transform: scale\(1\.1\)/)
+  assert.match(detailClient, /transform: scale\(1\)/)
+  assert.match(detailClient, /prefers-reduced-motion: reduce[\s\S]*?animation: none/)
+})
+
 test('public album detail reserves invisible masonry slots until each image is ready', () => {
   assert.match(detailClient, /\{images\.map\(\(image, index\) =>/)
   assert.match(detailClient, /aspectRatio:\s*`\$\{dimensions\.width\}\s*\/\s*\$\{dimensions\.height\}`/)
