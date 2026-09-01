@@ -42,10 +42,46 @@ function tagLinks(albumId: string) {
   });
 }
 
-function albumRecord(
-  id: string,
-  overrides: Record<string, unknown> = {},
+function tagLink(albumId: string, slug: string, type: string) {
+  return {
+    albumId,
+    tagId: `${albumId}-${slug}`,
+    tag: {
+      id: `${albumId}-${slug}`,
+      name: slug,
+      slug,
+      description: null,
+      type,
+      createdAt: NOW,
+    },
+  };
+}
+
+function categoryLink(
+  albumId: string,
+  slug: string,
+  options: { depth?: number; source?: string; parentId?: string | null } = {},
 ) {
+  return {
+    albumId,
+    categoryId: `${albumId}-${slug}`,
+    depth: options.depth ?? 0,
+    source: options.source ?? 'manual',
+    category: {
+      id: `${albumId}-${slug}`,
+      name: slug,
+      slug,
+      description: null,
+      parentId: options.parentId ?? null,
+      showInNavigation: false,
+      navigationOrder: 0,
+      createdAt: NOW,
+      updatedAt: NOW,
+    },
+  };
+}
+
+function albumRecord(id: string, overrides: Record<string, unknown> = {}) {
   return {
     id,
     title: `Album ${id}`,
@@ -75,6 +111,120 @@ function albumRecord(
 }
 
 describe('RecommendationService image presentation', () => {
+  it('returns a category-aware mixed recommendation set without duplicates', async () => {
+    const currentAlbum = albumRecord('current-album', {
+      tags: [
+        tagLink('current-album', 'nu', 'main_category'),
+        tagLink('current-album', 'studio', 'style'),
+      ],
+      categories: [categoryLink('current-album', 'nu')],
+    });
+    const directAlbums = Array.from({ length: 6 }, (_, index) =>
+      albumRecord(`direct-${index}`, {
+        tags: [
+          tagLink(`direct-${index}`, 'nu', 'main_category'),
+          tagLink(`direct-${index}`, 'beauty', 'sub_category'),
+        ],
+        categories: [categoryLink(`direct-${index}`, 'nu')],
+      }),
+    );
+    const adjacentAlbums = Array.from({ length: 3 }, (_, index) =>
+      albumRecord(`adjacent-${index}`, {
+        tags: [tagLink(`adjacent-${index}`, 'studio', 'style')],
+        categories: [categoryLink(`adjacent-${index}`, 'nam')],
+      }),
+    );
+    const discoveryAlbums = [
+      albumRecord('featured-discovery', { isFeatured: true }),
+      albumRecord('newest-discovery', {
+        publishedAt: new Date('2026-07-13T12:00:00.000Z'),
+      }),
+      albumRecord('extra-discovery'),
+    ];
+    const candidates = [...directAlbums, ...adjacentAlbums, ...discoveryAlbums];
+    const prisma: any = {
+      album: {
+        findUnique: jest.fn().mockResolvedValue(currentAlbum),
+        findMany: jest.fn().mockResolvedValue(candidates),
+      },
+    };
+    const imagePresenter = { presentImage: jest.fn((image: any) => image) };
+    const service = new (RecommendationService as any)(
+      prisma,
+      imagePresenter,
+    ) as RecommendationService;
+
+    const result = await service.getRelatedAlbums('current-album', 12);
+    const ids = result.map((album: any) => album.id);
+    const visibleIds = ids.slice(0, 8);
+
+    expect(result).toHaveLength(12);
+    expect(new Set(ids).size).toBe(12);
+    expect(ids).not.toContain('current-album');
+    expect(
+      visibleIds.slice(0, 2).every((id: string) => id.startsWith('direct-')),
+    ).toBe(true);
+    expect(
+      visibleIds.filter((id: string) => id.startsWith('direct-')),
+    ).toHaveLength(4);
+    expect(
+      visibleIds.filter((id: string) => id.startsWith('adjacent-')),
+    ).toHaveLength(2);
+    expect(visibleIds).toContain('featured-discovery');
+    expect(visibleIds).toContain('newest-discovery');
+    const presentedDirect = result.find((album: any) =>
+      album.id.startsWith('direct-'),
+    );
+    expect(presentedDirect.categories).toEqual([
+      expect.objectContaining({ slug: 'nu', source: 'manual', depth: 0 }),
+    ]);
+
+    const candidateQuery = prisma.album.findMany.mock.calls[0][0];
+    expect(candidateQuery.include.categories).toBeDefined();
+  });
+
+  it('keeps a weekly recommendation stable but rotates the selected set next week', async () => {
+    const currentAlbum = albumRecord('current-album', {
+      tags: [tagLink('current-album', 'nu', 'main_category')],
+      categories: [categoryLink('current-album', 'nu')],
+    });
+    const candidates = Array.from({ length: 10 }, (_, index) =>
+      albumRecord(`direct-${index}`, {
+        tags: [tagLink(`direct-${index}`, 'nu', 'main_category')],
+        categories: [categoryLink(`direct-${index}`, 'nu')],
+      }),
+    );
+    const prisma: any = {
+      album: {
+        findUnique: jest.fn().mockResolvedValue(currentAlbum),
+        findMany: jest.fn().mockResolvedValue(candidates),
+      },
+    };
+    const imagePresenter = { presentImage: jest.fn((image: any) => image) };
+    const service = new (RecommendationService as any)(
+      prisma,
+      imagePresenter,
+    ) as RecommendationService;
+    const nowSpy = jest
+      .spyOn(Date, 'now')
+      .mockReturnValue(new Date('2026-09-01T12:00:00.000Z').getTime());
+
+    try {
+      const firstWeek = await service.getRelatedAlbums('current-album', 8);
+      const sameWeek = await service.getRelatedAlbums('current-album', 8);
+
+      nowSpy.mockReturnValue(new Date('2026-09-08T12:00:00.000Z').getTime());
+      const nextWeek = await service.getRelatedAlbums('current-album', 8);
+
+      expect(sameWeek).toEqual(firstWeek);
+      expect(nextWeek.map((album: any) => album.id)).not.toEqual(
+        firstWeek.map((album: any) => album.id),
+      );
+    } finally {
+      nowSpy.mockRestore();
+    }
+  });
+
   it('caches recommendations only after presenting every cover image', async () => {
     const coverImage = imageRecord('related-cover');
     const currentAlbum = albumRecord('current-album');
@@ -102,12 +252,8 @@ describe('RecommendationService image presentation', () => {
     const fresh = await service.getRelatedAlbums('current-album', 1);
     const cached = await service.getRelatedAlbums('current-album', 1);
 
-    expect(fresh[0].coverImage.thumbnailUrl).toBe(
-      'presented://related-cover',
-    );
-    expect(cached[0].coverImage.thumbnailUrl).toBe(
-      'presented://related-cover',
-    );
+    expect(fresh[0].coverImage.thumbnailUrl).toBe('presented://related-cover');
+    expect(cached[0].coverImage.thumbnailUrl).toBe('presented://related-cover');
     expect(cached).toEqual(fresh);
     expect(imagePresenter.presentImage).toHaveBeenCalledTimes(1);
     expect(prisma.album.findUnique).toHaveBeenCalledTimes(1);
@@ -147,7 +293,7 @@ describe('RecommendationService image presentation', () => {
     });
   });
 
-  it('does not return soft-deleted albums from the fallback pool', async () => {
+  it('uses one active candidate pool instead of a separate fallback query', async () => {
     const currentAlbum = albumRecord('current-album');
     const prisma: any = {
       album: {
@@ -161,12 +307,12 @@ describe('RecommendationService image presentation', () => {
       imagePresenter,
     ) as RecommendationService;
 
-    await service.getRelatedAlbums('current-album', 1);
+    const result = await service.getRelatedAlbums('current-album', 1);
 
-    // findMany is called twice: call 0 = candidate query, call 1 = fallback.
-    expect(prisma.album.findMany).toHaveBeenCalledTimes(2);
-    const fallbackCall = prisma.album.findMany.mock.calls[1][0];
-    expect(fallbackCall.where).toMatchObject({
+    expect(result).toEqual([]);
+    expect(prisma.album.findMany).toHaveBeenCalledTimes(1);
+    const candidateCall = prisma.album.findMany.mock.calls[0][0];
+    expect(candidateCall.where).toMatchObject({
       status: 'published',
       deleteStatus: 'active',
     });

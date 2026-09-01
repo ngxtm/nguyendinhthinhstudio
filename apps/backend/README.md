@@ -41,7 +41,7 @@ open http://localhost:3000/api
 
 ### Key Features
 - ✅ Direct frontend → Cloudflare upload (presigned URLs)
-- ✅ Smart recommendation engine with MMR algorithm
+- ✅ Category-aware recommendations with related, adjacent, discovery, and weekly rotation buckets
 - ✅ Infinite scroll with cursor-based pagination
 - ✅ Featured albums system
 - ✅ SEO-friendly slugs (Vietnamese support)
