@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 
-import { MANIFEST_SCHEMA_VERSION, MAX_ALBUM_IMAGES, PRODUCTION_ORIGIN } from './constants.mjs';
+import { MANIFEST_SCHEMA_VERSION, PRODUCTION_ORIGIN } from './constants.mjs';
 
 export function slugify(value) {
     return value
@@ -13,23 +13,19 @@ export function slugify(value) {
         .replace(/-+/g, '-');
 }
 
-export function splitAlbumParts({ title, images }, maxImages = MAX_ALBUM_IMAGES) {
+export function splitAlbumParts({ title, images }) {
     if (!title?.trim()) throw new TypeError('title is required');
     if (!Array.isArray(images) || images.length === 0) throw new TypeError('images are required');
-    if (!Number.isInteger(maxImages) || maxImages < 1 || maxImages > MAX_ALBUM_IMAGES) {
-        throw new RangeError(`maxImages must be between 1 and ${MAX_ALBUM_IMAGES}`);
-    }
-    const partCount = Math.ceil(images.length / maxImages);
-    return Array.from({ length: partCount }, (_, index) => {
-        const numberedTitle = partCount > 1 ? `${title.trim()} #${index + 1}` : title.trim();
-        return {
-            title: numberedTitle,
-            slug: slugify(numberedTitle),
-            partNumber: index + 1,
-            partCount,
-            images: images.slice(index * maxImages, (index + 1) * maxImages),
-        };
-    });
+    const normalizedTitle = title.trim();
+    return [
+        {
+            title: normalizedTitle,
+            slug: slugify(normalizedTitle),
+            partNumber: 1,
+            partCount: 1,
+            images,
+        },
+    ];
 }
 
 function canonicalize(value, key) {
@@ -102,8 +98,6 @@ export function validateManifest(manifest, { requireApproval = false } = {}) {
         slugs.add(album.slug);
         if (!Array.isArray(album.images) || album.images.length < 1) {
             errors.push(`${label}: at least one image is required`);
-        } else if (album.images.length > MAX_ALBUM_IMAGES) {
-            errors.push(`${label}: exceeds ${MAX_ALBUM_IMAGES} images`);
         }
         if (album.description) errors.push(`${label}: description must remain empty`);
         if (!album.shootDate) errors.push(`${label}: shootDate is required`);

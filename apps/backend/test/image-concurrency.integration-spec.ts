@@ -2,7 +2,6 @@ import { execFile } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { promisify } from 'node:util';
 import { resolve } from 'node:path';
-import { BadRequestException } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import {
   PostgreSqlContainer,
@@ -249,8 +248,8 @@ describe('image confirmation concurrency (PostgreSQL)', () => {
     expect(storage.signFixedExpiryPut).toHaveBeenCalledTimes(2);
   });
 
-  it('allows only one of two presign admissions at 49 completed images', async () => {
-    const album = await createAlbumWithImages(49);
+  it('allows two presign admissions when an album already contains 500 images', async () => {
+    const album = await createAlbumWithImages(500);
     const { service, storage } = createService();
 
     const results = await Promise.allSettled([
@@ -260,22 +259,18 @@ describe('image confirmation concurrency (PostgreSQL)', () => {
 
     expect(
       results.filter((result) => result.status === 'fulfilled'),
-    ).toHaveLength(1);
-    const rejected = results.filter(
-      (result): result is PromiseRejectedResult => result.status === 'rejected',
-    );
-    expect(rejected).toHaveLength(1);
-    expect(rejected[0].reason).toMatchObject({
-      response: expect.objectContaining({ code: 'upload_capacity_exceeded' }),
-    });
+    ).toHaveLength(2);
+    expect(
+      results.filter((result) => result.status === 'rejected'),
+    ).toHaveLength(0);
     await expect(
       prisma.imageUpload.count({ where: { albumId: album.id } }),
-    ).resolves.toBe(1);
-    expect(storage.signFixedExpiryPut).toHaveBeenCalledTimes(1);
+    ).resolves.toBe(2);
+    expect(storage.signFixedExpiryPut).toHaveBeenCalledTimes(2);
   });
 
-  it('excludes expired pending reservations from presign capacity', async () => {
-    const album = await createAlbumWithImages(49);
+  it('allows presign with an expired pending reservation', async () => {
+    const album = await createAlbumWithImages(500);
     await prisma.imageUpload.create({
       data: {
         id: randomUUID(),
@@ -300,9 +295,9 @@ describe('image confirmation concurrency (PostgreSQL)', () => {
     ['stale', new Date(Date.now() - 11 * 60 * 1000)],
     ['fresh', new Date(Date.now() - 60 * 1000)],
   ])(
-    'includes %s finalizing reservations in presign capacity',
+    'allows presign with a %s finalizing reservation',
     async (_label, finalizationStartedAt) => {
-      const album = await createAlbumWithImages(49);
+      const album = await createAlbumWithImages(500);
       await prisma.imageUpload.create({
         data: {
           id: randomUUID(),
@@ -322,10 +317,8 @@ describe('image confirmation concurrency (PostgreSQL)', () => {
 
       await expect(
         service.getUploadUrl(presignRequest(album.id), ADMIN_ID),
-      ).rejects.toMatchObject({
-        response: expect.objectContaining({ code: 'upload_capacity_exceeded' }),
-      });
-      expect(storage.signFixedExpiryPut).not.toHaveBeenCalled();
+      ).resolves.toEqual(expect.objectContaining({ outcome: 'ready' }));
+      expect(storage.signFixedExpiryPut).toHaveBeenCalledTimes(1);
     },
   );
 
@@ -348,8 +341,8 @@ describe('image confirmation concurrency (PostgreSQL)', () => {
     expect(storage.signFixedExpiryPut).not.toHaveBeenCalled();
   });
 
-  it('allows exactly one confirm at 49 images and persists exactly 50 images', async () => {
-    const album = await createAlbumWithImages(49);
+  it('allows concurrent confirms when an album already contains 500 images', async () => {
+    const album = await createAlbumWithImages(500);
     const [first, second] = await Promise.all([
       createUpload(album.id),
       createUpload(album.id),
@@ -368,21 +361,17 @@ describe('image confirmation concurrency (PostgreSQL)', () => {
     const rejected = results.filter(
       (result): result is PromiseRejectedResult => result.status === 'rejected',
     );
-    expect(fulfilled).toHaveLength(1);
-    expect(rejected).toHaveLength(1);
-    expect(rejected[0].reason).toBeInstanceOf(BadRequestException);
-    expect(rejected[0].reason.message).toContain(
-      'maximum number of images (50)',
-    );
+    expect(fulfilled).toHaveLength(2);
+    expect(rejected).toHaveLength(0);
     await expect(
       prisma.image.count({ where: { albumId: album.id } }),
-    ).resolves.toBe(50);
+    ).resolves.toBe(502);
     await expect(
       prisma.album.findUnique({
         where: { id: album.id },
         select: { imageCount: true },
       }),
-    ).resolves.toEqual({ imageCount: 50 });
+    ).resolves.toEqual({ imageCount: 502 });
     await expect(
       prisma.imageUpload.groupBy({
         by: ['status'],
@@ -391,8 +380,7 @@ describe('image confirmation concurrency (PostgreSQL)', () => {
       }),
     ).resolves.toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ status: 'consumed', _count: { _all: 1 } }),
-        expect.objectContaining({ status: 'pending', _count: { _all: 1 } }),
+        expect.objectContaining({ status: 'consumed', _count: { _all: 2 } }),
       ]),
     );
   });

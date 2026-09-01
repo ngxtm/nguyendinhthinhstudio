@@ -499,29 +499,15 @@ describe('ImagesService upload sessions', () => {
     expect(harness.storage.signFixedExpiryPut).not.toHaveBeenCalled();
   });
 
-  it('counts completed images plus unexpired pending and every finalizing reservation', async () => {
+  it('allows presign admission above the former album capacity', async () => {
     const harness = createHarness();
-    harness.prisma.image.count.mockResolvedValue(49);
+    harness.prisma.image.count.mockResolvedValue(500);
     harness.prisma.imageUpload.count.mockResolvedValue(1);
 
     await expect(
       harness.createService().getUploadUrl(uploadRequest, ADMIN_ID),
-    ).rejects.toMatchObject({
-      response: expect.objectContaining({ code: 'upload_capacity_exceeded' }),
-    });
-    expect(harness.prisma.imageUpload.count).toHaveBeenCalledWith({
-      where: {
-        albumId: ALBUM_ID,
-        OR: [
-          {
-            status: 'pending',
-            expiresAt: { gt: NOW },
-          },
-          { status: 'finalizing' },
-        ],
-      },
-    });
-    expect(harness.prisma.imageUpload.create).not.toHaveBeenCalled();
+    ).resolves.toEqual(expect.objectContaining({ outcome: 'ready' }));
+    expect(harness.prisma.imageUpload.create).toHaveBeenCalled();
   });
 
   it('terminalizes an existing pending retry at expiry without signing', async () => {
@@ -1277,7 +1263,7 @@ describe('ImagesService upload sessions', () => {
     );
   });
 
-  it('allows only one of two concurrent confirms to reserve the fiftieth album slot', async () => {
+  it('allows concurrent confirms above the former album capacity', async () => {
     const first = activeUpload();
     const second = activeUpload({
       id: SECOND_UPLOAD_ID,
@@ -1289,11 +1275,9 @@ describe('ImagesService upload sessions', () => {
       async ({ where }: any) =>
         where.id === SECOND_UPLOAD_ID ? second : first,
     );
-    harness.prisma.image.count.mockResolvedValue(49);
-    harness.prisma.imageUpload.count.mockResolvedValue(0);
     harness.prisma.imageUpload.updateMany
       .mockResolvedValueOnce({ count: 1 })
-      .mockResolvedValueOnce({ count: 0 });
+      .mockResolvedValueOnce({ count: 1 });
 
     const results = await Promise.allSettled([
       harness.createService().confirmUpload({ uploadId: UPLOAD_ID } as any),
@@ -1304,18 +1288,18 @@ describe('ImagesService upload sessions', () => {
 
     expect(
       results.filter((result) => result.status === 'fulfilled'),
-    ).toHaveLength(1);
+    ).toHaveLength(2);
     expect(
       results.filter((result) => result.status === 'rejected'),
-    ).toHaveLength(1);
+    ).toHaveLength(0);
     expect(harness.prisma.$transaction).toHaveBeenCalledWith(
       expect.any(Function),
       {
         isolationLevel: 'Serializable',
       },
     );
-    expect(harness.storage.promoteObject).toHaveBeenCalledTimes(1);
-    expect(harness.rows.images).toHaveLength(1);
+    expect(harness.storage.promoteObject).toHaveBeenCalledTimes(2);
+    expect(harness.rows.images).toHaveLength(2);
   });
 
   it('returns the normal failed-session envelope after Sharp decode failure', async () => {

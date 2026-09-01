@@ -30,7 +30,6 @@ import { StoredImageInspectorService } from './stored-image-inspector.service';
 import { canonicalizeEtag } from './canonical-etag';
 
 const FINALIZATION_LEASE_MS = 10 * 60 * 1000;
-const MAX_ALBUM_IMAGES = 50;
 
 type PublicImageCursor = {
   id: string;
@@ -182,29 +181,6 @@ export class ImagesService {
             }
 
             const admissionAt = truncateToWholeSecond(new Date());
-            const [completedImages, activeReservations] = await Promise.all([
-              tx.image.count({ where: { albumId: uploadRequest.albumId } }),
-              tx.imageUpload.count({
-                where: {
-                  albumId: uploadRequest.albumId,
-                  OR: [
-                    {
-                      status: 'pending',
-                      expiresAt: { gt: admissionAt },
-                    },
-                    { status: 'finalizing' },
-                  ],
-                },
-              }),
-            ]);
-            if (completedImages + activeReservations + 1 > 50) {
-              throw new ConflictException({
-                statusCode: 409,
-                code: 'upload_capacity_exceeded',
-                message: 'Album upload capacity is exhausted',
-              });
-            }
-
             const presignExpiresAt = createPresignExpiry(admissionAt);
             const created = await tx.imageUpload.create({
               data: {
@@ -678,17 +654,6 @@ export class ImagesService {
           ) {
             throw new ConflictException(
               'Upload session is already being finalized',
-            );
-          }
-          const [images, finalizing] = await Promise.all([
-            tx.image.count({ where: { albumId: current.albumId } }),
-            tx.imageUpload.count({
-              where: { albumId: current.albumId, status: 'finalizing' },
-            }),
-          ]);
-          if (images + finalizing >= 50) {
-            throw new BadRequestException(
-              'Album already has maximum number of images (50)',
             );
           }
           const changed = await tx.imageUpload.updateMany({
@@ -1197,35 +1162,6 @@ export class ImagesService {
               statusCode: 400,
               code: 'album_image_selection_invalid',
               message: 'Every selected image must belong to the album',
-            });
-          }
-
-          const activeReservations = await tx.imageUpload.count({
-            where: {
-              albumId: dto.targetAlbumId,
-              OR: [
-                {
-                  status: 'pending',
-                  expiresAt: { gt: new Date() },
-                },
-                { status: 'finalizing' },
-              ],
-            },
-          });
-          if (
-            targetAlbum.images.length +
-              activeReservations +
-              selectedImages.length >
-            MAX_ALBUM_IMAGES
-          ) {
-            const available = Math.max(
-              0,
-              MAX_ALBUM_IMAGES - targetAlbum.images.length - activeReservations,
-            );
-            throw new ConflictException({
-              statusCode: 409,
-              code: 'album_image_move_capacity_exceeded',
-              message: `Destination album can receive only ${available} more image(s)`,
             });
           }
 

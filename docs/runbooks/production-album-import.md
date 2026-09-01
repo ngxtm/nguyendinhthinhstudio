@@ -12,7 +12,9 @@ npx -p node@24 node scripts/import-ndt-albums.mjs scan `
   --manifest ".artifacts\album-import\manifest.json"
 ```
 
-The scan reads JPEG EXIF, groups 90-minute capture sessions, creates review thumbnails, splits albums at 50 images, and records the PSD as skipped. Titles such as "Session 2025-..." are provisional and are replaced during enrichment. Images without EXIF are stored in the top-level unassignedImages pool instead of becoming one-image albums. It never calls the production API.
+The scan reads JPEG EXIF, groups 90-minute capture sessions into albums without an image-count split, creates review thumbnails, and records the PSD as skipped. Titles such as "Session 2025-..." are provisional and are replaced during enrichment. Images without EXIF are stored in the top-level unassignedImages pool instead of becoming one-image albums. It never calls the production API.
+
+An album has no image-count limit. The admin upload screen still limits each file-selection batch to 50 images to keep browser processing manageable; repeat batches remain in the same album. Import execution can therefore keep every image in one album while observing the existing per-file WebP limits and API rate limits.
 
 ## 2. Enrich metadata
 

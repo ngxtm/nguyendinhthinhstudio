@@ -173,10 +173,6 @@ export class AlbumsController {
     status: 400,
     description: 'Invalid image selection or destination',
   })
-  @ApiResponse({
-    status: 409,
-    description: 'Destination album capacity is exhausted',
-  })
   moveImages(@Param('id') id: string, @Body() dto: MoveImagesDto) {
     return this.albumsService.moveImages(id, dto);
   }

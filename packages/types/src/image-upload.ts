@@ -179,7 +179,7 @@ export type UploadErrorResponse =
     }
   | {
       statusCode: 409;
-      code: 'upload_capacity_exceeded' | 'album_cleanup_pending';
+      code: 'album_cleanup_pending';
       message: string;
     }
   | {

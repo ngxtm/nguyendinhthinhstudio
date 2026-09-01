@@ -176,7 +176,7 @@ export default function MoveImagesDialog({
                           <span className="min-w-0">
                             <span className="block truncate text-sm font-semibold text-gray-900">{album.title}</span>
                             <span className="mt-0.5 block truncate text-xs text-gray-500">
-                              /{album.slug} · {album.imageCount}/50 ảnh
+                              /{album.slug} · {album.imageCount} ảnh
                             </span>
                           </span>
                           {selected && <ArrowRight size={18} className="shrink-0 text-blue-600" aria-hidden="true" />}

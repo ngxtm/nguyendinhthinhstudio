@@ -253,7 +253,7 @@ describe('Images current upload routes (e2e)', () => {
   it.each([
     [new NotFoundException('opaque'), 'upload_not_found'],
     [new ConflictException('opaque'), 'upload_request_conflict'],
-    [new BadRequestException('opaque'), 'upload_capacity_exceeded'],
+    [new BadRequestException('opaque'), 'upload_invalid_request'],
   ])('returns closed business error %s', async (businessError, code) => {
     imagesService.getUploadUrl.mockRejectedValueOnce(businessError);
     const response = await request(app.getHttpServer())
@@ -267,7 +267,13 @@ describe('Images current upload routes (e2e)', () => {
         fileSize: 1024,
         processedSha256: 'a'.repeat(64),
       })
-      .expect(code === 'upload_not_found' ? 404 : 409);
+      .expect(
+        code === 'upload_not_found'
+          ? 404
+          : code === 'upload_invalid_request'
+            ? 400
+            : 409,
+      );
     expect(response.body).toEqual(expect.objectContaining({ code }));
   });
 

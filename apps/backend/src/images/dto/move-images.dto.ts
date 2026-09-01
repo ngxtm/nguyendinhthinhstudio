@@ -1,6 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
-  ArrayMaxSize,
   ArrayMinSize,
   ArrayUnique,
   IsArray,
@@ -18,7 +17,6 @@ export class MoveImagesDto {
   })
   @IsArray()
   @ArrayMinSize(1)
-  @ArrayMaxSize(50)
   @ArrayUnique()
   @IsString({ each: true })
   imageIds!: string[];

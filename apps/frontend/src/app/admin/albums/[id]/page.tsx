@@ -199,7 +199,7 @@ export default function AlbumDetailPage() {
           onUploadComplete={handleUploadComplete}
         />
         <p className="text-sm text-gray-500 mt-2">
-          * Tối đa 50 ảnh/bộ ảnh, 100MB/ảnh. Hỗ trợ JPG, PNG, WebP, GIF
+          * Tối đa 50 ảnh/lần tải lên, 100MB/ảnh. Hỗ trợ JPG, PNG, WebP, GIF
         </p>
       </div>
 

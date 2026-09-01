@@ -108,7 +108,6 @@ function handleError(error: UploadErrorResponse): string {
     case 'upload_operator_smoke_required':
     case 'upload_not_found':
     case 'upload_request_conflict':
-    case 'upload_capacity_exceeded':
     case 'album_cleanup_pending':
     case 'upload_rate_limited':
     case 'upload_presign_disabled':

@@ -138,7 +138,7 @@ describe('ImagesController simplified upload contract', () => {
   it.each([
     [new NotFoundException('opaque'), 'upload_not_found'],
     [new ConflictException('opaque'), 'upload_request_conflict'],
-    [new BadRequestException('opaque'), 'upload_capacity_exceeded'],
+    [new BadRequestException('opaque'), 'upload_invalid_request'],
   ])('maps real presign business exceptions to closed error %s', async (businessError, code) => {
     images.getUploadUrl.mockRejectedValueOnce(businessError)
     await expect(

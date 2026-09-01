@@ -1,11 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import {
-  ArrayMaxSize,
-  ArrayMinSize,
-  ArrayUnique,
-  IsArray,
-  IsString,
-} from 'class-validator';
+import { ArrayMinSize, ArrayUnique, IsArray, IsString } from 'class-validator';
 
 export class BulkDeleteImagesDto {
   @ApiProperty({
@@ -17,7 +11,6 @@ export class BulkDeleteImagesDto {
   })
   @IsArray()
   @ArrayMinSize(1)
-  @ArrayMaxSize(50)
   @ArrayUnique()
   @IsString({ each: true })
   imageIds!: string[];

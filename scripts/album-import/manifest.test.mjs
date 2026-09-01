@@ -27,7 +27,7 @@ test('slugifies Vietnamese titles deterministically', () => {
     assert.equal(slugify('Dạ Tiệc Đỏ #2'), 'da-tiec-do-2');
 });
 
-test('splits a 101-image concept into numbered parts of at most 50 images', () => {
+test('keeps a 101-image concept in one album without numbering it', () => {
     const parts = splitAlbumParts({
         title: 'Dạ Tiệc Đỏ',
         images: Array.from({ length: 101 }, (_, index) => image(index + 1)),
@@ -35,15 +35,11 @@ test('splits a 101-image concept into numbered parts of at most 50 images', () =
 
     assert.deepEqual(
         parts.map((part) => ({ title: part.title, slug: part.slug, count: part.images.length })),
-        [
-            { title: 'Dạ Tiệc Đỏ #1', slug: 'da-tiec-do-1', count: 50 },
-            { title: 'Dạ Tiệc Đỏ #2', slug: 'da-tiec-do-2', count: 50 },
-            { title: 'Dạ Tiệc Đỏ #3', slug: 'da-tiec-do-3', count: 1 },
-        ],
+        [{ title: 'Dạ Tiệc Đỏ', slug: 'da-tiec-do', count: 101 }],
     );
 });
 
-test('does not number a concept with 50 images or fewer', () => {
+test('preserves the original concept title when it remains one part', () => {
     const [part] = splitAlbumParts({
         title: 'Dạ Tiệc Đỏ',
         images: Array.from({ length: 50 }, (_, index) => image(index + 1)),
@@ -51,6 +47,28 @@ test('does not number a concept with 50 images or fewer', () => {
 
     assert.equal(part.title, 'Dạ Tiệc Đỏ');
     assert.equal(part.slug, 'da-tiec-do');
+});
+
+test('accepts an album manifest with 500 images', () => {
+    const result = validateManifest({
+        schemaVersion: 1,
+        productionOrigin: 'https://api.ndtstudio.site',
+        sourceRoot: 'C:\\photos',
+        albums: [
+            {
+                title: 'Dạ Tiệc Đỏ',
+                slug: 'da-tiec-do',
+                shootDate: '2025-02-25',
+                coverFile: 'Ảnh 1.JPG',
+                images: Array.from({ length: 500 }, (_, index) => image(index + 1)),
+                needsReview: [],
+            },
+        ],
+        skippedFiles: [],
+        tagBackfill: [],
+    });
+
+    assert.equal(result.valid, true);
 });
 
 test('rejects duplicate slugs instead of silently suffixing them', () => {

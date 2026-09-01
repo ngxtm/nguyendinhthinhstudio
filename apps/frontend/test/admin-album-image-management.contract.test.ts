@@ -66,6 +66,14 @@ test('album selection exposes a searchable move-to-album action', () => {
   assert.match(albumsApiSource, /`\/albums\/\$\{sourceAlbumId\}\/images\/move`/)
 })
 
+test('album capacity and select-all are not capped at 50 images', () => {
+  const moveDialogSource = readOptionalSource('../src/app/admin/components/MoveImagesDialog.tsx')
+
+  assert.match(imageGridSource, /new Set\(localImages\.map\(image => image\.id\)\)/)
+  assert.doesNotMatch(detailSource, /Tối đa 50 ảnh\/bộ ảnh/)
+  assert.doesNotMatch(moveDialogSource, /\/50 ảnh/)
+})
+
 test('upload and album selection modes lock each other', () => {
   assert.match(detailSource, /disabled=\{selectionMode\}/)
   assert.match(detailSource, /onUploadingChange=\{setUploading\}/)

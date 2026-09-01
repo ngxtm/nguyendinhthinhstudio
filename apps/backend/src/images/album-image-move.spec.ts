@@ -148,7 +148,7 @@ describe('ImagesService atomic album image move', () => {
     });
   });
 
-  it('rejects invalid selections and destination capacity before writing', async () => {
+  it('rejects invalid selections but allows a destination above the former capacity', async () => {
     const { service, tx } = createMoveHarness({
       targetImages: Array.from({ length: 49 }, (_, index) =>
         image(`target-${index}`, TARGET_ALBUM_ID, index + 1),
@@ -170,13 +170,9 @@ describe('ImagesService atomic album image move', () => {
         imageIds: ['source-selected', 'source-remaining'],
         targetAlbumId: TARGET_ALBUM_ID,
       }),
-    ).rejects.toMatchObject({
-      response: {
-        code: 'album_image_move_capacity_exceeded',
-      },
-    });
+    ).resolves.toEqual({ movedCount: 2 });
 
-    expect(tx.image.update).not.toHaveBeenCalled();
-    expect(tx.album.update).not.toHaveBeenCalled();
+    expect(tx.image.update).toHaveBeenCalled();
+    expect(tx.album.update).toHaveBeenCalled();
   });
 });

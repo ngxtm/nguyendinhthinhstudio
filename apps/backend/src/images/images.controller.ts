@@ -155,7 +155,6 @@ export class ImagesController {
 
   private async invokeBusiness<T>(
     work: () => Promise<T> | T,
-    badRequestCode: 'upload_invalid_request' | 'upload_capacity_exceeded',
   ): Promise<T> {
     try {
       return await work();
@@ -186,11 +185,9 @@ export class ImagesController {
       }
       if (error instanceof BadRequestException) {
         throw ImagesController.uploadError(
-          badRequestCode === 'upload_capacity_exceeded' ? 409 : 400,
-          badRequestCode,
-          badRequestCode === 'upload_capacity_exceeded'
-            ? 'Album upload capacity is exhausted'
-            : 'Invalid upload request',
+          400,
+          'upload_invalid_request',
+          'Invalid upload request',
         );
       }
       throw error;
@@ -243,9 +240,8 @@ export class ImagesController {
         'Invalid upload request',
       );
     }
-    return this.invokeBusiness(
-      () => this.imagesService.getUploadUrl(upload, adminId),
-      'upload_capacity_exceeded',
+    return this.invokeBusiness(() =>
+      this.imagesService.getUploadUrl(upload, adminId),
     );
   }
 
@@ -257,9 +253,8 @@ export class ImagesController {
     this.assertUploadIngress(request, { creation: false });
     const adminId = this.adminId(request);
     const confirm = this.validateDto(body, UploadConfirmDto);
-    return this.invokeBusiness(
-      () => this.imagesService.confirmUpload(confirm, adminId),
-      'upload_invalid_request',
+    return this.invokeBusiness(() =>
+      this.imagesService.confirmUpload(confirm, adminId),
     );
   }
 
