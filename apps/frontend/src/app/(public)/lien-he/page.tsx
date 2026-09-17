@@ -4,7 +4,7 @@ import NavigationLinks from '../../components/common/NavigationLinks'
 import Support from './components/Support'
 import SeeMore from './components/SeeMore'
 import AnimatedContent from '../../components/common/AnimatedContent'
-import { createPublicMetadata } from '@/lib/seo'
+import { absoluteUrl, createPublicMetadata, SITE_URL } from '@/lib/seo'
 
 export const metadata = createPublicMetadata({
   title: 'Liên hệ và đặt lịch | NDT Studio',
@@ -17,12 +17,12 @@ export default function Contact() {
   const localBusinessSchema = {
     '@context': 'https://schema.org',
     '@type': 'LocalBusiness',
-    '@id': 'https://ndtstudio.site/lien-he',
+    '@id': absoluteUrl('/lien-he'),
     name: 'Nguyễn Đình Thịnh Studio',
-    image: 'https://ndtstudio.site/logo.png',
+    image: absoluteUrl('/logo.png'),
     description:
       'Studio chụp ảnh chuyên nghiệp tại Nha Trang - Chuyên chụp ảnh cưới, couple, gia đình, beauty với phong cách nghệ thuật độc đáo',
-    url: 'https://ndtstudio.site',
+    url: SITE_URL,
     telephone: '+84983885473',
     priceRange: '₫₫₫',
     address: {
@@ -62,13 +62,13 @@ export default function Contact() {
         '@type': 'ListItem',
         position: 1,
         name: 'Trang chủ',
-        item: 'https://ndtstudio.site'
+        item: SITE_URL
       },
       {
         '@type': 'ListItem',
         position: 2,
         name: 'Liên hệ',
-        item: 'https://ndtstudio.site/lien-he'
+        item: absoluteUrl('/lien-he')
       }
     ]
   }

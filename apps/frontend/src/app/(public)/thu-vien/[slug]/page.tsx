@@ -13,7 +13,7 @@ import {
   normalizeAlbumTags,
   normalizeAlbumCategories,
 } from '@/lib/api';
-import { absoluteUrl } from '@/lib/seo';
+import { absoluteUrl, SITE_URL } from '@/lib/seo';
 import AlbumDetailClient from './AlbumDetailClient';
 
 type Props = {
@@ -170,7 +170,7 @@ export default async function AlbumDetailPage({ params }: Props) {
     creator: {
       '@type': 'Organization',
       name: 'NDT Studio',
-      url: 'https://ndtstudio.site',
+      url: SITE_URL,
     },
     datePublished: album.publishedAt,
     image: initialImagePage.data.map((img) => ({
@@ -206,19 +206,19 @@ export default async function AlbumDetailPage({ params }: Props) {
         '@type': 'ListItem',
         position: 1,
         name: 'Trang chủ',
-        item: 'https://ndtstudio.site',
+        item: SITE_URL,
       },
       {
         '@type': 'ListItem',
         position: 2,
         name: 'Thư viện',
-        item: 'https://ndtstudio.site/thu-vien',
+        item: absoluteUrl('/thu-vien'),
       },
       {
         '@type': 'ListItem',
         position: 3,
         name: album.title,
-        item: `https://ndtstudio.site/thu-vien/${slug}`,
+        item: absoluteUrl(`/thu-vien/${album.slug}`),
       },
     ],
   };

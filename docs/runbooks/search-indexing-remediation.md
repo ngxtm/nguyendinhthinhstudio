@@ -1,5 +1,9 @@
 # Search indexing remediation rollout
 
+> Historical rollout for `.site`. For the current `.com.vn` domain migration,
+> follow [the domain migration checklist](domain-migration-com-vn.md).
+> Do not apply the old canonical-host rules below unchanged to the new zone.
+
 This runbook deploys the canonical URL, public gallery category, metadata, sitemap,
 and API indexing changes. It also records the two required Cloudflare changes and
 the Search Console follow-up. It does not authorize a production deployment,

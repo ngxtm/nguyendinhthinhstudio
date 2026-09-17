@@ -37,7 +37,7 @@ test('redirect manifest normalizes www and every known legacy gallery route', as
       redirects.some(
         (rule: any) =>
           rule.source === source &&
-          rule.destination === `https://ndtstudio.site${destination}` &&
+          rule.destination === `https://ndtstudio.com.vn${destination}` &&
           rule.statusCode === 301 &&
           rule.has?.some((condition: any) => condition.type === 'host')
       ),
@@ -49,8 +49,8 @@ test('redirect manifest normalizes www and every known legacy gallery route', as
     redirects.some(
       (rule: any) =>
         rule.source === '/:path*' &&
-        rule.destination === 'https://ndtstudio.site/:path*' &&
-        rule.has?.some((condition: any) => condition.type === 'host' && condition.value === 'www.ndtstudio.site')
+        rule.destination === 'https://ndtstudio.com.vn/:path*' &&
+        rule.has?.some((condition: any) => condition.type === 'host' && condition.value === 'www.ndtstudio.com.vn')
     )
   )
 })

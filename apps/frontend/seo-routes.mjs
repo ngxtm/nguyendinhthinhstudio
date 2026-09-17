@@ -1,4 +1,4 @@
-export const CANONICAL_ORIGIN = 'https://ndtstudio.site'
+export const CANONICAL_ORIGIN = 'https://ndtstudio.com.vn'
 
 export const LEGACY_REDIRECTS = [
   ['/thu-vien/collection', '/thu-vien/danh-muc/collection'],
@@ -29,29 +29,31 @@ export const LEGACY_REDIRECTS = [
   ['/gioi-thieu/thu-vien', '/thu-vien']
 ]
 
-const wwwHost = [{ type: 'host', value: 'www.ndtstudio.site' }]
+const wwwHosts = ['www.ndtstudio.com.vn', 'www.ndtstudio.site']
 
 export function createSeoRedirects() {
-  const wwwLegacy = LEGACY_REDIRECTS.map(([source, destination]) => ({
-    source,
-    destination: `${CANONICAL_ORIGIN}${destination}`,
-    has: wwwHost,
-    statusCode: 301
-  }))
+  const wwwRedirects = wwwHosts.flatMap(host => {
+    const has = [{ type: 'host', value: host }]
+    return [
+      ...LEGACY_REDIRECTS.map(([source, destination]) => ({
+        source,
+        destination: `${CANONICAL_ORIGIN}${destination}`,
+        has,
+        statusCode: 301
+      })),
+      {
+        source: '/:path*',
+        destination: `${CANONICAL_ORIGIN}/:path*`,
+        has,
+        statusCode: 301
+      }
+    ]
+  })
   const canonicalLegacy = LEGACY_REDIRECTS.map(([source, destination]) => ({
     source,
     destination,
     statusCode: 301
   }))
 
-  return [
-    ...wwwLegacy,
-    {
-      source: '/:path*',
-      destination: `${CANONICAL_ORIGIN}/:path*`,
-      has: wwwHost,
-      statusCode: 301
-    },
-    ...canonicalLegacy
-  ]
+  return [...wwwRedirects, ...canonicalLegacy]
 }
