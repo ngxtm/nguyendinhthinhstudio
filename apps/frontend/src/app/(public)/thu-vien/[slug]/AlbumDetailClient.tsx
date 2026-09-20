@@ -21,6 +21,7 @@ import PhotoSwipeLightbox from 'photoswipe/lightbox'
 import 'photoswipe/style.css'
 import DividerWithText from '../../../components/common/DividerWithText'
 import { getDefaultPhotoSwipeOptions, registerPhotoSwipeUI } from '@/lib/photoswipe'
+import { getResponsiveImageProps } from '@/lib/responsive-image'
 import {
   fetchAlbumImagePage,
   getAlbumImagePageKey,
@@ -271,7 +272,12 @@ export default function AlbumDetailClient({ album, relatedAlbums, initialImagePa
               <div className="w-full md:w-1/2">
                 {album.coverImage ? (
                   <div className="aspect-[3/4] overflow-hidden rounded-lg bg-neutral-100 shadow-lg">
-                    <img src={album.coverImage.largeUrl} alt={album.title} className="h-full w-full object-cover" />
+                    <img
+                      {...getResponsiveImageProps(album.coverImage, '(max-width: 767px) 100vw, 50vw')}
+                      src={album.coverImage.largeUrl}
+                      alt={album.title}
+                      className="h-full w-full object-cover"
+                    />
                   </div>
                 ) : (
                   <div className="flex aspect-[3/4] items-center justify-center rounded-lg bg-neutral-200 shadow-lg">
@@ -355,6 +361,10 @@ export default function AlbumDetailClient({ album, relatedAlbums, initialImagePa
                         width: image.width || 3840,
                         height: image.height || 2560
                       }
+                      const responsiveImageProps = getResponsiveImageProps(
+                        imageDimensions[image.id] ? { ...image, ...imageDimensions[image.id] } : image,
+                        '(max-width: 479px) 100vw, (max-width: 767px) 50vw, 25vw'
+                      )
                       const isInitialImage = initialImageIds.has(image.id)
                       const isImageLoaded = imageLoadStates[image.id] === 'loaded'
 
@@ -375,6 +385,7 @@ export default function AlbumDetailClient({ album, relatedAlbums, initialImagePa
                             >
                               <div className="relative overflow-hidden rounded-md bg-neutral-100 shadow-md transition-shadow hover:shadow-xl active:scale-[0.98] md:rounded-lg md:active:scale-100">
                                 <img
+                                  {...responsiveImageProps}
                                   src={image.largeUrl}
                                   alt={image.altText || `${album.title} - Ảnh ${index + 1}`}
                                   width={dimensions.width}
@@ -431,6 +442,10 @@ export default function AlbumDetailClient({ album, relatedAlbums, initialImagePa
                     <div className="relative overflow-hidden rounded-lg bg-neutral-100">
                       {related.coverImage ? (
                         <img
+                          {...getResponsiveImageProps(
+                            related.coverImage,
+                            '(max-width: 767px) 50vw, (max-width: 1023px) 33vw, 25vw'
+                          )}
                           src={related.coverImage.largeUrl}
                           alt={related.title}
                           className="h-auto w-full object-cover transition-transform duration-500 group-hover:scale-105"

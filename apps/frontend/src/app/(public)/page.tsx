@@ -12,8 +12,8 @@ import { categoryHref } from '@/lib/public-navigation'
 import { getPublicCategorySlugs } from '@/lib/server/public-categories'
 
 export const metadata = createPublicMetadata({
-  title: 'NDT Studio - Nhiếp ảnh chuyên nghiệp',
-  description: 'Studio chụp ảnh cưới, gia đình, beauty và couple chuyên nghiệp tại Nha Trang.',
+  title: 'Studio chụp ảnh tại Nha Trang | NDT Studio',
+  description: 'Chụp ảnh cưới, gia đình, beauty và couple tại Nha Trang. Xem thư viện, bảng giá và liên hệ đặt lịch cùng NDT Studio.',
   path: '/'
 })
 
@@ -26,7 +26,7 @@ export default async function Home() {
       <div className="mt-6 sm:mt-8 md:mt-10">
         <OneLayoutSection
           imgSrc={collectionImages[0].src}
-          title="NEW COLLECTION"
+          title="CHỤP ẢNH TẠI NHA TRANG"
           titleButton="KHÁM PHÁ NGAY"
           buttonLink="/thu-vien"
           priority

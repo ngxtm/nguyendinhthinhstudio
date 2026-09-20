@@ -1,8 +1,8 @@
 import { createPublicMetadata } from '@/lib/seo'
 
 export const metadata = createPublicMetadata({
-  title: 'Bảng giá chụp ảnh cặp đôi | NDT Studio',
-  description: 'Bảng giá chụp ảnh couple, kỷ niệm và anniversary dành cho các cặp đôi tại NDT Studio.',
+  title: 'Chụp ảnh couple tại Nha Trang - Bảng giá | NDT Studio',
+  description: 'Tham khảo bảng giá chụp ảnh couple tại Nha Trang cho các cặp đôi và nhu cầu kỷ niệm; liên hệ NDT Studio để tư vấn, đặt lịch.',
   path: '/bang-gia/couple'
 })
 

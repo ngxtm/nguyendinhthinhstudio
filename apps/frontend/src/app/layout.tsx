@@ -3,7 +3,8 @@ import { Geist, Geist_Mono, Inter, Montserrat } from 'next/font/google'
 import localFont from 'next/font/local'
 import Script from 'next/script'
 import './globals.css'
-import { SITE_URL } from '@/lib/seo'
+import { businessProfile, createBusinessEntitySchema } from '@/config/business'
+import { absoluteUrl, SITE_URL } from '@/lib/seo'
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -77,7 +78,7 @@ export const metadata: Metadata = {
       'Studio chụp ảnh chuyên nghiệp tại Nha Trang. Chuyên chụp ảnh cưới, ảnh gia đình, beauty, couple với phong cách nghệ thuật độc đáo.',
     images: [
       {
-        url: '/og-image.jpg', // Bạn cần thêm ảnh này vào public folder
+        url: absoluteUrl('/og'),
         width: 1200,
         height: 630,
         alt: 'NDT Studio'
@@ -89,7 +90,7 @@ export const metadata: Metadata = {
     title: 'NDT Studio - Nhiếp ảnh chuyên nghiệp',
     description: 'Studio chụp ảnh chuyên nghiệp tại Việt Nam. Chuyên chụp ảnh cưới, ảnh gia đình, beauty, couple.',
     creator: '@ndtstudio',
-    images: ['/og-image.jpg']
+    images: [absoluteUrl('/og')]
   },
   robots: {
     index: true,
@@ -111,22 +112,20 @@ export default function RootLayout({
 }>) {
   // JSON-LD for Organization
   const organizationJsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'Organization',
-    name: 'NDT Studio',
+    ...createBusinessEntitySchema({
+      type: 'Organization',
+      sameAs: [
+        // Thêm các social media links sau
+        'https://facebook.com/nguyendinhthinh.foto',
+        'https://instagram.com/nguyendinhthinh.foto',
+        'https://www.tiktok.com/@nguyendinhthinhstudio'
+      ]
+    }),
+    '@id': businessProfile.id,
+    name: businessProfile.brandName,
     url: SITE_URL,
     logo: `${SITE_URL}/logo.png`,
-    description: 'Studio chụp ảnh chuyên nghiệp tại Việt Nam',
-    address: {
-      '@type': 'PostalAddress',
-      addressCountry: 'VN'
-    },
-    sameAs: [
-      // Thêm các social media links sau
-      'https://facebook.com/nguyendinhthinh.foto',
-      'https://instagram.com/nguyendinhthinh.foto',
-      'https://www.tiktok.com/@nguyendinhthinhstudio'
-    ]
+    description: 'Studio chụp ảnh chuyên nghiệp tại Việt Nam'
   }
 
   return (

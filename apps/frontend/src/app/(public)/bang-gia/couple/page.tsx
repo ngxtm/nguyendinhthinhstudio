@@ -24,10 +24,10 @@ export default function CouplePrice() {
   return (
     <div className="px-2.5 space-y-10 md:px-16">
       <div className="space-y-12 md:space-y-4">
-        <h1 className="mt-8 text-center text-xl font-bold md:text-4xl">BẢNG GIÁ CẶP ĐÔI</h1>
+        <h1 className="mt-8 text-center text-xl font-bold md:text-4xl">BẢNG GIÁ CHỤP ẢNH COUPLE TẠI NHA TRANG</h1>
         <div>
           <p className="text-center text-[#888888]">
-            Bảng báo giá chụp ảnh Couple: Tình nhân, Kỷ niệm, Anniversary
+            Bảng báo giá chụp ảnh Couple tại Nha Trang: Tình nhân, Kỷ niệm, Anniversary
           </p>
         </div>
         <DividerWithText

@@ -163,10 +163,35 @@ export class AlbumsService {
    * Find albums with filtering and pagination
    */
   async findAll(query: QueryAlbumsDto) {
+    this.validatePublicPagination(query);
     if (query.status && query.status !== 'published') {
       throw new BadRequestException('Public album status must be published');
     }
     return this.findVisibleAlbums(query, true);
+  }
+
+  private validatePublicPagination(query: QueryAlbumsDto) {
+    if (query.page === undefined) return;
+
+    if (
+      typeof query.page !== 'number' ||
+      !Number.isInteger(query.page) ||
+      query.page < 1
+    ) {
+      throw new BadRequestException({
+        statusCode: 400,
+        code: 'invalid_page',
+        message: 'Page must be a positive integer',
+      });
+    }
+
+    if (query.cursor !== undefined) {
+      throw new BadRequestException({
+        statusCode: 400,
+        code: 'page_cursor_conflict',
+        message: 'Page and cursor cannot be used together',
+      });
+    }
   }
 
   private async findVisibleAlbums(query: QueryAlbumsDto, publicOnly: boolean) {
@@ -303,10 +328,16 @@ export class AlbumsService {
         },
       });
       const sortedCandidates = [...candidates].sort(compareGalleryAlbums);
+      const galleryPage = page;
       const cursorIndex = cursor
         ? sortedCandidates.findIndex((album) => album.id === cursor)
         : -1;
-      const startIndex = cursorIndex >= 0 ? cursorIndex + 1 : 0;
+      const startIndex =
+        galleryPage !== undefined
+          ? (galleryPage - 1) * limitValue
+          : cursorIndex >= 0
+            ? cursorIndex + 1
+            : 0;
       const pageCandidates = sortedCandidates.slice(
         startIndex,
         startIndex + limitValue + 1,
@@ -332,6 +363,13 @@ export class AlbumsService {
           hasMore,
           nextCursor: hasMore ? data[data.length - 1].id : null,
           limit: limitValue,
+          ...(galleryPage !== undefined
+            ? {
+                page: galleryPage,
+                total: sortedCandidates.length,
+                totalPages: Math.ceil(sortedCandidates.length / limitValue),
+              }
+            : {}),
         },
       };
     }

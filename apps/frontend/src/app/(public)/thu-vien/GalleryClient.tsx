@@ -13,12 +13,16 @@ import {
   publicGallerySWRConfig,
   type GalleryPage
 } from '@/lib/public-gallery-swr'
+import { buildGalleryPageHref } from '@/lib/gallery-pagination'
+import { getResponsiveImageProps } from '@/lib/responsive-image'
 import DividerWithText from '../../components/common/DividerWithText'
 import NavigationLinks from '../../components/common/NavigationLinks'
 
 interface GalleryClientProps {
   initialAlbums: Album[]
   initialPagination: PaginatedResponse<Album>['pagination']
+  initialPage?: number
+  basePath?: string
   categorySlug?: string
   title?: string
   description?: string
@@ -27,6 +31,8 @@ interface GalleryClientProps {
 export default function GalleryClient({
   initialAlbums,
   initialPagination,
+  initialPage = initialPagination.page ?? 1,
+  basePath = '/thu-vien',
   categorySlug,
   title = 'Thư Viện Ảnh',
   description = 'Thư viện ảnh với hơn 1000 concept được cập nhật liên tục và “Ready to Shoot”.'
@@ -37,7 +43,7 @@ export default function GalleryClient({
   )
 
   const { data, error, isLoading, isValidating, setSize, size } = useSWRInfinite<GalleryPage, Error>(
-    getGalleryPageKey(categorySlug),
+    getGalleryPageKey(categorySlug, initialPage),
     fetchGalleryPage,
     { ...publicGallerySWRConfig, fallbackData }
   )
@@ -47,6 +53,9 @@ export default function GalleryClient({
   const animationDelays = useMemo(() => new Map(albums.map((album, index) => [album.id, (index % 8) * 40])), [albums])
   const lastPage = pages[pages.length - 1] ?? fallbackData[0]
   const hasMore = lastPage.pagination.hasMore && Boolean(lastPage.pagination.nextCursor)
+  const lastPageNumber = lastPage.pagination.page ?? initialPage + pages.length - 1
+  const nextPageHref = hasMore ? buildGalleryPageHref(basePath, lastPageNumber + 1) : null
+  const previousPageHref = lastPageNumber > 1 ? buildGalleryPageHref(basePath, lastPageNumber - 1) : null
   const loadingMore = isLoading || (isValidating && size > 1)
   const loadMoreRef = useRef<HTMLDivElement>(null)
   const requestInFlightRef = useRef(false)
@@ -121,6 +130,24 @@ export default function GalleryClient({
                 <AlbumCard key={album.id} album={album} animationDelay={animationDelays.get(album.id) ?? 0} />
               ))}
             </Masonry>
+            <nav className="flex items-center justify-center gap-4 py-10" aria-label="Phân trang thư viện">
+              {previousPageHref ? (
+                <Link
+                  href={previousPageHref}
+                  className="text-sm font-medium text-neutral-600 underline-offset-4 hover:text-neutral-900 hover:underline"
+                >
+                  Trang trước
+                </Link>
+              ) : null}
+              {nextPageHref ? (
+                <Link
+                  href={nextPageHref}
+                  className="text-sm font-medium text-neutral-600 underline-offset-4 hover:text-neutral-900 hover:underline"
+                >
+                  Trang tiếp theo
+                </Link>
+              ) : null}
+            </nav>
             <div ref={loadMoreRef} className="h-px" aria-hidden="true" />
             {error ? (
               <p className="py-4 text-center text-sm text-red-500">Không thể tải thêm album. Vui lòng thử lại.</p>
@@ -164,6 +191,10 @@ function AlbumCard({ album, animationDelay }: { album: Album; animationDelay: nu
       <div className="relative overflow-hidden rounded-lg bg-neutral-100">
         {album.coverImage ? (
           <img
+            {...getResponsiveImageProps(
+              album.coverImage,
+              '(max-width: 639px) 100vw, (max-width: 767px) 50vw, (max-width: 1279px) 33vw, 25vw'
+            )}
             src={album.coverImage.largeUrl}
             alt={album.title}
             className="h-auto w-full object-cover transition-transform duration-500 group-hover:scale-105"

@@ -1,5 +1,6 @@
 'use client'
 import Script from 'next/script'
+import { businessProfile } from '@/config/business'
 import { absoluteUrl, SITE_URL } from '@/lib/seo'
 import DividerWithText from '../../components/common/DividerWithText'
 import NavigationLinks from '../../components/common/NavigationLinks'
@@ -38,18 +39,7 @@ export default function PricingClient({ publicCategorySlugs }: Readonly<PricingC
         name: 'Premium Photography Package - NDT Studio',
         description:
           'Gói dịch vụ hình ảnh cao cấp với phương châm "Like a Stars". Sử dụng thiết bị và công nghệ cao cấp nhất trong ngành nhiếp ảnh.',
-        provider: {
-          '@type': 'LocalBusiness',
-          name: 'Nguyễn Đình Thịnh Studio',
-          telephone: '+84899990497',
-          address: {
-            '@type': 'PostalAddress',
-            streetAddress: '111/1 Thống Nhất',
-            addressLocality: 'Nha Trang',
-            addressRegion: 'Khánh Hòa',
-            addressCountry: 'VN'
-          }
-        },
+        provider: { '@id': businessProfile.id },
         serviceType: 'Photography',
         areaServed: {
           '@type': 'Country',
@@ -69,10 +59,7 @@ export default function PricingClient({ publicCategorySlugs }: Readonly<PricingC
         name: 'Standard Photography Package - NDT Studio',
         description:
           'Gói dịch vụ hình ảnh tiết kiệm với tinh thần "Make it easy", "Do it faster". Phù hợp với khách hàng trẻ trung, năng động.',
-        provider: {
-          '@type': 'LocalBusiness',
-          name: 'Nguyễn Đình Thịnh Studio'
-        },
+        provider: { '@id': businessProfile.id },
         serviceType: 'Photography',
         areaServed: {
           '@type': 'Country',
@@ -91,10 +78,7 @@ export default function PricingClient({ publicCategorySlugs }: Readonly<PricingC
         '@id': absoluteUrl('/bang-gia#wedding'),
         name: 'Wedding Photography - NDT Studio',
         description: 'Dịch vụ chụp ảnh cưới chuyên nghiệp với phong cách nghệ thuật độc đáo',
-        provider: {
-          '@type': 'LocalBusiness',
-          name: 'Nguyễn Đình Thịnh Studio'
-        },
+        provider: { '@id': businessProfile.id },
         serviceType: 'Wedding Photography',
         areaServed: {
           '@type': 'Country',
@@ -106,10 +90,7 @@ export default function PricingClient({ publicCategorySlugs }: Readonly<PricingC
         '@id': absoluteUrl('/bang-gia#couple'),
         name: 'Couple Photography - NDT Studio',
         description: 'Dịch vụ chụp ảnh cặp đôi, đôi bạn thân, nhóm bạn với nhiều concept độc đáo',
-        provider: {
-          '@type': 'LocalBusiness',
-          name: 'Nguyễn Đình Thịnh Studio'
-        },
+        provider: { '@id': businessProfile.id },
         serviceType: 'Couple Photography',
         areaServed: {
           '@type': 'Country',
@@ -143,7 +124,7 @@ export default function PricingClient({ publicCategorySlugs }: Readonly<PricingC
     <>
       <div className="px-6 md:px-16">
         <div className="space-y-6 sm:space-y-4">
-          <h1 className="mt-8 text-center text-xl font-bold md:text-4xl">BẢNG GIÁ DỊCH VỤ</h1>
+          <h1 className="mt-8 text-center text-xl font-bold md:text-4xl">BẢNG GIÁ DỊCH VỤ TẠI NHA TRANG</h1>
 
           {/* Navigation Links */}
           <div className="mt-6 mb-4 flex justify-center">
@@ -157,6 +138,17 @@ export default function PricingClient({ publicCategorySlugs }: Readonly<PricingC
               linkClassName="text-neutral-600 hover:text-neutral-900 font-medium transition-colors"
               separatorClassName="text-neutral-300"
             />
+          </div>
+          <div className="flex justify-center gap-4 text-sm text-neutral-600">
+            <a href="/thu-vien" className="underline-offset-4 transition-colors hover:text-neutral-900 hover:underline">
+              Xem thư viện
+            </a>
+            <a
+              href="/lien-he#ho-tro-nhanh"
+              className="underline-offset-4 transition-colors hover:text-neutral-900 hover:underline"
+            >
+              Liên hệ đặt lịch
+            </a>
           </div>
 
           <DividerWithText text="NGUYỄN ĐÌNH THỊNH STUDIO" textClassName="text-[#888888] text-sm" />

@@ -477,6 +477,31 @@ describe('AlbumsService image presentation', () => {
     });
   });
 
+  it('keeps the Admin decimal-page floor-to-one compatibility behavior', async () => {
+    const { prisma, service } = createPresentationHarness();
+    prisma.album.findMany.mockResolvedValueOnce([
+      albumRecord({ id: 'admin-floor-page-one' }),
+    ]);
+    prisma.album.count.mockResolvedValueOnce(1);
+
+    const result = await service.findAdminAll({
+      limit: 1,
+      page: 1.5,
+    } as any);
+
+    expect(prisma.album.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ skip: 0, take: 1 }),
+    );
+    expect(result.pagination).toEqual({
+      hasMore: false,
+      nextCursor: null,
+      limit: 1,
+      page: 1,
+      total: 1,
+      totalPages: 1,
+    });
+  });
+
   it('loads the curated gallery page in sorted order and keeps the public batch small', async () => {
     const { prisma, service } = createPresentationHarness();
     const candidates = [
@@ -535,6 +560,184 @@ describe('AlbumsService image presentation', () => {
       nextCursor: 'older-featured',
       limit: 2,
     });
+  });
+
+  it('serves explicit gallery pages from the same sorted, filtered candidate set', async () => {
+    const { prisma, service } = createPresentationHarness();
+    const eligibleCandidates = Array.from({ length: 17 }, (_, index) =>
+      albumRecord({
+        id: `wedding-${String(index + 1).padStart(2, '0')}`,
+        status: 'published',
+        deleteStatus: 'active',
+        createdAt: new Date(Date.UTC(2026, 6, 17 - index)),
+        categories: [{ category: { slug: 'wedding' } }],
+      }),
+    );
+    const candidates = [
+      ...eligibleCandidates,
+      albumRecord({
+        id: 'portrait-published',
+        status: 'published',
+        deleteStatus: 'active',
+        createdAt: new Date(Date.UTC(2026, 6, 19)),
+        categories: [{ category: { slug: 'portrait' } }],
+      }),
+      albumRecord({
+        id: 'wedding-draft',
+        status: 'draft',
+        deleteStatus: 'active',
+        createdAt: new Date(Date.UTC(2026, 6, 20)),
+        categories: [{ category: { slug: 'wedding' } }],
+      }),
+      albumRecord({
+        id: 'wedding-archived',
+        status: 'published',
+        deleteStatus: 'deleted',
+        createdAt: new Date(Date.UTC(2026, 6, 21)),
+        categories: [{ category: { slug: 'wedding' } }],
+      }),
+    ];
+
+    const matchesGalleryWhere = (candidate: any, where: any) => {
+      const clauses = where?.AND ?? [where];
+      return clauses.every((clause: any) => {
+        if (clause?.status && candidate.status !== clause.status) return false;
+        if (clause?.deleteStatus && candidate.deleteStatus !== clause.deleteStatus) {
+          return false;
+        }
+
+        const categoryOr = clause?.categories?.some?.category?.OR;
+        if (categoryOr) {
+          return candidate.categories.some(({ category }: any) =>
+            categoryOr.some(
+              ({ id, slug }: any) =>
+                (id !== undefined && category?.id === id) ||
+                (slug !== undefined && category?.slug === slug),
+            ),
+          );
+        }
+
+        return true;
+      });
+    };
+
+    prisma.album.findMany.mockImplementation(async (args: any) => {
+      if (args.select) {
+        return candidates.filter((candidate) =>
+          matchesGalleryWhere(candidate, args.where),
+        );
+      }
+      const ids = args.where?.id?.in ?? [];
+      return candidates.filter((candidate) => ids.includes(candidate.id));
+    });
+
+    const pages = [];
+    for (const page of [1, 2, 3]) {
+      pages.push(
+        await service.findAll({
+          category: 'wedding',
+          limit: 8,
+          page,
+          sortBy: 'gallery',
+        } as any),
+      );
+    }
+
+    expect(pages.map((result: any) => result.data.length)).toEqual([8, 8, 1]);
+    expect(pages.map((result: any) => result.pagination)).toEqual([
+      {
+        hasMore: true,
+        nextCursor: 'wedding-08',
+        limit: 8,
+        page: 1,
+        total: 17,
+        totalPages: 3,
+      },
+      {
+        hasMore: true,
+        nextCursor: 'wedding-16',
+        limit: 8,
+        page: 2,
+        total: 17,
+        totalPages: 3,
+      },
+      {
+        hasMore: false,
+        nextCursor: null,
+        limit: 8,
+        page: 3,
+        total: 17,
+        totalPages: 3,
+      },
+    ]);
+
+    const ids = pages.flatMap((result: any) => result.data.map((album: any) => album.id));
+    expect(ids).toEqual(eligibleCandidates.map((candidate) => candidate.id));
+    expect(new Set(ids).size).toBe(17);
+    expect(ids).not.toEqual(
+      expect.arrayContaining(['portrait-published', 'wedding-draft', 'wedding-archived']),
+    );
+    expect(prisma.album.findMany).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        where: {
+          AND: [
+            { status: 'published' },
+            { deleteStatus: 'active' },
+            {
+              categories: {
+                some: {
+                  category: { OR: [{ id: 'wedding' }, { slug: 'wedding' }] },
+                },
+              },
+            },
+          ],
+        },
+      }),
+    );
+
+    const candidateCalls = prisma.album.findMany.mock.calls.filter(
+      ([args]: [any]) => Boolean(args.select),
+    );
+    expect(candidateCalls).toHaveLength(3);
+    for (const [args] of candidateCalls) {
+      expect(args.where).toEqual({
+        AND: [
+          { status: 'published' },
+          { deleteStatus: 'active' },
+          {
+            categories: {
+              some: {
+                category: { OR: [{ id: 'wedding' }, { slug: 'wedding' }] },
+              },
+            },
+          },
+        ],
+      });
+    }
+
+    const hydrationCalls = prisma.album.findMany.mock.calls.filter(
+      ([args]: [any]) => Boolean(args.where?.id?.in),
+    );
+    expect(hydrationCalls.map(([args]: [any]) => args.where.id.in)).toEqual([
+      eligibleCandidates.slice(0, 8).map((candidate) => candidate.id),
+      eligibleCandidates.slice(8, 16).map((candidate) => candidate.id),
+      eligibleCandidates.slice(16).map((candidate) => candidate.id),
+    ]);
+  });
+
+  it('rejects invalid public gallery pages and page/cursor combinations', async () => {
+    const { service } = createPresentationHarness();
+
+    for (const page of [0, -1, 1.5, Number.NaN, Number.POSITIVE_INFINITY, [2]]) {
+      await expect(
+        service.findAll({ page, sortBy: 'gallery', limit: 8 } as any),
+      ).rejects.toMatchObject({ response: { statusCode: 400 } });
+    }
+
+    await expect(
+      service.findAll({ page: 2, cursor: 'cursor', sortBy: 'gallery', limit: 8 } as any),
+    ).rejects.toMatchObject({ response: { statusCode: 400 } });
   });
 
   it('counts only active albums in dashboard statistics', async () => {

@@ -11,13 +11,12 @@ export default function ServiceComponent() {
     <div className="space-y-12 bg-[#424242] pt-20 text-white px-4 sm:px-8 md:px-16 lg:px-32 md:space-y-20 md:pt-28 overflow-y-hidden">
       <div className="text-center">
         <AnimatedContent direction="vertical" reverse duration={1} distance={50}>
-          <h1 className="mb-4 text-2xl font-bold sm:text-3xl md:mb-6 lg:text-4xl">DỊCH VỤ NGUYỄN ĐÌNH THỊNH STUDIO</h1>
+          <h1 className="mb-4 text-2xl font-bold sm:text-3xl md:mb-6 lg:text-4xl">DỊCH VỤ HÌNH ẢNH TẠI NHA TRANG</h1>
         </AnimatedContent>
         <AnimatedContent direction="vertical" reverse duration={1.2} distance={50}>
           <p className="mx-auto max-w-7xl text-sm text-[#bdbdbd] sm:text-base md:text-lg">
-            Được thành lập năm 2020. Nguyễn Đình Thịnh Studio được sinh ra với sứ mệnh mang những trải nghiệm dịch vụ
-            hình ảnh hoàn hảo nhất đến với tất cả mọi người. Không chỉ là xu huớng của thế giới mà còn là giá trị cốt
-            lõi trường tồn theo thời gian.
+            Được thành lập năm 2020, Nguyễn Đình Thịnh Studio tại Nha Trang mang đến trải nghiệm dịch vụ hình ảnh
+            hoàn hảo cho khách hàng. Không chỉ là xu hướng của thế giới, đó còn là giá trị cốt lõi trường tồn theo thời gian.
           </p>
         </AnimatedContent>
       </div>
@@ -30,7 +29,7 @@ export default function ServiceComponent() {
             <div className="relative h-[50vh] w-full overflow-hidden rounded-[16px] sm:h-[60vh] md:h-[70vh] lg:h-[80vh] xl:h-[90vh] lg:rounded-[24px]">
               <Image
                 src={img1}
-                alt="studio-experience"
+                alt="Không gian studio chụp ảnh với thiết bị và ánh sáng chuyên dụng"
                 fill
                 className="object-cover"
                 priority
@@ -71,7 +70,7 @@ export default function ServiceComponent() {
             <div className="relative h-[50vh] w-full overflow-hidden rounded-[16px] sm:h-[60vh] md:h-[70vh] lg:h-[80vh] xl:h-[90vh] lg:rounded-[24px]">
               <Image
                 src={img2}
-                alt="studio-experience"
+                alt="Thiết bị và không gian sản xuất hình ảnh trong studio"
                 fill
                 className="object-cover"
                 priority

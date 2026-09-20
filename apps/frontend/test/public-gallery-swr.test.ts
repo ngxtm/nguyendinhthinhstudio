@@ -34,9 +34,19 @@ test('gallery page keys stop after the API reports no more cursor pages', async 
     pagination: { hasMore: false, nextCursor: null, limit: 8 }
   })
 
-  assert.deepEqual(first, ['gallery-albums', 'nu', null])
-  assert.deepEqual(second, ['gallery-albums', 'nu', 'cursor-2'])
+  assert.deepEqual(first, ['gallery-albums', 'nu', 1, null])
+  assert.deepEqual(second, ['gallery-albums', 'nu', 1, 'cursor-2'])
   assert.equal(end, null)
+
+  const pageTwoKey = getGalleryPageKey('nu', 2)
+  assert.deepEqual(pageTwoKey(0, null), ['gallery-albums', 'nu', 2, null])
+  assert.deepEqual(
+    pageTwoKey(1, {
+      data: [album('page-2-album')],
+      pagination: { hasMore: true, nextCursor: 'cursor-3', limit: 8 }
+    }),
+    ['gallery-albums', 'nu', 2, 'cursor-3']
+  )
 })
 
 test('tag page keys advance by the API next offset', async () => {

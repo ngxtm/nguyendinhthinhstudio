@@ -117,8 +117,8 @@ export default function VideoPrice() {
   return (
     <div className="space-y-10 px-2.5 md:px-16">
       <div className="space-y-12 md:space-y-4">
-        <h1 className="mt-8 text-center text-xl font-bold md:text-4xl">BẢNG GIÁ DỊCH VỤ VIDEO CÁ NHÂN</h1>
-        <p className="text-center text-[#888888]">Bảng báo giá quay video cá nhân</p>
+        <h1 className="mt-8 text-center text-xl font-bold md:text-4xl">BẢNG GIÁ QUAY VIDEO TẠI NHA TRANG</h1>
+        <p className="text-center text-[#888888]">Bảng báo giá quay video cá nhân tại Nha Trang</p>
       </div>
 
       <SingleVideoSection />

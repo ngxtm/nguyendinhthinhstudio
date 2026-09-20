@@ -1,25 +1,39 @@
 import type { Metadata } from 'next'
 import Script from 'next/script'
-import { notFound } from 'next/navigation'
+import { notFound, permanentRedirect } from 'next/navigation'
 import { ApiError } from '@/lib/api'
 import { absoluteUrl } from '@/lib/seo'
+import {
+  addGalleryPageToTitle,
+  parseGalleryPageSearchParams,
+  shouldNotFoundGalleryPage,
+  type GallerySearchParams
+} from '@/lib/gallery-pagination'
 import GalleryClient from '../../GalleryClient'
 import { getCategoryLandingData } from './category-data'
 
-type Props = { params: Promise<{ slug: string }> }
+type Props = { params: Promise<{ slug: string }>; searchParams: Promise<GallerySearchParams> }
 
 export const revalidate = 60
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
+export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
   const { slug: rawSlug } = await params
   const slug = decodeURIComponent(rawSlug)
+  let page = 1
+  try {
+    page = parseGalleryPageSearchParams(await searchParams).page
+  } catch {
+    // The page itself returns a 404 for malformed values; keep metadata generation safe.
+  }
 
   try {
     const { category } = await getCategoryLandingData(slug)
     const isIndexable = category.albumCount > 0
-    const title = `${category.name} | Thư viện ảnh NDT Studio`
+    const title = addGalleryPageToTitle(`${category.name} | Thư viện ảnh NDT Studio`, page)
     const description = category.description || `Khám phá các album ${category.name} đã xuất bản của NDT Studio.`
-    const canonical = absoluteUrl(`/thu-vien/danh-muc/${category.slug}`)
+    const canonical = absoluteUrl(
+      page === 1 ? `/thu-vien/danh-muc/${category.slug}` : `/thu-vien/danh-muc/${category.slug}?page=${page}`
+    )
 
     return {
       title: { absolute: title },
@@ -32,7 +46,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
         siteName: 'NDT Studio',
         title,
         description,
-        url: canonical
+        url: canonical,
+        images: [{ url: absoluteUrl('/og'), alt: 'NDT Studio' }]
+      },
+      twitter: {
+        card: 'summary_large_image',
+        title,
+        description,
+        images: [absoluteUrl('/og')]
       }
     }
   } catch (error) {
@@ -43,21 +64,32 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 }
 
-export default async function CategoryGalleryPage({ params }: Props) {
+export default async function CategoryGalleryPage({ params, searchParams }: Props) {
   const { slug: rawSlug } = await params
   const slug = decodeURIComponent(rawSlug)
+  let parsedPage: ReturnType<typeof parseGalleryPageSearchParams>
+  try {
+    parsedPage = parseGalleryPageSearchParams(await searchParams)
+  } catch {
+    notFound()
+  }
+  const { page, explicit } = parsedPage!
+  if (explicit && page === 1) permanentRedirect(`/thu-vien/danh-muc/${slug}`)
   let data: Awaited<ReturnType<typeof getCategoryLandingData>>
 
   try {
-    data = await getCategoryLandingData(slug)
+    data = await getCategoryLandingData(slug, page)
   } catch (error) {
     if (error instanceof ApiError && error.status === 404) notFound()
     throw error
   }
 
   const { category, albums } = data
+  if (shouldNotFoundGalleryPage(page, albums.pagination, false)) notFound()
   const galleryDescription = category.description || `Các album thuộc danh mục ${category.name}.`
-  const canonical = absoluteUrl(`/thu-vien/danh-muc/${category.slug}`)
+  const canonical = absoluteUrl(
+    page === 1 ? `/thu-vien/danh-muc/${category.slug}` : `/thu-vien/danh-muc/${category.slug}?page=${page}`
+  )
   const breadcrumb = {
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',
@@ -104,6 +136,8 @@ export default async function CategoryGalleryPage({ params }: Props) {
       <GalleryClient
         initialAlbums={albums.data}
         initialPagination={albums.pagination}
+        initialPage={page}
+        basePath={`/thu-vien/danh-muc/${category.slug}`}
         categorySlug={category.slug}
         title={category.name}
         description={galleryDescription}

@@ -1,9 +1,9 @@
 import { createPublicMetadata } from '@/lib/seo'
 
 export const metadata = createPublicMetadata({
-  title: 'Bảng giá chụp ảnh team và doanh nghiệp | NDT Studio',
+  title: 'Chụp ảnh team tại Nha Trang - Bảng giá | NDT Studio',
   description:
-    'Bảng giá chụp ảnh team, profile, ảnh nhóm và hình ảnh thương hiệu dành cho doanh nghiệp tại NDT Studio.',
+    'Tham khảo bảng giá chụp ảnh team tại Nha Trang, profile cá nhân, ảnh nhóm và hình ảnh branding; liên hệ NDT Studio để tư vấn.',
   path: '/bang-gia/team'
 })
 

@@ -7,13 +7,14 @@ import { Metadata } from 'next';
 import Script from 'next/script';
 import { notFound } from 'next/navigation';
 import {
-  getAlbum,
+  ApiError,
   getAlbumImageBatch,
   getRelatedAlbums,
   normalizeAlbumTags,
   normalizeAlbumCategories,
 } from '@/lib/api';
 import { absoluteUrl, SITE_URL } from '@/lib/seo';
+import { getCachedPublicAlbum, getPublicAlbumPage } from '@/lib/server/public-album-page';
 import AlbumDetailClient from './AlbumDetailClient';
 
 type Props = {
@@ -22,13 +23,19 @@ type Props = {
 
 export const revalidate = 60;
 
+function getPublicAlbumOrNotFound(slug: string) {
+  return getCachedPublicAlbum(slug).catch((error: unknown) => {
+    if (error instanceof ApiError && error.status === 404) notFound();
+    throw error;
+  });
+}
+
 /**
  * Generate dynamic metadata for SEO
  */
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  try {
-    const album = await getAlbum(slug);
+  const album = await getPublicAlbumOrNotFound(slug);
 
     const resolvedTags = normalizeAlbumTags(album.tags);
     const tagNames = resolvedTags.map((t) => t.name);
@@ -50,6 +57,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
     // Get cover image for Open Graph
     const coverImageUrl = album.coverImage?.largeUrl;
+    const socialImage = coverImageUrl || absoluteUrl('/og');
 
     return {
       title: { absolute: title },
@@ -70,12 +78,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
           ? [
               {
                 url: coverImageUrl,
-                width: 1920,
-                height: 1080,
                 alt: album.title,
               },
             ]
-          : [],
+          : [{ url: socialImage, alt: 'NDT Studio' }],
         locale: 'vi_VN',
       },
 
@@ -84,7 +90,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
         card: 'summary_large_image',
         title,
         description,
-        images: coverImageUrl ? [coverImageUrl] : [],
+        images: [socialImage],
         creator: '@ndtstudio',
       },
 
@@ -105,12 +111,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
         canonical,
       },
     };
-  } catch (error) {
-    return {
-      title: 'Album không tìm thấy | NDT Studio',
-      description: 'Album này không tồn tại hoặc đã bị xóa.',
-    };
-  }
 }
 
 /**
@@ -118,28 +118,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
  */
 export default async function AlbumDetailPage({ params }: Props) {
   const { slug } = await params;
-  let album;
-  let relatedAlbums;
-  let initialImagePage;
-
-  try {
-    const albumPromise = getAlbum(slug);
-    const initialImagePagePromise = albumPromise.then((resolvedAlbum) => getAlbumImageBatch(resolvedAlbum.id));
-    const [resolvedAlbum, resolvedRelatedAlbums, resolvedInitialImagePage] = await Promise.all([
-      albumPromise,
-      getRelatedAlbums(slug),
-      initialImagePagePromise,
-    ]);
-    album = resolvedAlbum;
-    relatedAlbums = resolvedRelatedAlbums;
-    initialImagePage = resolvedInitialImagePage;
-  } catch (error) {
-    notFound();
-  }
-
-  if (!album) {
-    notFound();
-  }
+  const albumPromise = getPublicAlbumOrNotFound(slug);
+  const { album, relatedAlbums, initialImagePage } = await getPublicAlbumPage(slug, {
+    getAlbum: () => albumPromise,
+    getRelatedAlbums,
+    getAlbumImageBatch,
+  });
 
   const resolvedTags = normalizeAlbumTags(album.tags);
   const resolvedCategories = normalizeAlbumCategories(album.categories);

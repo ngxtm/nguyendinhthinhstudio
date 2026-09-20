@@ -9,13 +9,17 @@ export function absoluteUrl(path: string): string {
 export function createPublicMetadata({
   title,
   description,
-  path
+  path,
+  image
 }: {
   title: string
   description: string
   path: string
+  image?: string
 }): Metadata {
   const canonical = absoluteUrl(path)
+  const socialImage = image || absoluteUrl('/og')
+
   return {
     title: { absolute: title },
     description,
@@ -26,7 +30,14 @@ export function createPublicMetadata({
       siteName: 'NDT Studio',
       title,
       description,
-      url: canonical
+      url: canonical,
+      images: [socialImage]
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: [socialImage]
     }
   }
 }

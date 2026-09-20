@@ -7,6 +7,17 @@ const detailClient = readFileSync(
   new URL('../src/app/(public)/thu-vien/[slug]/AlbumDetailClient.tsx', import.meta.url),
   'utf8'
 )
+const detailPage = readFileSync(new URL('../src/app/(public)/thu-vien/[slug]/page.tsx', import.meta.url), 'utf8')
+
+test('album detail maps only the primary album 404 to notFound and keeps image errors observable', () => {
+  assert.match(detailPage, /getCachedPublicAlbum/)
+  assert.match(detailPage, /error instanceof ApiError && error\.status === 404\) notFound\(\)/)
+  assert.match(detailPage, /throw error/)
+  assert.match(detailPage, /const albumPromise = getPublicAlbumOrNotFound\(slug\)/)
+  assert.match(detailPage, /getPublicAlbumPage\(slug, \{[\s\S]*getAlbum: \(\) => albumPromise[\s\S]*getAlbumImageBatch[\s\S]*\}\)/)
+  assert.match(detailPage, /initialImagePage=\{initialImagePage\}/)
+  assert.doesNotMatch(detailPage, /Album không tìm thấy \| NDT Studio/)
+})
 
 test('public album image API requests four-image cursor batches', () => {
   assert.match(imagesApi, /\/images\/album\/\$\{encodeURIComponent\(albumId\)\}\/batch/)

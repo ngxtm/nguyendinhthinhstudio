@@ -25,10 +25,10 @@ export default function TeamPrice() {
       
         <div className="px-2.5 space-y-10 md:px-16">
           <div className="space-y-12 md:space-y-4">
-            <h1 className="mt-8 text-center text-xl font-bold md:text-4xl">BẢNG GIÁ TEAM</h1>
+            <h1 className="mt-8 text-center text-xl font-bold md:text-4xl">BẢNG GIÁ CHỤP ẢNH TEAM TẠI NHA TRANG</h1>
             <div>
               <p className="text-center text-[#888888]">
-                Bảng báo giá chụp ảnh Team/Doanh nghiệp: Profile cá nhân, ảnh nhóm, ảnh branding
+                Bảng báo giá chụp ảnh Team/Doanh nghiệp tại Nha Trang: Profile cá nhân, ảnh nhóm, ảnh branding
               </p>
             </div>
             <DividerWithText

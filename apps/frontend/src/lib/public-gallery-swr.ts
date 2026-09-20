@@ -2,7 +2,7 @@ import { listAlbums, type Album, type PaginatedResponse } from '@/lib/api/albums
 import { getTagAlbums, type TagAlbumsResponse } from '@/lib/api/tags'
 
 export type GalleryPage = PaginatedResponse<Album>
-export type GalleryPageKey = readonly ['gallery-albums', string, string | null]
+export type GalleryPageKey = readonly ['gallery-albums', string, number, string | null]
 export type TagPageKey = readonly ['tag-albums', string, number, number]
 
 export const publicGallerySWRConfig = {
@@ -11,31 +11,32 @@ export const publicGallerySWRConfig = {
   revalidateOnReconnect: true,
   refreshInterval: 0,
   revalidateFirstPage: true,
-  persistSize: true
+  persistSize: false
 } as const
 
-export function getGalleryPageKey(categorySlug?: string) {
+export function getGalleryPageKey(categorySlug?: string, initialPage = 1) {
   return (pageIndex: number, previousPageData: GalleryPage | null): GalleryPageKey | null => {
     if (pageIndex === 0) {
-      return ['gallery-albums', categorySlug ?? '', null]
+      return ['gallery-albums', categorySlug ?? '', initialPage, null]
     }
 
     if (!previousPageData?.pagination.hasMore || !previousPageData.pagination.nextCursor) {
       return null
     }
 
-    return ['gallery-albums', categorySlug ?? '', previousPageData.pagination.nextCursor]
+    return ['gallery-albums', categorySlug ?? '', initialPage, previousPageData.pagination.nextCursor]
   }
 }
 
 export async function fetchGalleryPage(key: GalleryPageKey): Promise<GalleryPage> {
-  const [, categorySlug, cursor] = key
+  const [, categorySlug, initialPage, cursor] = key
 
   return listAlbums({
     status: 'published',
     category: categorySlug || undefined,
     limit: 8,
     cursor: cursor ?? undefined,
+    page: cursor ? undefined : initialPage,
     sortBy: 'gallery'
   })
 }

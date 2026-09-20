@@ -135,10 +135,16 @@ test('category landing route defines canonical and empty-category noindex behavi
 
 test('sitemap uses indexable categories and real content timestamps only', () => {
   const sitemap = readSource('../src/app/sitemap.ts')
+  const sitemapLoader = readSource('../src/lib/server/public-sitemap.ts')
 
-  assert.match(sitemap, /getIndexableCategories/)
-  assert.doesNotMatch(sitemap, /lastModified:\s*new Date\(\)/)
-  assert.match(sitemap, /\/thu-vien\/danh-muc\//)
+  assert.match(sitemap, /loadPublicSitemap/)
+  assert.doesNotMatch(sitemap, /catch[\s\S]*staticPages/)
+  assert.match(sitemapLoader, /getIndexableCategories/)
+  assert.doesNotMatch(sitemapLoader, /lastModified:\s*new Date\(\)/)
+  assert.match(sitemapLoader, /\/thu-vien\/danh-muc\//)
+  assert.match(sitemapLoader, /SITEMAP_INCOMPLETE_PAGE/)
+  assert.match(sitemapLoader, /SITEMAP_CURSOR_LOOP/)
+  assert.match(sitemapLoader, /throw error/)
   assert.match(sitemap, /export const revalidate\s*=\s*60/)
 })
 

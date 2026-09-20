@@ -1,8 +1,8 @@
 import { createPublicMetadata } from '@/lib/seo'
 
 export const metadata = createPublicMetadata({
-  title: 'Bảng giá chụp ảnh gia đình | NDT Studio',
-  description: 'Bảng giá chụp ảnh gia đình, bố mẹ và bé, gia đình nhiều thế hệ tại NDT Studio.',
+  title: 'Chụp ảnh gia đình tại Nha Trang - Bảng giá | NDT Studio',
+  description: 'Tham khảo bảng giá chụp ảnh gia đình tại Nha Trang và các gói hiện có của NDT Studio; liên hệ để được tư vấn.',
   path: '/bang-gia/gia-dinh'
 })
 

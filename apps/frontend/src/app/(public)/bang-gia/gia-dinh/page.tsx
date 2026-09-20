@@ -26,10 +26,10 @@ export default function FamilyPrice() {
     
       <div className="space-y-10 px-2.5 md:px-16">
         <div className="space-y-12 md:space-y-4">
-          <h1 className="mt-8 text-center text-xl font-bold md:text-4xl">BẢNG GIÁ GIA ĐÌNH</h1>
+          <h1 className="mt-8 text-center text-xl font-bold md:text-4xl">BẢNG GIÁ CHỤP ẢNH GIA ĐÌNH TẠI NHA TRANG</h1>
           <div>
             <p className="text-center text-[#888888]">
-              Bảng báo giá chụp ảnh gia đình: Bố Mẹ - Bé, gia đình 3-5 người, nhiều thế hệ
+              Bảng báo giá chụp ảnh gia đình tại Nha Trang: Bố Mẹ - Bé và gia đình nhiều thế hệ
             </p>
             <p className="text-center text-[#888888] italic">
               (Baby và Trẻ em dưới 12 tuổi được tặng thêm 2 ảnh PTS/bộ hình)

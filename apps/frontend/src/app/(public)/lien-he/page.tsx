@@ -4,6 +4,7 @@ import NavigationLinks from '../../components/common/NavigationLinks'
 import Support from './components/Support'
 import SeeMore from './components/SeeMore'
 import AnimatedContent from '../../components/common/AnimatedContent'
+import { businessProfile, createBusinessEntitySchema } from '@/config/business'
 import { absoluteUrl, createPublicMetadata, SITE_URL } from '@/lib/seo'
 
 export const metadata = createPublicMetadata({
@@ -15,42 +16,26 @@ export const metadata = createPublicMetadata({
 export default function Contact() {
   // JSON-LD for LocalBusiness
   const localBusinessSchema = {
-    '@context': 'https://schema.org',
-    '@type': 'LocalBusiness',
-    '@id': absoluteUrl('/lien-he'),
-    name: 'Nguyễn Đình Thịnh Studio',
+    ...createBusinessEntitySchema({
+      type: 'LocalBusiness',
+      sameAs: [
+        'https://facebook.com/ndtstudio',
+        'https://instagram.com/ndtstudio',
+        'https://maps.app.goo.gl/aQKTojhw51Bo8LMW6'
+      ]
+    }),
+    '@id': businessProfile.id,
+    name: businessProfile.displayName,
     image: absoluteUrl('/logo.png'),
     description:
       'Studio chụp ảnh chuyên nghiệp tại Nha Trang - Chuyên chụp ảnh cưới, couple, gia đình, beauty với phong cách nghệ thuật độc đáo',
     url: SITE_URL,
-    telephone: '+84983885473',
     priceRange: '₫₫₫',
-    address: {
-      '@type': 'PostalAddress',
-      streetAddress: '111/1 Thống Nhất',
-      addressLocality: 'Nha Trang',
-      addressRegion: 'Khánh Hòa',
-      postalCode: '650000',
-      addressCountry: 'VN'
-    },
     geo: {
       '@type': 'GeoCoordinates',
       latitude: 12.251875888001273,
       longitude: 109.18676147543009
-    },
-    openingHoursSpecification: [
-      {
-        '@type': 'OpeningHoursSpecification',
-        dayOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
-        opens: '07:00',
-        closes: '17:00'
-      }
-    ],
-    sameAs: [
-      'https://facebook.com/ndtstudio',
-      'https://instagram.com/ndtstudio',
-      'https://maps.app.goo.gl/aQKTojhw51Bo8LMW6'
-    ]
+    }
   }
 
   // Breadcrumb Schema
@@ -123,26 +108,29 @@ export default function Contact() {
                 <div className="space-y-4 text-sm text-gray-600">
                   <div className="border-b border-gray-100 pb-4">
                     <p className="mb-2 text-xs tracking-wider text-gray-400 uppercase">Địa chỉ</p>
-                    <p className="leading-relaxed">111/1 Thống Nhất, Phường Nha Trang, Tỉnh Khánh Hoà</p>
+                    <p className="leading-relaxed">{businessProfile.addressDisplay}</p>
                   </div>
 
                   <div className="border-b border-gray-100 pb-4">
                     <p className="mb-2 text-xs tracking-wider text-gray-400 uppercase">Giờ hoạt động</p>
-                    <p className="leading-relaxed">07:00 - 17:00 (Thứ 2 - Chủ nhật)</p>
+                    <p className="leading-relaxed">{businessProfile.openingHoursDisplay}</p>
                   </div>
 
                   <div className="border-b border-gray-100 pb-4">
                     <p className="mb-2 text-xs tracking-wider text-gray-400 uppercase">Hotline</p>
-                    <a href="tel:+84983885473" className="text-gray-600 transition-colors hover:text-gray-800">
-                      0983 885 473
+                    <a
+                      href={`tel:${businessProfile.telephone}`}
+                      className="text-gray-600 transition-colors hover:text-gray-800"
+                    >
+                      {businessProfile.telephoneDisplay}
                     </a>
                   </div>
 
                   <div className="border-b border-gray-100 pb-4">
-                    <p className="mb-2 text-xs tracking-wider text-gray-400 uppercase">
-                      Chương trình khuyến mãi tháng {new Date().getMonth()}
+                    <p className="mb-2 text-xs tracking-wider text-gray-400 uppercase">Chia sẻ trải nghiệm</p>
+                    <p className="leading-relaxed">
+                      Nếu bạn đã sử dụng dịch vụ, hãy chia sẻ trải nghiệm thực tế của mình trên Google Maps.
                     </p>
-                    <p className="leading-relaxed">Vote 5 sao trên Google Maps để được nhận ưu đãi 5% gói chụp.</p>
                   </div>
                 </div>
 
