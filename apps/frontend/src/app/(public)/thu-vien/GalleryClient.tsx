@@ -2,10 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import Link from 'next/link'
-import { Eye } from 'lucide-react'
 import Masonry from 'react-masonry-css'
 import useSWRInfinite from 'swr/infinite'
 import { type Album, type PaginatedResponse } from '@/lib/api'
+import { getAlbumImageBatch } from '@/lib/api/images'
 import {
   fetchGalleryPage,
   getGalleryPageKey,
@@ -14,7 +14,7 @@ import {
   type GalleryPage
 } from '@/lib/public-gallery-swr'
 import { buildGalleryPageHref } from '@/lib/gallery-pagination'
-import { getResponsiveImageProps } from '@/lib/responsive-image'
+import AlbumCard from './AlbumPreviewCard'
 import DividerWithText from '../../components/common/DividerWithText'
 import NavigationLinks from '../../components/common/NavigationLinks'
 
@@ -178,37 +178,5 @@ export default function GalleryClient({
         }
       `}</style>
     </div>
-  )
-}
-
-function AlbumCard({ album, animationDelay }: { album: Album; animationDelay: number }) {
-  return (
-    <Link
-      href={`/thu-vien/${album.slug}`}
-      className="gallery-card-enter group mb-2 block md:mb-3"
-      style={{ animationDelay: `${animationDelay}ms` }}
-    >
-      <div className="relative overflow-hidden rounded-lg bg-neutral-100">
-        {album.coverImage ? (
-          <img
-            {...getResponsiveImageProps(
-              album.coverImage,
-              '(max-width: 639px) 100vw, (max-width: 767px) 50vw, (max-width: 1279px) 33vw, 25vw'
-            )}
-            src={album.coverImage.largeUrl}
-            alt={album.title}
-            className="h-auto w-full object-cover transition-transform duration-500 group-hover:scale-105"
-            loading="lazy"
-          />
-        ) : (
-          <div className="flex aspect-square w-full items-center justify-center">
-            <Eye size={48} className="text-neutral-300" />
-          </div>
-        )}
-      </div>
-      <h2 className="mt-3 line-clamp-2 text-left text-sm font-bold text-neutral-900 transition-colors group-hover:text-neutral-600 md:text-base">
-        {album.title}
-      </h2>
-    </Link>
   )
 }
