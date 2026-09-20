@@ -10,7 +10,7 @@ export default function ProcedureHeroComponent() {
       <div className="md:hidden">
         {/* Header Section */}
         <div className="px-4 py-12 text-center space-y-6">
-          <p className="text-xs text-[#686868] tracking-widest">NGUYỄN ĐÌNH THỊNH STUDIO</p>
+          <p className="text-xs text-[#686868] dark:text-neutral-400 tracking-widest">NGUYỄN ĐÌNH THỊNH STUDIO</p>
           <h1 className="text-4xl font-bold text-white leading-tight">QUY TRÌNH CHỤP ẢNH</h1>
         </div>
 
@@ -48,7 +48,7 @@ export default function ProcedureHeroComponent() {
       {/* Desktop Layout - Keep Original */}
       <div className="hidden md:flex min-h-screen flex-row justify-center gap-10 py-30 px-8">
         <div className="my-auto w-[22vw] space-y-6">
-          <p className="pb-6 text-base text-[#686868]">NGUYỄN ĐÌNH THỊNH STUDIO</p>
+          <p className="pb-6 text-base text-[#686868] dark:text-neutral-400">NGUYỄN ĐÌNH THỊNH STUDIO</p>
           <h1 className="text-5xl lg:text-7xl leading-tight font-bold text-white">QUY TRÌNH CHỤP ẢNH</h1>
           <div className="relative aspect-[6/9] flex-shrink-0 overflow-hidden rounded-2xl transition-all duration-300 hover:scale-105">
             <Image src={img} alt="procedure" fill className="object-cover" priority/>

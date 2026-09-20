@@ -92,7 +92,7 @@ export default function GalleryClient({
       <div className="mx-auto max-w-[120rem]">
         <div className="space-y-6 py-10 sm:py-14">
           <div className="text-center">
-            <h1 className="text-3xl font-bold tracking-tight text-neutral-900 sm:text-4xl md:text-5xl">{title}</h1>
+            <h1 className="text-3xl font-bold tracking-tight text-neutral-900 dark:text-neutral-100 sm:text-4xl md:text-5xl">{title}</h1>
             <div className="mt-6 flex justify-center">
               <NavigationLinks
                 links={[
@@ -100,11 +100,11 @@ export default function GalleryClient({
                   { label: 'Liên Hệ', href: '/lien-he' },
                   { label: 'Đặt Lịch', href: '/lien-he#ho-tro-nhanh' }
                 ]}
-                linkClassName="font-medium text-neutral-600 transition-colors hover:text-neutral-900"
+                linkClassName="font-medium text-neutral-600 dark:text-neutral-300 transition-colors hover:text-neutral-900 dark:hover:text-neutral-100"
                 separatorClassName="text-neutral-300"
               />
             </div>
-            <p className="mx-auto mt-6 max-w-2xl text-sm leading-relaxed text-neutral-600 md:text-base">
+            <p className="mx-auto mt-6 max-w-2xl text-sm leading-relaxed text-neutral-600 dark:text-neutral-300 md:text-base">
               {description}
             </p>
             <DividerWithText
@@ -117,7 +117,7 @@ export default function GalleryClient({
 
         {albums.length === 0 ? (
           <div className="py-20 text-center">
-            <p className="text-neutral-500">Chưa có album nào trong danh mục này</p>
+            <p className="text-neutral-500 dark:text-neutral-400">Chưa có album nào trong danh mục này</p>
           </div>
         ) : (
           <>
@@ -134,7 +134,7 @@ export default function GalleryClient({
               {previousPageHref ? (
                 <Link
                   href={previousPageHref}
-                  className="text-sm font-medium text-neutral-600 underline-offset-4 hover:text-neutral-900 hover:underline"
+                  className="text-sm font-medium text-neutral-600 dark:text-neutral-300 underline-offset-4 hover:text-neutral-900 dark:hover:text-neutral-100 hover:underline"
                 >
                   Trang trước
                 </Link>
@@ -142,7 +142,7 @@ export default function GalleryClient({
               {nextPageHref ? (
                 <Link
                   href={nextPageHref}
-                  className="text-sm font-medium text-neutral-600 underline-offset-4 hover:text-neutral-900 hover:underline"
+                  className="text-sm font-medium text-neutral-600 dark:text-neutral-300 underline-offset-4 hover:text-neutral-900 dark:hover:text-neutral-100 hover:underline"
                 >
                   Trang tiếp theo
                 </Link>

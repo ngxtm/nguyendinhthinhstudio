@@ -13,9 +13,9 @@ export default function CreativeDirectorComponent() {
         </AnimatedContent>
         <AnimatedContent direction="horizontal" duration={1.5} distance={250} threshold={0.1} className='sm:my-auto'>
           <div className="order-1 h-fit space-y-4 text-center sm:order-2 sm:text-left">
-            <p className="text-sm tracking-wide text-[#888888]">QUẢN LÝ NGHỆ THUẬT - SÁNG TẠO</p>
+            <p className="text-sm tracking-wide text-[#888888] dark:text-neutral-400">QUẢN LÝ NGHỆ THUẬT - SÁNG TẠO</p>
             <h2 className="text-4xl leading-tight font-bold sm:text-5xl lg:text-6xl xl:text-7xl">Creative Director</h2>
-            <p className="text-sm leading-relaxed text-[#888888] sm:text-base">
+            <p className="text-sm leading-relaxed text-[#888888] dark:text-neutral-400 sm:text-base">
               Hay còn gọi là CD hoặc Giám Đốc Sáng Tạo. Được ví như nhạc trưởng của một dự án hình ảnh, video. Là người
               phối hợp, dung hòa tất cả các bộ phận, giai đoạn với nhau cũng như chịu trách nhiệm rất lớn về mặt nghệ
               thuật, xu hướng thịnh hành của sản phẩm cuối cùng. Trên thế giới, CD rất quan trọng trong các dự án hình

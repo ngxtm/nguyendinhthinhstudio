@@ -75,12 +75,12 @@ export default function Contact() {
                 { label: 'Xem Bảng Giá', href: '/bang-gia' },
                 { label: 'Thư Viện', href: '/thu-vien' }
               ]}
-              linkClassName="text-neutral-600 hover:text-neutral-900 font-medium transition-colors"
+              linkClassName="text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-neutral-100 font-medium transition-colors"
               separatorClassName="text-neutral-300"
             />
           </div>
 
-          <DividerWithText text="THÔNG TIN LIÊN HỆ" textClassName="text-[#888888] text-sm" />
+          <DividerWithText text="THÔNG TIN LIÊN HỆ" textClassName="text-[#888888] dark:text-neutral-400 text-sm" />
           <div className="flex w-full flex-col items-center gap-10 md:flex-row">
             {/* Bản đồ Google Maps */}
             <div className="w-full lg:w-2/3">
@@ -101,32 +101,32 @@ export default function Contact() {
             {/* Thông tin liên hệ */}
             <div className="w-full space-y-8 lg:w-1/3">
               <div className="space-y-6">
-                <h2 className="font-kapakana text-center text-2xl text-gray-800 md:text-3xl">
+                <h2 className="font-kapakana text-center text-2xl text-gray-800 dark:text-gray-100 md:text-3xl">
                   Nguyen Dinh Thinh Studio
                 </h2>
 
-                <div className="space-y-4 text-sm text-gray-600">
-                  <div className="border-b border-gray-100 pb-4">
+                <div className="space-y-4 text-sm text-gray-600 dark:text-gray-300">
+                  <div className="border-b border-gray-100 dark:border-gray-700 pb-4">
                     <p className="mb-2 text-xs tracking-wider text-gray-400 uppercase">Địa chỉ</p>
                     <p className="leading-relaxed">{businessProfile.addressDisplay}</p>
                   </div>
 
-                  <div className="border-b border-gray-100 pb-4">
+                  <div className="border-b border-gray-100 dark:border-gray-700 pb-4">
                     <p className="mb-2 text-xs tracking-wider text-gray-400 uppercase">Giờ hoạt động</p>
                     <p className="leading-relaxed">{businessProfile.openingHoursDisplay}</p>
                   </div>
 
-                  <div className="border-b border-gray-100 pb-4">
+                  <div className="border-b border-gray-100 dark:border-gray-700 pb-4">
                     <p className="mb-2 text-xs tracking-wider text-gray-400 uppercase">Hotline</p>
                     <a
                       href={`tel:${businessProfile.telephone}`}
-                      className="text-gray-600 transition-colors hover:text-gray-800"
+                      className="text-gray-600 dark:text-gray-300 transition-colors hover:text-gray-800 dark:hover:text-gray-100"
                     >
                       {businessProfile.telephoneDisplay}
                     </a>
                   </div>
 
-                  <div className="border-b border-gray-100 pb-4">
+                  <div className="border-b border-gray-100 dark:border-gray-700 pb-4">
                     <p className="mb-2 text-xs tracking-wider text-gray-400 uppercase">Chia sẻ trải nghiệm</p>
                     <p className="leading-relaxed">
                       Nếu bạn đã sử dụng dịch vụ, hãy chia sẻ trải nghiệm thực tế của mình trên Google Maps.
@@ -145,7 +145,7 @@ export default function Contact() {
                       href="https://maps.app.goo.gl/aQKTojhw51Bo8LMW6"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex w-full items-center justify-center rounded border border-gray-200 px-4 py-2 text-sm text-gray-600 transition-all hover:border-gray-300 hover:bg-gray-50 md:w-fit"
+                      className="inline-flex w-full items-center justify-center rounded border border-gray-200 dark:border-gray-700 px-4 py-2 text-sm text-gray-600 dark:text-gray-300 transition-all hover:border-gray-300 dark:hover:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-950 md:w-fit"
                     >
                       Mở trong Google Maps
                     </a>
@@ -154,7 +154,7 @@ export default function Contact() {
                       href="https://g.page/nguyendinhthinhstudio?share"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex w-full items-center justify-center rounded border border-gray-200 px-4 py-2 text-sm text-gray-600 transition-all hover:border-gray-300 hover:bg-gray-50 md:w-fit"
+                      className="inline-flex w-full items-center justify-center rounded border border-gray-200 dark:border-gray-700 px-4 py-2 text-sm text-gray-600 dark:text-gray-300 transition-all hover:border-gray-300 dark:hover:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-950 md:w-fit"
                     >
                       Tìm kiếm trên Google
                     </a>
@@ -164,13 +164,13 @@ export default function Contact() {
             </div>
           </div>
         </div>
-        <DividerWithText text="LIÊN HỆ NHANH" textClassName="text-[#888888] text-sm" className="mt-4" />
+        <DividerWithText text="LIÊN HỆ NHANH" textClassName="text-[#888888] dark:text-neutral-400 text-sm" className="mt-4" />
         <Support />
-        <DividerWithText textClassName="text-[#888888] text-sm" className="mt-6" />
+        <DividerWithText textClassName="text-[#888888] dark:text-neutral-400 text-sm" className="mt-6" />
         <AnimatedContent direction="vertical" duration={2} delay={0.2} threshold={0.2}>
           <SeeMore className="mt-12" />
         </AnimatedContent>
-        <DividerWithText textClassName="text-[#888888] text-sm" className="my-12" />
+        <DividerWithText textClassName="text-[#888888] dark:text-neutral-400 text-sm" className="my-12" />
       </div>
 
       {/* JSON-LD Schemas */}

@@ -41,19 +41,19 @@ export default function PricingModel({ pricingPackages }: Readonly<PricingModelP
         <div key={item.id} className="space-y-6">
           <DividerWithText
             text="NGUYỄN ĐÌNH THỊNH STUDIO"
-            textClassName="text-[#888888] text-sm md:text-base"
+            textClassName="text-[#888888] dark:text-neutral-400 text-sm md:text-base"
             className="px-1.5"
           />
           {!item.offMain && (
             <div className="relative">
               {/* Overlay màu xám full width */}
-              <div className="bg-opacity-30 pointer-events-none absolute -inset-y-2 left-1/2 z-10 min-w-[100vw] -translate-x-1/2 bg-[#d8d8d8]" />
+              <div className="bg-opacity-30 pointer-events-none absolute -inset-y-2 left-1/2 z-10 min-w-[100vw] -translate-x-1/2 bg-[#d8d8d8] dark:bg-neutral-800" />
 
               {/* Div giới thiệu chính */}
               <div className="relative z-20 flex flex-col gap-2 space-y-3 overflow-hidden rounded-3xl border-2 border-black md:gap-4">
                 {/* Label chéo góc */}
                 <div
-                  className={`absolute top-3 z-20 rotate-45 bg-white px-14 py-1 text-xs text-[11px] font-bold text-[#d8d8d8] md:top-5 md:px-16 md:text-[14px] ${item.angleLable === 'PRIVATE' ? '-right-15' : '-right-13'} `}
+                  className={`absolute top-3 z-20 rotate-45 bg-white dark:bg-neutral-950 px-14 py-1 text-xs text-[11px] font-bold text-neutral-600 dark:text-neutral-300 md:top-5 md:px-16 md:text-[14px] ${item.angleLable === 'PRIVATE' ? '-right-15' : '-right-13'} `}
                 >
                   {item.angleLable}
                 </div>
@@ -66,11 +66,11 @@ export default function PricingModel({ pricingPackages }: Readonly<PricingModelP
                 <div className="z-20 mb-0 flex flex-col items-center">
                   {item.services.map(service => (
                     <div key={service.id}>
-                      <p className="flex items-center gap-1.5 text-xs leading-6 font-bold text-[#585858] md:text-base">
+                      <p className="flex items-center gap-1.5 text-xs leading-6 font-bold text-[#585858] dark:text-neutral-300 md:text-base">
                         {service.isActive ? (
-                          <FaRegCheckCircle className="h-3.5 w-3.5 text-black md:h-[18px] md:w-[18px]" />
+                          <FaRegCheckCircle className="h-3.5 w-3.5 text-black dark:text-neutral-100 md:h-[18px] md:w-[18px]" />
                         ) : (
-                          <IoMdCloseCircleOutline className="h-4 w-4 text-black md:h-[21px] md:w-[21px]" />
+                          <IoMdCloseCircleOutline className="h-4 w-4 text-black dark:text-neutral-100 md:h-[21px] md:w-[21px]" />
                         )}
                         {service.content}
                       </p>
@@ -78,7 +78,7 @@ export default function PricingModel({ pricingPackages }: Readonly<PricingModelP
                   ))}
                 </div>
 
-                <p className="z-20 mt-2 px-2 py-2 text-center text-xs font-semibold text-[#888888] md:px-10 md:py-4 md:text-base">
+                <p className="z-20 mt-2 px-2 py-2 text-center text-xs font-semibold text-[#888888] dark:text-neutral-400 md:px-10 md:py-4 md:text-base">
                   {item.subContent}
                 </p>
               </div>
@@ -92,7 +92,7 @@ export default function PricingModel({ pricingPackages }: Readonly<PricingModelP
               >
                 {/* Label chéo góc */}
                 {card.angleLable && (
-                  <div className="absolute top-5 -right-17 z-20 rotate-45 bg-[#d8d8d8] px-16 py-1 text-xs text-[10px] font-bold text-[#585858]">
+                  <div className="absolute top-5 -right-17 z-20 rotate-45 bg-[#d8d8d8] dark:bg-neutral-800 px-16 py-1 text-xs text-[10px] font-bold text-[#585858] dark:text-neutral-300">
                     {card.angleLable}
                   </div>
                 )}
@@ -106,15 +106,15 @@ export default function PricingModel({ pricingPackages }: Readonly<PricingModelP
                   <div>
                     {card.services.map(service => (
                       <div key={service.id} className="text-center">
-                        <p className="text-sm font-bold text-[#585858] md:text-[15px]">{service.content}</p>
+                        <p className="text-sm font-bold text-[#585858] dark:text-neutral-300 md:text-[15px]">{service.content}</p>
                       </div>
                     ))}
                   </div>
-                  <p className="text-sm font-bold text-[#cccccc] md:text-[15px]">{card.subContent}</p>
+                  <p className="text-sm font-bold text-neutral-600 dark:text-neutral-400 md:text-[15px]">{card.subContent}</p>
                 </div>
                 <Link
                   href="/lien-he#ho-tro-nhanh"
-                  className="block w-full bg-[#cccccc] py-4 text-center font-semibold text-[#585858] transition-colors hover:text-white"
+                  className="block w-full bg-[#cccccc] dark:bg-neutral-800 py-4 text-center font-semibold text-[#585858] dark:text-neutral-300 transition-colors hover:bg-neutral-700 hover:text-white dark:hover:bg-neutral-700"
                 >
                   Đặt lịch
                 </Link>

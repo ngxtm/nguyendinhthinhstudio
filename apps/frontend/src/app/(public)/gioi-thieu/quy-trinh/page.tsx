@@ -36,8 +36,8 @@ export default function Procedure() {
 
         {/* Content - Mobile: full width, Desktop: limited width */}
         <div className="w-full space-y-4 md:max-w-1/3">
-          <h2 className="text-5xl font-bold text-gray-800">TIẾP ĐÓN KHÁCH HÀNG</h2>
-          <p className="text-base leading-relaxed text-gray-600">
+          <h2 className="text-5xl font-bold text-gray-800 dark:text-gray-100">TIẾP ĐÓN KHÁCH HÀNG</h2>
+          <p className="text-base leading-relaxed text-gray-600 dark:text-gray-300">
             Khách hàng sẽ được đón tiếp và hướng dẫn vào khu vực phòng chờ của studio trước khi vào set chụp. Vì các khu
             vực trong stu khá rộng và từng khu vực đều hoạt động trong quá trình vận hành nên khách hàng cũng sẽ có
             những khu vực đặc thù dành riêng trong lúc chờ đợi để được thoải mái nhất.

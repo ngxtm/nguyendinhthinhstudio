@@ -29,7 +29,7 @@ export default function SeeMoreDetail({
           <h1 className="mb-2 text-3xl font-bold">{title}</h1>
           <p className="mb-4 text-sm text-gray-200">{description}</p>
           <Link href={linkUrl}>
-            <button className="rounded-xl border border-white bg-transparent px-6 py-1.5 text-white transition-all duration-300 hover:border-[#888888] hover:text-[#888888]">
+            <button className="rounded-xl border border-white bg-transparent px-6 py-1.5 text-white transition-all duration-300 hover:border-[#888888] hover:text-[#888888] dark:hover:text-neutral-400">
               {titleButton}
             </button>
           </Link>

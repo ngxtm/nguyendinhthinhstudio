@@ -31,7 +31,7 @@ export default function NavigationLinks({
   links,
   className = '',
   separatorClassName = 'text-neutral-400',
-  linkClassName = 'text-neutral-700 hover:text-neutral-900 transition-colors',
+  linkClassName = 'text-neutral-700 dark:text-neutral-200 hover:text-neutral-900 dark:hover:text-neutral-100 transition-colors',
   showArrows = true
 }: NavigationLinksProps) {
   if (!links || links.length === 0) return null

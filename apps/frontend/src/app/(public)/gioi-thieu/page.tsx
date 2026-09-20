@@ -38,13 +38,13 @@ export default function About() {
         <div className="order-1 my-auto w-full md:order-2 md:w-[45%]">
           <h3 className="text-2xl tracking-tight md:text-5xl">About</h3>
           <h2 className="mt-2 text-2xl leading-tight font-bold text-balance md:text-5xl">Nguyễn Đình Thịnh Studio</h2>
-          <p className="mt-6 text-xs leading-relaxed text-neutral-700 md:text-sm">
+          <p className="mt-6 text-xs leading-relaxed text-neutral-700 dark:text-neutral-200 md:text-sm">
             Nhằm đáp ứng nhu cầu ngày một đa dạng và nâng cao trải nghiệm sử dụng dịch vụ của khách hàng. Nguyễn Đình
             Thịnh Studio đã phát triển mạnh mẽ hơn qua Website và MXH. Hình thành quy trình với các quy chuẩn chuyên
             nghiệp về sản xuất hình ảnh, trở thành một trong những hệ sinh thái lớn mạnh hơn bao giờ hết. Bao gồm các
             mảng liên đới, hỗ trợ lẫn nhau trong việc sản xuất hình ảnh, truyền thông và đa phương tiện.
           </p>
-          <p className="mt-4 text-xs leading-relaxed text-neutral-700 md:text-sm">
+          <p className="mt-4 text-xs leading-relaxed text-neutral-700 dark:text-neutral-200 md:text-sm">
             Với đội ngũ nhân sự dày dặn kinh nghiệm từ 5–10 năm, quy tụ đầy đủ các vị trí từ nhiếp ảnh gia, quay phim,
             kỹ thuật ánh sáng, stylist đến hậu kỳ, chúng tôi đáp ứng trọn vẹn mọi nhu cầu từ gói cơ bản đến các giải
             pháp sản xuất hình ảnh cao cấp. Mỗi dự án được vận hành theo quy trình chuẩn mực, phong cách phục vụ tinh
@@ -52,7 +52,7 @@ export default function About() {
           </p>
 
           <Link href="/thu-vien">
-            <button className="group mt-4 inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-full border border-neutral-300 bg-white/90 px-4 py-3 text-sm font-medium text-neutral-900 shadow-sm backdrop-blur transition-all duration-200 hover:bg-neutral-900 hover:text-white focus:ring-2 focus:ring-neutral-400 focus:outline-none active:scale-[.98] sm:w-auto">
+            <button className="group mt-4 inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-full border border-neutral-300 dark:border-neutral-700 bg-white/90 dark:bg-neutral-950/90 px-4 py-3 text-sm font-medium text-neutral-900 dark:text-neutral-100 shadow-sm backdrop-blur transition-all duration-200 hover:bg-neutral-900 hover:text-white focus:ring-2 focus:ring-neutral-400 focus:outline-none active:scale-[.98] sm:w-auto">
               THAM KHẢO THÊM HÌNH ẢNH{' '}
               <span className="transition-transform duration-300 group-hover:translate-x-1">→</span>
             </button>

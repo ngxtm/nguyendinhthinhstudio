@@ -28,21 +28,21 @@ export default function FamilyPrice() {
         <div className="space-y-12 md:space-y-4">
           <h1 className="mt-8 text-center text-xl font-bold md:text-4xl">BẢNG GIÁ CHỤP ẢNH GIA ĐÌNH TẠI NHA TRANG</h1>
           <div>
-            <p className="text-center text-[#888888]">
+            <p className="text-center text-[#888888] dark:text-neutral-400">
               Bảng báo giá chụp ảnh gia đình tại Nha Trang: Bố Mẹ - Bé và gia đình nhiều thế hệ
             </p>
-            <p className="text-center text-[#888888] italic">
+            <p className="text-center text-[#888888] dark:text-neutral-400 italic">
               (Baby và Trẻ em dưới 12 tuổi được tặng thêm 2 ảnh PTS/bộ hình)
             </p>
           </div>
           <DividerWithText
             text="NGUYỄN ĐÌNH THỊNH STUDIO"
-            textClassName="text-[#888888] text-sm md:text-base"
+            textClassName="text-[#888888] dark:text-neutral-400 text-sm md:text-base"
             className="px-1.5"
           />
         </div>
         <div className="px-6">
-          <h2 className="text-2xl font-bold text-[#585858] md:text-3xl">Layout</h2>
+          <h2 className="text-2xl font-bold text-[#585858] dark:text-neutral-300 md:text-3xl">Layout</h2>
           <div className="my-8 h-px w-14 border border-b-2 border-[#bdbdbd] bg-[#bdbdbd]" />
           <p className="text-sm leading-relaxed md:text-[15px]">
             Mỗi Layout, hay còn gọi là concept, theo cách mọi người hiểu là “01 bộ ảnh”, đối với quy chuẩn của NDT

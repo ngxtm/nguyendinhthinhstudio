@@ -11,7 +11,7 @@ export default function StylistComponent() {
       </AnimatedContent>
       <AnimatedContent direction="horizontal" duration={1.5} distance={200} threshold={0.1} className='order-1 md:order-none'>
         <div className="w-full max-w-3xl space-y-8 text-white sm:space-y-10 md:order-none lg:space-y-14">
-          <p className="text-sm text-[#686868] sm:text-base">ĐỘI SÁNG TẠO PHONG CÁCH - TẠO HÌNH</p>
+          <p className="text-sm text-[#686868] dark:text-neutral-400 sm:text-base">ĐỘI SÁNG TẠO PHONG CÁCH - TẠO HÌNH</p>
           <h2 className="text-2xl font-bold sm:text-3xl lg:text-4xl">Stylist (Nhà Tạo Mẫu)</h2>
           <div className="border-l-4 px-4 text-lg font-bold sm:px-6 sm:text-xl lg:px-8">
             Stylist là người tạo hình phong cách thời trang

@@ -105,7 +105,7 @@ export default function MoveImagesDialog({
               leaveFrom="translate-y-0 opacity-100 sm:scale-100"
               leaveTo="translate-y-4 opacity-0 sm:translate-y-0 sm:scale-95"
             >
-              <Dialog.Panel className="w-full max-w-lg rounded-2xl bg-white p-5 text-left shadow-xl motion-reduce:transition-none sm:p-6">
+              <Dialog.Panel className="w-full max-w-lg rounded-2xl bg-white p-5 text-left shadow-xl motion-reduce:transition-none sm:p-6 text-gray-900 [color-scheme:light]">
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
                     <Dialog.Title className="text-lg font-semibold text-gray-900">Chuyển ảnh sang bộ ảnh</Dialog.Title>

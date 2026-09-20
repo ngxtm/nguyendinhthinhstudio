@@ -16,7 +16,7 @@ export default function MiddleProcedure({
   number
 }: Readonly<MiddleProcedureProps>) {
   return (
-    <div className="bg-[#f2f5f7]">
+    <div className="bg-[#f2f5f7] dark:bg-neutral-900">
       <div className="hidden h-screen flex-row md:flex">
         <div className="aspect-[3/4]flex-shrink-0 relative overflow-hidden md:w-1/3">
           <Image src={leftImage} alt="procedure" fill className="object-cover" />
@@ -24,8 +24,8 @@ export default function MiddleProcedure({
         <div className="my-auto flex w-1/3 flex-col gap-4 px-14 md:flex-row">
           <p className="font-montserrat my-auto text-9xl font-bold text-[#d8d8d8]">{number}</p>
           <div className="flex flex-col gap-2.5">
-            <h2 className="text-4xl font-bold text-gray-800">{title}</h2>
-            <p className="text-base leading-relaxed text-gray-600">{description}</p>
+            <h2 className="text-4xl font-bold text-gray-800 dark:text-gray-100">{title}</h2>
+            <p className="text-base leading-relaxed text-gray-600 dark:text-gray-300">{description}</p>
           </div>
         </div>
         <div className="relative aspect-[3/4] flex-shrink-0 overflow-hidden md:w-1/3">

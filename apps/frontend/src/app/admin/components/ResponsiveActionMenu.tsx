@@ -111,7 +111,7 @@ export default function ResponsiveActionMenu({
               leaveFrom="translate-y-0"
               leaveTo="translate-y-full"
             >
-              <Dialog.Panel className="w-full rounded-t-2xl bg-white px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl motion-reduce:transition-none">
+              <Dialog.Panel className="w-full rounded-t-2xl bg-white px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl motion-reduce:transition-none text-gray-900 [color-scheme:light]">
                 <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-gray-300" aria-hidden="true" />
                 <Dialog.Title className="px-2 pb-2 text-base font-semibold text-gray-900">{title}</Dialog.Title>
                 <div className="overflow-hidden rounded-xl border border-gray-200">{children('mobile-sheet')}</div>

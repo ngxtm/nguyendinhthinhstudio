@@ -85,7 +85,7 @@ export default function TagGalleryClient({ slug, initialTag, initialAlbums, init
     <div className="max-w-[120rem] mx-auto">
       <div className="space-y-6 py-10 sm:py-14">
         <div className="text-center">
-          <h1 className="text-3xl font-bold tracking-tight text-neutral-900 sm:text-4xl md:text-5xl">
+          <h1 className="text-3xl font-bold tracking-tight text-neutral-900 dark:text-neutral-100 sm:text-4xl md:text-5xl">
             #{tag.name}
           </h1>
 
@@ -96,12 +96,12 @@ export default function TagGalleryClient({ slug, initialTag, initialAlbums, init
                 { label: 'Đặt Lịch', href: '/lien-he#ho-tro-nhanh' },
                 { label: 'Liên Hệ', href: '/lien-he' },
               ]}
-              linkClassName="text-neutral-600 hover:text-neutral-900 font-medium transition-colors"
+              linkClassName="text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-neutral-100 font-medium transition-colors"
               separatorClassName="text-neutral-300"
             />
           </div>
 
-          <p className="mx-auto mt-6 max-w-2xl text-sm leading-relaxed text-neutral-600 md:text-base">
+          <p className="mx-auto mt-6 max-w-2xl text-sm leading-relaxed text-neutral-600 dark:text-neutral-300 md:text-base">
             {tag.description || `Các album thuộc tag ${tag.name} được tuyển chọn bởi Nguyen Dinh Thinh Studio.`}
           </p>
           <DividerWithText
@@ -114,7 +114,7 @@ export default function TagGalleryClient({ slug, initialTag, initialAlbums, init
 
       {albums.length === 0 ? (
         <div className="py-20 text-center">
-          <p className="text-neutral-500">Chưa có album nào cho tag này</p>
+          <p className="text-neutral-500 dark:text-neutral-400">Chưa có album nào cho tag này</p>
         </div>
       ) : (
         <>
@@ -145,7 +145,7 @@ export default function TagGalleryClient({ slug, initialTag, initialAlbums, init
 function AlbumCard({ album }: { album: Album }) {
   return (
     <Link href={`/thu-vien/${album.slug}`} className="group block mb-8">
-      <div className="relative overflow-hidden rounded-lg bg-neutral-100">
+      <div className="relative overflow-hidden rounded-lg bg-neutral-100 dark:bg-neutral-900">
         {album.coverImage ? (
           <img
             src={album.coverImage.largeUrl}
@@ -160,7 +160,7 @@ function AlbumCard({ album }: { album: Album }) {
         )}
       </div>
 
-      <h3 className="mt-3 text-left text-sm font-medium text-neutral-900 transition-colors line-clamp-2 group-hover:text-neutral-600 md:text-base">
+      <h3 className="mt-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100 transition-colors line-clamp-2 group-hover:text-neutral-600 dark:group-hover:text-neutral-300 md:text-base">
         {album.title}
       </h3>
     </Link>

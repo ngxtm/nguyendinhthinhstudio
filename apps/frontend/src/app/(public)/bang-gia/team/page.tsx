@@ -27,18 +27,18 @@ export default function TeamPrice() {
           <div className="space-y-12 md:space-y-4">
             <h1 className="mt-8 text-center text-xl font-bold md:text-4xl">BẢNG GIÁ CHỤP ẢNH TEAM TẠI NHA TRANG</h1>
             <div>
-              <p className="text-center text-[#888888]">
+              <p className="text-center text-[#888888] dark:text-neutral-400">
                 Bảng báo giá chụp ảnh Team/Doanh nghiệp tại Nha Trang: Profile cá nhân, ảnh nhóm, ảnh branding
               </p>
             </div>
             <DividerWithText
               text="NGUYỄN ĐÌNH THỊNH STUDIO"
-              textClassName="text-[#888888] text-sm md:text-base"
+              textClassName="text-[#888888] dark:text-neutral-400 text-sm md:text-base"
               className="px-1.5"
             />
           </div>
           <div className="px-6">
-            <h2 className="text-2xl font-bold text-[#585858] md:text-3xl">Layout</h2>
+            <h2 className="text-2xl font-bold text-[#585858] dark:text-neutral-300 md:text-3xl">Layout</h2>
             <div className="my-8 h-px w-14 border border-b-2 border-[#bdbdbd] bg-[#bdbdbd]" />
             <p className="text-sm leading-relaxed md:text-[15px]">
               Mỗi Layout, hay còn gọi là concept, theo cách mọi người hiểu là “01 bộ ảnh”, đối với quy chuẩn của NDT

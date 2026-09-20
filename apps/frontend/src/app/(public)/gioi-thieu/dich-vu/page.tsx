@@ -26,7 +26,7 @@ export default function Service() {
       <AnimatedContent direction="horizontal" duration={1.5} distance={250} threshold={0.1} className="h-fit sm:h-full">
         <DividerWithText
           text="QUY TRÌNH DỊCH VỤ"
-          textClassName="text-[#888888] text-sm md:text-base"
+          textClassName="text-[#888888] dark:text-neutral-400 text-sm md:text-base"
           className="px-4 sm:px-6 md:px-8 lg:px-12"
         />
       </AnimatedContent>
@@ -42,7 +42,7 @@ export default function Service() {
       >
         <DividerWithText
           text="XEM THÊM"
-          textClassName="text-[#888888] text-sm md:text-base"
+          textClassName="text-[#888888] dark:text-neutral-400 text-sm md:text-base"
           className="mb-10 px-4 sm:px-6 md:px-8 lg:px-12"
         />
       </AnimatedContent>

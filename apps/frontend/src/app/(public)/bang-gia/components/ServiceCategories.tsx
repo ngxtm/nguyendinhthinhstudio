@@ -25,7 +25,7 @@ export default function ServiceCategories({
       {categories.map(category => (
         <div
           key={category.id}
-          className={`!mb-0 overflow-hidden ${borderDisabled ? 'border-none' : 'border-b border-gray-300'}`}
+          className={`!mb-0 overflow-hidden ${borderDisabled ? 'border-none' : 'border-b border-gray-300 dark:border-gray-700'}`}
         >
           <button
             onClick={() => onToggleAccordion(category.id)}
@@ -33,7 +33,7 @@ export default function ServiceCategories({
               openAccordions.has(category.id) ? 'border-none' : ''
             }`}
           >
-            <span className="flex w-full items-center gap-1 text-sm font-bold text-[#585858] md:text-base">
+            <span className="flex w-full items-center gap-1 text-sm font-bold text-[#585858] dark:text-neutral-300 md:text-base">
               <span
                 className={`inline-block text-2xl transition-transform duration-300 ${
                   openAccordions.has(category.id) ? '' : '-rotate-90'
@@ -52,13 +52,13 @@ export default function ServiceCategories({
           >
             <div className="px-4 pt-4 pb-6">
               {category.description ? (
-                <div className="leading-relaxed whitespace-pre-line text-gray-600">
+                <div className="leading-relaxed whitespace-pre-line text-gray-600 dark:text-gray-300">
                   {category.description.split('\n').map(line => {
                     const trimmedLine = line.trim()
                     if (trimmedLine.startsWith('•')) {
                       return (
                         <div key={line} className="mb-1 flex items-center gap-2">
-                          <span className="text-gray-500">•</span>
+                          <span className="text-gray-500 dark:text-gray-400">•</span>
                           <span>{trimmedLine.replace(/^•\s*/, '')}</span>
                         </div>
                       )
@@ -71,7 +71,7 @@ export default function ServiceCategories({
                           {parts[0]}
                           <a
                             href="/lien-he#ho-tro-nhanh"
-                            className="inline-flex items-center gap-1 font-medium text-blue-600 underline transition-colors hover:text-blue-800"
+                            className="inline-flex items-center gap-1 font-medium text-blue-600 dark:text-blue-400 underline transition-colors hover:text-blue-800 dark:hover:text-blue-300"
                           >
                             XEM THÊM
                             <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -93,9 +93,9 @@ export default function ServiceCategories({
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <p className="text-gray-600">Nội dung chi tiết cho {category.title} sẽ được cập nhật sớm.</p>
+                  <p className="text-gray-600 dark:text-gray-300">Nội dung chi tiết cho {category.title} sẽ được cập nhật sớm.</p>
                   <div className="flex flex-wrap gap-2">
-                    <span className="rounded-full bg-gray-200 px-3 py-1 text-sm text-gray-700">Đang cập nhật</span>
+                    <span className="rounded-full bg-gray-200 dark:bg-gray-800 px-3 py-1 text-sm text-gray-700 dark:text-gray-200">Đang cập nhật</span>
                   </div>
                 </div>
               )}

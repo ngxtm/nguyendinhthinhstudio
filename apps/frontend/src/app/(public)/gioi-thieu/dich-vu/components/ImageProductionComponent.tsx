@@ -9,7 +9,7 @@ export default function ImageProductionComponent() {
     <div className="min-h-screen space-y-12 px-4 sm:px-6 md:px-8 lg:px-12">
       <AnimatedContent direction="vertical" duration={1.5} distance={250} threshold={0.1}>
         <div className="text-center">
-          <p className="text-sm tracking-wide text-[#888888]">ĐỘI SẢN XUẤT HÌNH ẢNH</p>
+          <p className="text-sm tracking-wide text-[#888888] dark:text-neutral-400">ĐỘI SẢN XUẤT HÌNH ẢNH</p>
           <h2 className="text-4xl leading-tight font-bold sm:text-5xl lg:text-6xl xl:text-7xl">Image Production</h2>
         </div>
         <div className="grid auto-rows-fr grid-cols-1 sm:grid-cols-3">

@@ -254,12 +254,12 @@ export default function AlbumDetailClient({ album, relatedAlbums, initialImagePa
 
   return (
     <>
-      <div className="min-h-screen bg-neutral-50 px-4 py-12 md:px-8 lg:px-16">
+      <div className="min-h-screen bg-neutral-50 px-4 py-12 md:px-8 lg:px-16 dark:bg-neutral-950">
         <div className="w-full">
           {/* Back Button */}
           <Link
             href="/thu-vien"
-            className="mb-8 inline-flex items-center gap-2 text-neutral-600 hover:text-neutral-900"
+            className="mb-8 inline-flex items-center gap-2 text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-neutral-100"
           >
             <ArrowLeft size={20} />
             Quay lại thư viện
@@ -271,7 +271,7 @@ export default function AlbumDetailClient({ album, relatedAlbums, initialImagePa
               {/* Cover Image */}
               <div className="w-full md:w-1/2">
                 {album.coverImage ? (
-                  <div className="aspect-[3/4] overflow-hidden rounded-lg bg-neutral-100 shadow-lg">
+                  <div className="aspect-[3/4] overflow-hidden rounded-lg bg-neutral-100 dark:bg-neutral-900 shadow-lg">
                     <img
                       {...getResponsiveImageProps(album.coverImage, '(max-width: 767px) 100vw, 50vw')}
                       src={album.coverImage.largeUrl}
@@ -280,7 +280,7 @@ export default function AlbumDetailClient({ album, relatedAlbums, initialImagePa
                     />
                   </div>
                 ) : (
-                  <div className="flex aspect-[3/4] items-center justify-center rounded-lg bg-neutral-200 shadow-lg">
+                  <div className="flex aspect-[3/4] items-center justify-center rounded-lg bg-neutral-200 dark:bg-neutral-800 shadow-lg">
                     <Eye size={64} className="text-neutral-400" />
                   </div>
                 )}
@@ -288,12 +288,12 @@ export default function AlbumDetailClient({ album, relatedAlbums, initialImagePa
 
               {/* Album Info */}
               <div className="flex w-full flex-col justify-center md:w-1/2">
-                <h1 className="mb-3 text-3xl font-bold text-neutral-900 md:mb-4 md:text-4xl lg:text-5xl">
+                <h1 className="mb-3 text-3xl font-bold text-neutral-900 dark:text-neutral-100 md:mb-4 md:text-4xl lg:text-5xl">
                   {album.title}
                 </h1>
 
                 {album.description && (
-                  <p className="mb-4 text-base leading-relaxed text-neutral-600 md:mb-6 md:text-lg">
+                  <p className="mb-4 text-base leading-relaxed text-neutral-600 dark:text-neutral-300 md:mb-6 md:text-lg">
                     {album.description}
                   </p>
                 )}
@@ -305,7 +305,7 @@ export default function AlbumDetailClient({ album, relatedAlbums, initialImagePa
                       <Link
                         key={tag.id || tag.slug || `tag-${index}`}
                         href={tag.slug ? `/thu-vien/tag/${tag.slug}` : '#'}
-                        className="inline-flex items-center justify-center rounded-full bg-neutral-100 px-2.5 py-1 text-center text-xs font-medium text-neutral-700 transition-colors hover:bg-neutral-200 md:px-3 md:py-1.5 md:text-sm"
+                        className="inline-flex items-center justify-center rounded-full bg-neutral-100 dark:bg-neutral-900 px-2.5 py-1 text-center text-xs font-medium text-neutral-700 dark:text-neutral-200 transition-colors hover:bg-neutral-200 dark:hover:bg-neutral-800 md:px-3 md:py-1.5 md:text-sm"
                       >
                         #{tag.name}
                       </Link>
@@ -314,7 +314,7 @@ export default function AlbumDetailClient({ album, relatedAlbums, initialImagePa
                 )}
 
                 {/* Stats */}
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-neutral-200 pt-3 text-xs text-neutral-500 md:gap-x-4 md:pt-4 md:text-sm">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-neutral-200 dark:border-neutral-700 pt-3 text-xs text-neutral-500 dark:text-neutral-400 md:gap-x-4 md:pt-4 md:text-sm">
                   <span className="inline-flex items-center gap-1 whitespace-nowrap">
                     <ImageIcon size={14} className="md:h-4 md:w-4" />
                     Số lượng ảnh trong album: {album.imageCount} ảnh
@@ -383,7 +383,7 @@ export default function AlbumDetailClient({ album, relatedAlbums, initialImagePa
                               rel="noreferrer"
                               className="group block cursor-pointer"
                             >
-                              <div className="relative overflow-hidden rounded-md bg-neutral-100 shadow-md transition-shadow hover:shadow-xl active:scale-[0.98] md:rounded-lg md:active:scale-100">
+                              <div className="relative overflow-hidden rounded-md bg-neutral-100 dark:bg-neutral-900 shadow-md transition-shadow hover:shadow-xl active:scale-[0.98] md:rounded-lg md:active:scale-100">
                                 <img
                                   {...responsiveImageProps}
                                   src={image.largeUrl}
@@ -407,7 +407,7 @@ export default function AlbumDetailClient({ album, relatedAlbums, initialImagePa
             </div>
           ) : (
             <div className="py-8 text-center md:py-12">
-              <p className="text-sm text-neutral-500 md:text-base">Album này chưa có ảnh</p>
+              <p className="text-sm text-neutral-500 dark:text-neutral-400 md:text-base">Album này chưa có ảnh</p>
             </div>
           )}
 
@@ -434,12 +434,12 @@ export default function AlbumDetailClient({ album, relatedAlbums, initialImagePa
           {/* Related Albums - Mobile Optimized */}
           {relatedAlbums.length > 0 && (
             <div className="mt-8 md:mt-10">
-              <h2 className="mb-6 text-left text-xl font-bold text-neutral-900 md:mb-8 md:text-2xl">KHÁM PHÁ THÊM</h2>
+              <h2 className="mb-6 text-left text-xl font-bold text-neutral-900 dark:text-neutral-100 md:mb-8 md:text-2xl">KHÁM PHÁ THÊM</h2>
               <div className="grid grid-cols-2 gap-2 md:grid-cols-3 md:gap-3 lg:grid-cols-4">
                 {relatedAlbums.slice(0, 8).map(related => (
                   <Link key={related.id ?? related.slug} href={`/thu-vien/${related.slug}`} className="group block">
                     {/* Cover Image */}
-                    <div className="relative overflow-hidden rounded-lg bg-neutral-100">
+                    <div className="relative overflow-hidden rounded-lg bg-neutral-100 dark:bg-neutral-900">
                       {related.coverImage ? (
                         <img
                           {...getResponsiveImageProps(
@@ -459,7 +459,7 @@ export default function AlbumDetailClient({ album, relatedAlbums, initialImagePa
                     </div>
 
                     {/* Title */}
-                    <h3 className="mt-3 line-clamp-2 text-left text-sm font-medium text-neutral-900 transition-colors group-hover:text-neutral-600 md:text-base">
+                    <h3 className="mt-3 line-clamp-2 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100 transition-colors group-hover:text-neutral-600 dark:group-hover:text-neutral-300 md:text-base">
                       {related.title}
                     </h3>
                   </Link>

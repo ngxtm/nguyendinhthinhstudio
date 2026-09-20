@@ -78,12 +78,12 @@ export const TikTokEmbed = ({ url, title, customType, description }: TikTokEmbed
   const typeStyle = getTypeStyle(customType, mediaType);
 
   return (
-    <div className="mb-8 bg-white rounded-lg shadow-sm border border-gray-100 p-4">
+    <div className="mb-8 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 p-4">
       <h3 className="text-lg font-semibold mb-4 text-center">
         {title}
       </h3>
       {description && (
-        <p className="text-sm text-gray-600 text-center mb-4">{description}</p>
+        <p className="text-sm text-gray-600 dark:text-gray-300 text-center mb-4">{description}</p>
       )}
       <div className="flex justify-center">
         <blockquote 

@@ -135,28 +135,28 @@ export default function PricingClient({ publicCategorySlugs }: Readonly<PricingC
                 { label: 'Wedding', href: '/bang-gia/wedding' },
                 { label: 'Video', href: '/bang-gia/video' }
               ]}
-              linkClassName="text-neutral-600 hover:text-neutral-900 font-medium transition-colors"
+              linkClassName="text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-neutral-100 font-medium transition-colors"
               separatorClassName="text-neutral-300"
             />
           </div>
-          <div className="flex justify-center gap-4 text-sm text-neutral-600">
-            <a href="/thu-vien" className="underline-offset-4 transition-colors hover:text-neutral-900 hover:underline">
+          <div className="flex justify-center gap-4 text-sm text-neutral-600 dark:text-neutral-300">
+            <a href="/thu-vien" className="underline-offset-4 transition-colors hover:text-neutral-900 dark:hover:text-neutral-100 hover:underline">
               Xem thư viện
             </a>
             <a
               href="/lien-he#ho-tro-nhanh"
-              className="underline-offset-4 transition-colors hover:text-neutral-900 hover:underline"
+              className="underline-offset-4 transition-colors hover:text-neutral-900 dark:hover:text-neutral-100 hover:underline"
             >
               Liên hệ đặt lịch
             </a>
           </div>
 
-          <DividerWithText text="NGUYỄN ĐÌNH THỊNH STUDIO" textClassName="text-[#888888] text-sm" />
+          <DividerWithText text="NGUYỄN ĐÌNH THỊNH STUDIO" textClassName="text-[#888888] dark:text-neutral-400 text-sm" />
 
           {/* Art - Beauty - Fashion */}
           <div className="mx-auto mt-16 max-w-4xl">
             <div className="text-center">
-              <h2 className="mb-4 text-3xl font-bold text-[#585858]">Art - Beauty - Fashion</h2>
+              <h2 className="mb-4 text-3xl font-bold text-[#585858] dark:text-neutral-300">Art - Beauty - Fashion</h2>
               <div className="my-4 h-px w-14 border border-b-2 border-[#bdbdbd] bg-[#bdbdbd]" />
               <p className="text-start text-[15px] leading-relaxed">
                 Bảng giá của NDT Studio không được thiết lập dựa trên những tiêu chuẩn cũ mà mọi người thường thấy tại
@@ -176,7 +176,7 @@ export default function PricingClient({ publicCategorySlugs }: Readonly<PricingC
           <div className="mx-auto mt-16 max-w-5xl md:mt-40">
             <div className="grid grid-cols-1 gap-12 md:grid-cols-2 md:gap-32">
               <div className="space-y-6">
-                <h2 className="text-3xl font-bold text-[#585858]">Premium</h2>
+                <h2 className="text-3xl font-bold text-[#585858] dark:text-neutral-300">Premium</h2>
                 <div className="h-px w-14 border border-b-2 border-[#bdbdbd]" />
                 <p className="text-[15px] leading-relaxed">
                   Premium là gói dịch vụ hình ảnh cao cấp của NDT Studio. Phương châm của Premium là &quot;Like a
@@ -193,7 +193,7 @@ export default function PricingClient({ publicCategorySlugs }: Readonly<PricingC
                 />
               </div>
               <div className="space-y-6">
-                <h2 className="text-3xl font-bold text-[#585858]">Standard</h2>
+                <h2 className="text-3xl font-bold text-[#585858] dark:text-neutral-300">Standard</h2>
                 <div className="h-px w-14 border border-b-2 border-[#bdbdbd]" />
                 <p className="text-[15px] leading-relaxed">
                   Standard là gói dịch vụ hình ảnh tiết kiệm nhất của NDT Studio. Được thiết kế để dành riêng cho những
@@ -215,7 +215,7 @@ export default function PricingClient({ publicCategorySlugs }: Readonly<PricingC
           <div className="mx-auto my-16 max-w-6xl md:mt-40">
             <TablePricePerCategory publicCategorySlugs={publicCategorySlugs} />
           </div>
-          <DividerWithText textClassName="text-[#888888] text-sm" className="mb-16" />
+          <DividerWithText textClassName="text-[#888888] dark:text-neutral-400 text-sm" className="mb-16" />
         </div>
       </div>
 

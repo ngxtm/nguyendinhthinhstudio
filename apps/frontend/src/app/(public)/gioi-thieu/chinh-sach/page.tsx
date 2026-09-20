@@ -12,14 +12,14 @@ export default function Policy() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white dark:bg-neutral-950">
       <div className="px-4 pt-20 md:px-8 md:pt-32 lg:px-16">
         {/* Header Section */}
         <div className="mb-12 md:mb-16">
-          <h1 className="mb-4 text-4xl leading-tight font-bold text-black md:text-6xl lg:text-7xl">
+          <h1 className="mb-4 text-4xl leading-tight font-bold text-black dark:text-neutral-100 md:text-6xl lg:text-7xl">
             CHÍNH SÁCH BẢO HÀNH & DỊCH VỤ
           </h1>
-          <p className="text-lg font-medium text-gray-500 md:text-xl lg:text-2xl">Tinh tế • Tin cậy • Chuyên nghiệp</p>
+          <p className="text-lg font-medium text-gray-500 dark:text-gray-400 md:text-xl lg:text-2xl">Tinh tế • Tin cậy • Chuyên nghiệp</p>
         </div>
 
         <div className='relative aspect-[7/3] h-[70vh] mb-8 rounded-xl overflow-hidden mx-auto'>
@@ -31,8 +31,8 @@ export default function Policy() {
           <div className="grid grid-cols-1 gap-6 md:grid-cols-3 md:gap-8">
             {/* Card 1: Hình ảnh */}
             <div className="space-y-4">
-              <div className="flex aspect-square w-full items-center justify-center rounded-2xl bg-gray-100">
-                <div className="flex h-16 w-16 items-center justify-center rounded-lg bg-white">
+              <div className="flex aspect-square w-full items-center justify-center rounded-2xl bg-gray-100 dark:bg-gray-900">
+                <div className="flex h-16 w-16 items-center justify-center rounded-lg bg-white dark:bg-neutral-950">
                   <svg className="h-8 w-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path
                       strokeLinecap="round"
@@ -44,8 +44,8 @@ export default function Policy() {
                 </div>
               </div>
               <div>
-                <h3 className="mb-2 text-xl font-bold text-black">Hình ảnh.</h3>
-                <p className="leading-relaxed text-gray-600">
+                <h3 className="mb-2 text-xl font-bold text-black dark:text-neutral-100">Hình ảnh.</h3>
+                <p className="leading-relaxed text-gray-600 dark:text-gray-300">
                   Gửi qua Google Drive, gồm ảnh gốc đã lọc hoặc toàn bộ JPG.
                 </p>
               </div>
@@ -53,8 +53,8 @@ export default function Policy() {
 
             {/* Card 2: Thời gian chính sửa */}
             <div className="space-y-4">
-              <div className="flex aspect-square w-full items-center justify-center rounded-2xl bg-gray-100">
-                <div className="flex h-16 w-16 items-center justify-center rounded-lg bg-white">
+              <div className="flex aspect-square w-full items-center justify-center rounded-2xl bg-gray-100 dark:bg-gray-900">
+                <div className="flex h-16 w-16 items-center justify-center rounded-lg bg-white dark:bg-neutral-950">
                   <svg className="h-8 w-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path
                       strokeLinecap="round"
@@ -66,8 +66,8 @@ export default function Policy() {
                 </div>
               </div>
               <div>
-                <h3 className="mb-2 text-xl font-bold text-black">Thời gian chính sửa.</h3>
-                <p className="leading-relaxed text-gray-600">
+                <h3 className="mb-2 text-xl font-bold text-black dark:text-neutral-100">Thời gian chính sửa.</h3>
+                <p className="leading-relaxed text-gray-600 dark:text-gray-300">
                   Ảnh cá nhân: 3–7 ngày.
                   <br />
                   Ảnh cưới: 3–30 ngày
@@ -79,8 +79,8 @@ export default function Policy() {
 
             {/* Card 3: Chính sách fix lỗi */}
             <div className="space-y-4">
-              <div className="flex aspect-square w-full items-center justify-center rounded-2xl bg-gray-100">
-                <div className="flex h-16 w-16 items-center justify-center rounded-lg bg-white">
+              <div className="flex aspect-square w-full items-center justify-center rounded-2xl bg-gray-100 dark:bg-gray-900">
+                <div className="flex h-16 w-16 items-center justify-center rounded-lg bg-white dark:bg-neutral-950">
                   <svg className="h-8 w-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path
                       strokeLinecap="round"
@@ -92,8 +92,8 @@ export default function Policy() {
                 </div>
               </div>
               <div>
-                <h3 className="mb-2 text-xl font-bold text-black">Chính sách fix lỗi.</h3>
-                <p className="leading-relaxed text-gray-600">
+                <h3 className="mb-2 text-xl font-bold text-black dark:text-neutral-100">Chính sách fix lỗi.</h3>
+                <p className="leading-relaxed text-gray-600 dark:text-gray-300">
                   Mỗi file bảo hành fix tối đa 3 lần trong thời gian chính sửa.
                 </p>
               </div>
@@ -105,16 +105,16 @@ export default function Policy() {
         <div className="mb-16 md:mb-20">
           <div className="grid grid-cols-1 gap-8 md:grid-cols-3 md:gap-12">
             <div className="text-center">
-              <div className="mb-2 text-5xl font-bold text-black md:text-6xl lg:text-7xl">3T</div>
-              <p className="text-lg text-gray-600">Giữ bản gốc</p>
+              <div className="mb-2 text-5xl font-bold text-black dark:text-neutral-100 md:text-6xl lg:text-7xl">3T</div>
+              <p className="text-lg text-gray-600 dark:text-gray-300">Giữ bản gốc</p>
             </div>
             <div className="text-center">
-              <div className="mb-2 text-5xl font-bold text-black md:text-6xl lg:text-7xl">6T</div>
-              <p className="text-lg text-gray-600">Giữ file chính</p>
+              <div className="mb-2 text-5xl font-bold text-black dark:text-neutral-100 md:text-6xl lg:text-7xl">6T</div>
+              <p className="text-lg text-gray-600 dark:text-gray-300">Giữ file chính</p>
             </div>
             <div className="text-center">
-              <div className="mb-2 text-5xl font-bold text-black md:text-6xl lg:text-7xl">3x</div>
-              <p className="text-lg text-gray-600">Số lần bảo hành</p>
+              <div className="mb-2 text-5xl font-bold text-black dark:text-neutral-100 md:text-6xl lg:text-7xl">3x</div>
+              <p className="text-lg text-gray-600 dark:text-gray-300">Số lần bảo hành</p>
             </div>
           </div>
         </div>
@@ -124,8 +124,8 @@ export default function Policy() {
           <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
             {/* Chụp ngoại cảnh */}
             <div className="space-y-4">
-              <div className="flex aspect-[4/3] w-full items-center justify-center rounded-2xl bg-gray-100">
-                <div className="flex h-16 w-16 items-center justify-center rounded-lg bg-white">
+              <div className="flex aspect-[4/3] w-full items-center justify-center rounded-2xl bg-gray-100 dark:bg-gray-900">
+                <div className="flex h-16 w-16 items-center justify-center rounded-lg bg-white dark:bg-neutral-950">
                   <svg className="h-8 w-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path
                       strokeLinecap="round"
@@ -137,8 +137,8 @@ export default function Policy() {
                 </div>
               </div>
               <div>
-                <h3 className="mb-3 text-xl font-bold text-black">Chụp ngoại cảnh.</h3>
-                <p className="text-sm leading-relaxed text-gray-600">
+                <h3 className="mb-3 text-xl font-bold text-black dark:text-neutral-100">Chụp ngoại cảnh.</h3>
+                <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
                   Chụp trưa: +10%. Resort/địa điểm tính phí: khách tự trả. Trên 10km: tính phụ phí đi lại. Trẻ: tối đa
                   30% phụ thu. Không hoàn cọc.
                 </p>
@@ -147,8 +147,8 @@ export default function Policy() {
 
             {/* Chụp studio */}
             <div className="space-y-4">
-              <div className="flex aspect-[4/3] w-full items-center justify-center rounded-2xl bg-gray-100">
-                <div className="flex h-16 w-16 items-center justify-center rounded-lg bg-white">
+              <div className="flex aspect-[4/3] w-full items-center justify-center rounded-2xl bg-gray-100 dark:bg-gray-900">
+                <div className="flex h-16 w-16 items-center justify-center rounded-lg bg-white dark:bg-neutral-950">
                   <svg className="h-8 w-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path
                       strokeLinecap="round"
@@ -160,8 +160,8 @@ export default function Policy() {
                 </div>
               </div>
               <div>
-                <h3 className="mb-3 text-xl font-bold text-black">Chụp studio.</h3>
-                <p className="text-sm leading-relaxed text-gray-600">
+                <h3 className="mb-3 text-xl font-bold text-black dark:text-neutral-100">Chụp studio.</h3>
+                <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
                   Chi phí phát sinh: khách thành toán. Mặt phụ kiện: bởi thương gia mới. Trẻ: tối đa 30% phụ thu. Không
                   hoàn cọc.
                 </p>
@@ -174,12 +174,12 @@ export default function Policy() {
         <div className="mb-16 md:mb-20">
           <div className="mx-auto max-w-2xl space-y-4">
             {faq.map((item) => (
-              <div key={item.id} className="rounded-xl bg-gray-50 overflow-hidden">
+              <div key={item.id} className="rounded-xl bg-gray-50 dark:bg-gray-950 overflow-hidden">
                 <button
                   onClick={() => toggleFAQ(item.id)}
-                  className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-100 transition-colors"
+                  className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors"
                 >
-                  <span className="font-medium text-gray-700">{item.question}</span>
+                  <span className="font-medium text-gray-700 dark:text-gray-200">{item.question}</span>
                   <svg 
                     className={`h-5 w-5 text-gray-400 transition-transform duration-300 ${
                       openFAQ === item.id ? 'rotate-45' : ''
@@ -195,8 +195,8 @@ export default function Policy() {
                   openFAQ === item.id ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
                 }`}>
                   <div className="px-4 pb-4">
-                    <div className="bg-white p-4 rounded-lg">
-                      <p className="text-gray-600 leading-relaxed">{item.answer}</p>
+                    <div className="bg-white dark:bg-neutral-950 p-4 rounded-lg">
+                      <p className="text-gray-600 dark:text-gray-300 leading-relaxed">{item.answer}</p>
                     </div>
                   </div>
                 </div>

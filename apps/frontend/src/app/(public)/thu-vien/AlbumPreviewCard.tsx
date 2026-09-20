@@ -160,7 +160,7 @@ export default function AlbumPreviewCard({ album, animationDelay }: { album: Alb
         if (event.pointerType === 'mouse') stop(true)
       }}
     >
-      <div className="relative overflow-hidden rounded-lg bg-neutral-100">
+      <div className="relative overflow-hidden rounded-lg bg-neutral-100 dark:bg-neutral-900">
         <Link
           href={`/thu-vien/${album.slug}`}
           className="relative block touch-pan-y"
@@ -222,7 +222,7 @@ export default function AlbumPreviewCard({ album, animationDelay }: { album: Alb
               {...getResponsiveImageProps(frame.previous, SIZES)}
               alt=""
               aria-hidden="true"
-              className="absolute inset-0 h-full w-full object-cover"
+              className="album-preview-image absolute inset-0"
               draggable={false}
             />
           ) : null}
@@ -232,7 +232,7 @@ export default function AlbumPreviewCard({ album, animationDelay }: { album: Alb
               {...getResponsiveImageProps(frame.current, SIZES)}
               alt=""
               aria-hidden="true"
-              className="preview-frame absolute inset-0 h-full w-full object-cover"
+              className="preview-frame album-preview-image absolute inset-0"
               draggable={false}
             />
           ) : null}
@@ -250,7 +250,7 @@ export default function AlbumPreviewCard({ album, animationDelay }: { album: Alb
               type="button"
               aria-label={`Ảnh trước của ${album.title}`}
               onClick={() => manual(-1)}
-              className="pointer-events-auto rounded-full bg-black/50 p-2 text-white focus-visible:outline-2 focus-visible:outline-offset-2"
+              className="pointer-events-auto flex size-11 shrink-0 items-center justify-center rounded-full bg-black/60 p-0 text-white focus-visible:outline-2 focus-visible:outline-offset-2"
             >
               <ChevronLeft size={18} />
             </button>
@@ -258,7 +258,7 @@ export default function AlbumPreviewCard({ album, animationDelay }: { album: Alb
               type="button"
               aria-label={`Ảnh tiếp theo của ${album.title}`}
               onClick={() => manual(1)}
-              className="pointer-events-auto rounded-full bg-black/50 p-2 text-white focus-visible:outline-2 focus-visible:outline-offset-2"
+              className="pointer-events-auto flex size-11 shrink-0 items-center justify-center rounded-full bg-black/60 p-0 text-white focus-visible:outline-2 focus-visible:outline-offset-2"
             >
               <ChevronRight size={18} />
             </button>
@@ -266,7 +266,7 @@ export default function AlbumPreviewCard({ album, animationDelay }: { album: Alb
         ) : null}
       </div>
       <Link href={`/thu-vien/${album.slug}`} className="mt-3 block">
-        <h2 className="line-clamp-2 text-left text-sm font-bold text-neutral-900 transition-colors group-hover:text-neutral-600 md:text-base">
+        <h2 className="line-clamp-2 text-left text-sm font-bold text-neutral-900 transition-colors group-hover:text-neutral-600 md:text-base dark:text-neutral-100 dark:group-hover:text-neutral-300">
           {album.title}
         </h2>
       </Link>

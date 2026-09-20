@@ -53,7 +53,7 @@ export default function ServiceComponent() {
               </div>
               <Link
                 href="/gioi-thieu"
-                className="flex w-fit items-center mx-auto sm:mx-0 rounded-sm bg-[#585858] px-4 py-2 text-center text-xs text-white transition-colors hover:bg-white hover:text-black sm:px-6 sm:text-sm"
+                className="flex w-fit items-center mx-auto sm:mx-0 rounded-sm bg-[#585858] px-4 py-2 text-center text-xs text-white transition-colors hover:bg-white dark:hover:bg-neutral-950 hover:text-black dark:hover:text-neutral-100 sm:px-6 sm:text-sm"
               >
                 Khám Phá
               </Link>
@@ -93,7 +93,7 @@ export default function ServiceComponent() {
               </div>
               <Link
                 href="/bang-gia"
-                className="flex w-fit items-center mx-auto sm:mx-0 rounded-sm bg-[#585858] px-4 py-2 text-center text-xs text-white transition-colors hover:bg-white hover:text-black sm:px-6 sm:text-sm"
+                className="flex w-fit items-center mx-auto sm:mx-0 rounded-sm bg-[#585858] px-4 py-2 text-center text-xs text-white transition-colors hover:bg-white dark:hover:bg-neutral-950 hover:text-black dark:hover:text-neutral-100 sm:px-6 sm:text-sm"
               >
                 Bảng Giá
               </Link>
@@ -106,8 +106,8 @@ export default function ServiceComponent() {
       <div className="grid grid-cols-1 gap-8 py-16 text-center sm:grid-cols-2 sm:gap-12 md:gap-16 lg:gap-20 md:py-24 lg:py-32">
         <AnimatedContent direction="horizontal" reverse={true} duration={1.5} distance={200}>
           <div className="px-4">
-            <FaCameraRetro size={32} className="mx-auto mb-3 text-black sm:mb-4 md:mb-6 lg:mb-8" />
-            <h2 className="mb-2 text-lg font-bold text-black sm:text-xl md:text-2xl sm:mb-3 md:mb-4">THIẾT BỊ TỐT</h2>
+            <FaCameraRetro size={32} className="mx-auto mb-3 text-black dark:text-neutral-100 sm:mb-4 md:mb-6 lg:mb-8" />
+            <h2 className="mb-2 text-lg font-bold text-black dark:text-neutral-100 sm:text-xl md:text-2xl sm:mb-3 md:mb-4">THIẾT BỊ TỐT</h2>
             <p className="text-sm text-[#bfbfbf] sm:text-base leading-relaxed">
               Sử dụng những công nghệ - thiết bị của những thương hiệu hàng đầu - tốt nhất: Apple, Profoto,
               Canon,...
@@ -116,8 +116,8 @@ export default function ServiceComponent() {
         </AnimatedContent>
         <AnimatedContent direction="horizontal" duration={1.5} distance={200}>
           <div className="px-4">
-            <FaShop size={32} className="mx-auto mb-3 text-black sm:mb-4 md:mb-6 lg:mb-8" />
-            <h2 className="mb-2 text-lg font-bold text-black sm:text-xl md:text-2xl sm:mb-3 md:mb-4">KHÔNG GIAN LỚN</h2>
+            <FaShop size={32} className="mx-auto mb-3 text-black dark:text-neutral-100 sm:mb-4 md:mb-6 lg:mb-8" />
+            <h2 className="mb-2 text-lg font-bold text-black dark:text-neutral-100 sm:text-xl md:text-2xl sm:mb-3 md:mb-4">KHÔNG GIAN LỚN</h2>
             <p className="text-sm text-[#bfbfbf] sm:text-base leading-relaxed">
               Studio được thiết kế chuyên dụng cho sản xuất hình ảnh theo chuẩn quốc tế đồng thời tạo cảm giác thoải
               mái, gần gũi cho khách hàng
@@ -126,8 +126,8 @@ export default function ServiceComponent() {
         </AnimatedContent>
         <AnimatedContent direction="horizontal" reverse={true} duration={1.5} distance={200}>
           <div className="px-4">
-            <FaLightbulb size={32} className="mx-auto mb-3 text-black sm:mb-4 md:mb-6 lg:mb-8" />
-            <h2 className="mb-2 text-lg font-bold text-black sm:text-xl md:text-2xl sm:mb-3 md:mb-4">CHẤT XÁM CAO</h2>
+            <FaLightbulb size={32} className="mx-auto mb-3 text-black dark:text-neutral-100 sm:mb-4 md:mb-6 lg:mb-8" />
+            <h2 className="mb-2 text-lg font-bold text-black dark:text-neutral-100 sm:text-xl md:text-2xl sm:mb-3 md:mb-4">CHẤT XÁM CAO</h2>
             <p className="text-sm text-[#bfbfbf] sm:text-base leading-relaxed">
               Đội ngũ nhân sự chuyên gia có kinh nghiệm và kiến thức cao. Luôn cập nhật và sáng tạo theo xu hướng thế
               giới mang đến sản phẩm chất lượng
@@ -136,8 +136,8 @@ export default function ServiceComponent() {
         </AnimatedContent>
         <AnimatedContent direction="horizontal" duration={1.5} distance={200}>
           <div className="px-4">
-            <FaArrowsRotate size={32} className="mx-auto mb-3 text-black sm:mb-4 md:mb-6 lg:mb-8" />
-            <h2 className="mb-2 text-lg font-bold text-black sm:text-xl md:text-2xl sm:mb-3 md:mb-4">QUY TRÌNH CHUẨN</h2>
+            <FaArrowsRotate size={32} className="mx-auto mb-3 text-black dark:text-neutral-100 sm:mb-4 md:mb-6 lg:mb-8" />
+            <h2 className="mb-2 text-lg font-bold text-black dark:text-neutral-100 sm:text-xl md:text-2xl sm:mb-3 md:mb-4">QUY TRÌNH CHUẨN</h2>
             <p className="text-sm text-[#bfbfbf] sm:text-base leading-relaxed">
               Với quy trình được chuẩn hóa, sản phẩm nhanh chóng đến tay khách hàng với chất lượng luôn được đảm bảo và
               đồng bộ hóa mọi giai đoạn - hình thức

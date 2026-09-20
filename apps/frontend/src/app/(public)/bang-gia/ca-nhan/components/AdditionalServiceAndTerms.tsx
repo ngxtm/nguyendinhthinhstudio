@@ -39,8 +39,8 @@ export default function AdditionalServiceAndTerms({ service }: Readonly<Addition
     <div className="">
       {service.map(item => (
         <div key={item.id} className="mb-8 space-y-8">
-          <DividerWithText textClassName="text-[#888888] text-sm md:text-base" />
-          <h2 className="text-2xl font-bold text-[#585858] md:text-4xl">{item.title}</h2>
+          <DividerWithText textClassName="text-[#888888] dark:text-neutral-400 text-sm md:text-base" />
+          <h2 className="text-2xl font-bold text-[#585858] dark:text-neutral-300 md:text-4xl">{item.title}</h2>
           <ServiceCategories
             categories={item.services}
             openAccordions={openAccordions}

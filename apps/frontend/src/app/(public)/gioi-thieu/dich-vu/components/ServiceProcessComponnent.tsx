@@ -17,20 +17,20 @@ export default function ServiceProcessComponnent() {
           <div className="flex h-full flex-col gap-8 sm:justify-around">
             <div className="text-center">
               <p className="text-3xl font-bold">1. LIÊN LẠC</p>
-              <p className="text-base text-[#888888]">
+              <p className="text-base text-[#888888] dark:text-neutral-400">
                 Liên hệ với Studio để nhận được tư vấn các gói từ chuyên viên CSKH
               </p>
             </div>
             <div className="text-center">
               <p className="text-3xl font-bold">2. TƯ VẤN</p>
-              <p className="text-base text-[#888888]">
+              <p className="text-base text-[#888888] dark:text-neutral-400">
                 Nếu có nhu cầu tư vấn chuyên sâu, khách hàng sẽ được tư vấn bởi các chuyên gia trong lĩnh vực (Stylist,
                 CD, Makeup,...)
               </p>
             </div>
             <div className="text-center">
               <p className="text-3xl font-bold">3. ĐẶT LỊCH</p>
-              <p className="text-base text-[#888888]">
+              <p className="text-base text-[#888888] dark:text-neutral-400">
                 Khi chọn được các dịch vụ phù hợp, khách hàng tự do chọn ngày giờ chụp và thanh toán trước
               </p>
             </div>
@@ -51,19 +51,19 @@ export default function ServiceProcessComponnent() {
           <div className="flex h-full flex-col gap-8 sm:justify-around">
             <div className="text-center">
               <p className="text-3xl font-bold">4. &quot;ONSET&quot;</p>
-              <p className="text-base text-[#888888]">
+              <p className="text-base text-[#888888] dark:text-neutral-400">
                 Đến Studio theo hướng dẫn của CSKH và trải nghiệm tiền kỳ dịch vụ đã chọn
               </p>
             </div>
             <div className="text-center">
               <p className="text-3xl font-bold">5. HẬU KỲ</p>
-              <p className="text-base text-[#888888]">
+              <p className="text-base text-[#888888] dark:text-neutral-400">
                 Nhận sự tư vấn và làm việc với các chuyên gia hậu kỳ về hình ảnh, video
               </p>
             </div>
             <div className="text-center">
               <p className="text-3xl font-bold">6. &quot;FINISH&quot;</p>
-              <p className="text-base text-[#888888]">
+              <p className="text-base text-[#888888] dark:text-neutral-400">
                 Nhận thành phẩm cuối cùng tại Studio hoặc theo hình thức Online
               </p>
             </div>

@@ -27,11 +27,11 @@ export default function ServiceCard({
   return (
     <div className={`flex flex-col items-center gap-12 md:gap-52 md:flex-row`}>
       <div className="flex flex-col gap-6 md:gap-12">
-        <h1 className="text-3xl font-bold text-[#585858]">{title}</h1>
+        <h1 className="text-3xl font-bold text-[#585858] dark:text-neutral-300">{title}</h1>
         <div className="h-px w-14 border border-b-2 border-[#bdbdbd]" />
         <p className="text-[15px] leading-relaxed">{description}</p>
         <SeeMoreList seeMoreList={seeMoreList} />
-        <Link href={`/bang-gia/${id}`} className="w-fit rounded-sm bg-[#cccccc] px-5 md:py-1.5 text-sm text-white flex items-center">
+        <Link href={`/bang-gia/${id}`} className="w-fit rounded-sm bg-[#cccccc] dark:bg-neutral-800 px-5 md:py-1.5 text-sm text-white flex items-center">
           Xem Bảng Giá
         </Link>
       </div>

@@ -53,7 +53,7 @@ export default function ConfirmDialog({
               leaveFrom="translate-y-0 opacity-100 sm:scale-100"
               leaveTo="translate-y-4 opacity-0 sm:translate-y-0 sm:scale-95"
             >
-              <Dialog.Panel className="w-full max-w-md rounded-2xl bg-white p-5 text-left shadow-xl motion-reduce:transition-none sm:p-6">
+              <Dialog.Panel className="w-full max-w-md rounded-2xl bg-white p-5 text-left shadow-xl motion-reduce:transition-none sm:p-6 text-gray-900 [color-scheme:light]">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex min-w-0 items-start gap-3">
                     <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-red-100">
