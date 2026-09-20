@@ -250,17 +250,17 @@ export default function AlbumPreviewCard({ album, animationDelay }: { album: Alb
               type="button"
               aria-label={`Ảnh trước của ${album.title}`}
               onClick={() => manual(-1)}
-              className="flex justify-center items-center bg-black/60 p-0 rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 size-11 text-white pointer-events-auto shrink-0"
+              className="pointer-events-auto flex size-7 !min-h-0 !min-w-0 shrink-0 items-center justify-center rounded-full bg-black/60 p-0 text-white focus-visible:outline-2 focus-visible:outline-offset-2 md:size-9"
             >
-              <ChevronLeft size={18} />
+              <ChevronLeft className="size-3.5 md:size-4" />
             </button>
             <button
               type="button"
               aria-label={`Ảnh tiếp theo của ${album.title}`}
               onClick={() => manual(1)}
-              className="flex justify-center items-center bg-black/60 p-0 rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 size-11 text-white pointer-events-auto shrink-0"
+              className="pointer-events-auto flex size-7 !min-h-0 !min-w-0 shrink-0 items-center justify-center rounded-full bg-black/60 p-0 text-white focus-visible:outline-2 focus-visible:outline-offset-2 md:size-9"
             >
-              <ChevronRight size={18} />
+              <ChevronRight className="size-3.5 md:size-4" />
             </button>
           </div>
         ) : null}
