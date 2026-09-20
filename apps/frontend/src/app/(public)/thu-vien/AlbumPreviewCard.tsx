@@ -153,17 +153,17 @@ export default function AlbumPreviewCard({ album, animationDelay }: { album: Alb
 
   return (
     <div
-      className="gallery-card-enter group relative mb-2 md:mb-3"
+      className="group relative mb-2 md:mb-3 gallery-card-enter"
       style={{ animationDelay: `${animationDelay}ms` }}
       onPointerEnter={event => startHover(event.pointerType)}
       onPointerLeave={event => {
         if (event.pointerType === 'mouse') stop(true)
       }}
     >
-      <div className="relative overflow-hidden rounded-lg bg-neutral-100 dark:bg-neutral-900">
+      <div className="relative bg-neutral-100 dark:bg-neutral-900 rounded-lg overflow-hidden">
         <Link
           href={`/thu-vien/${album.slug}`}
-          className="relative block touch-pan-y"
+          className="block relative touch-pan-y"
           aria-label={`Xem bộ ảnh ${album.title}`}
           onClick={event => {
             if (suppressClick.current) {
@@ -208,12 +208,12 @@ export default function AlbumPreviewCard({ album, animationDelay }: { album: Alb
             <img
               {...getResponsiveImageProps(album.coverImage, SIZES)}
               alt={album.title}
-              className="block h-auto w-full"
+              className="block w-full h-auto"
               loading="lazy"
               draggable={false}
             />
           ) : (
-            <div className="flex aspect-square items-center justify-center">
+            <div className="flex justify-center items-center aspect-square">
               <Eye size={48} className="text-neutral-300" />
             </div>
           )}
@@ -222,7 +222,7 @@ export default function AlbumPreviewCard({ album, animationDelay }: { album: Alb
               {...getResponsiveImageProps(frame.previous, SIZES)}
               alt=""
               aria-hidden="true"
-              className="album-preview-image absolute inset-0"
+              className="absolute inset-0 album-preview-image"
               draggable={false}
             />
           ) : null}
@@ -232,7 +232,7 @@ export default function AlbumPreviewCard({ album, animationDelay }: { album: Alb
               {...getResponsiveImageProps(frame.current, SIZES)}
               alt=""
               aria-hidden="true"
-              className="preview-frame album-preview-image absolute inset-0"
+              className="absolute inset-0 preview-frame album-preview-image"
               draggable={false}
             />
           ) : null}
@@ -245,12 +245,12 @@ export default function AlbumPreviewCard({ album, animationDelay }: { album: Alb
           ) : null}
         </Link>
         {total > 1 ? (
-          <div className="pointer-events-none absolute inset-x-2 top-1/2 flex -translate-y-1/2 justify-between group-hover:opacity-100 focus-within:opacity-100 md:opacity-0">
+          <div className="top-1/2 absolute inset-x-2 flex justify-between md:opacity-0 focus-within:opacity-100 group-hover:opacity-100 -translate-y-1/2 pointer-events-none">
             <button
               type="button"
               aria-label={`Ảnh trước của ${album.title}`}
               onClick={() => manual(-1)}
-              className="pointer-events-auto flex size-11 shrink-0 items-center justify-center rounded-full bg-black/60 p-0 text-white focus-visible:outline-2 focus-visible:outline-offset-2"
+              className="flex justify-center items-center bg-black/60 p-0 rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 size-11 text-white pointer-events-auto shrink-0"
             >
               <ChevronLeft size={18} />
             </button>
@@ -258,15 +258,15 @@ export default function AlbumPreviewCard({ album, animationDelay }: { album: Alb
               type="button"
               aria-label={`Ảnh tiếp theo của ${album.title}`}
               onClick={() => manual(1)}
-              className="pointer-events-auto flex size-11 shrink-0 items-center justify-center rounded-full bg-black/60 p-0 text-white focus-visible:outline-2 focus-visible:outline-offset-2"
+              className="flex justify-center items-center bg-black/60 p-0 rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 size-11 text-white pointer-events-auto shrink-0"
             >
               <ChevronRight size={18} />
             </button>
           </div>
         ) : null}
       </div>
-      <Link href={`/thu-vien/${album.slug}`} className="mt-3 block">
-        <h2 className="line-clamp-2 text-left text-sm font-bold text-neutral-900 transition-colors group-hover:text-neutral-600 md:text-base dark:text-neutral-100 dark:group-hover:text-neutral-300">
+      <Link href={`/thu-vien/${album.slug}`} className="block mt-3">
+        <h2 className="font-bold text-neutral-900 dark:group-hover:text-neutral-300 dark:text-neutral-100 group-hover:text-neutral-600 text-sm md:text-base text-left line-clamp-2 transition-colors">
           {album.title}
         </h2>
       </Link>
