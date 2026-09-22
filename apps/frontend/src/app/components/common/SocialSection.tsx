@@ -7,7 +7,7 @@ export default function SocialSection() {
   // Keep these links unchanged until the business account set is confirmed.
   const socialLinks = [
     {
-      href: 'https://www.facebook.com/nguyendinhthinh.foto',
+      href: 'https://www.facebook.com/nguyendinhthinhstudio',
       icon: <FaFacebook size={24} />
     },
     {
@@ -22,17 +22,17 @@ export default function SocialSection() {
 
   return (
     <div className="pb-10">
-      <p className="text-center text-lg font-semibold md:text-2xl">Theo dõi chúng tôi thêm tại mạng xã hội</p>
-      <div className="mt-4 flex items-center justify-center gap-4">
+      <p className="font-semibold text-lg md:text-2xl text-center">Theo dõi chúng tôi thêm tại mạng xã hội</p>
+      <div className="flex justify-center items-center gap-4 mt-4">
         {socialLinks.map(link => (
           <Link
             key={link.href}
             href={link.href}
             target="_blank"
             rel="noopener noreferrer"
-            className="group flex h-12 w-12 cursor-pointer items-center justify-center rounded-lg bg-black text-center text-base text-white transition-all duration-300 hover:scale-110 hover:shadow-lg sm:h-14 sm:w-14 md:h-12 md:w-12"
+            className="group flex justify-center items-center bg-black hover:shadow-lg rounded-lg w-12 sm:w-14 md:w-12 h-12 sm:h-14 md:h-12 text-white text-base text-center hover:scale-110 transition-all duration-300 cursor-pointer"
           >
-            <span className="transition-transform duration-200 group-hover:scale-110">{link.icon}</span>
+            <span className="group-hover:scale-110 transition-transform duration-200">{link.icon}</span>
           </Link>
         ))}
       </div>

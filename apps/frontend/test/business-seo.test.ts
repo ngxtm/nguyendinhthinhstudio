@@ -65,7 +65,7 @@ test('unconfirmed social accounts remain page-owned until the identity gate is r
   assert.deepEqual(businessProfile.social.approvedSameAs, [])
 
   for (const url of [
-    'https://facebook.com/nguyendinhthinh.foto',
+    'https://www.facebook.com/nguyendinhthinhstudio',
     'https://instagram.com/nguyendinhthinh.foto',
     'https://www.tiktok.com/@nguyendinhthinhstudio'
   ]) {
@@ -73,7 +73,7 @@ test('unconfirmed social accounts remain page-owned until the identity gate is r
   }
 
   for (const url of [
-    'https://www.facebook.com/nguyendinhthinh.foto',
+    'https://www.facebook.com/nguyendinhthinhstudio',
     'https://www.instagram.com/nguyendinhthinh.foto',
     'https://www.tiktok.com/@nguyendinhthinhstudio'
   ]) {
@@ -81,7 +81,7 @@ test('unconfirmed social accounts remain page-owned until the identity gate is r
   }
 
   for (const url of [
-    'https://facebook.com/ndtstudio',
+    'https://www.facebook.com/nguyendinhthinhstudio',
     'https://instagram.com/ndtstudio',
     'https://maps.app.goo.gl/aQKTojhw51Bo8LMW6'
   ]) {

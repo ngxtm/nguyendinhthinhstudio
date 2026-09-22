@@ -19,7 +19,7 @@ export default function Contact() {
     ...createBusinessEntitySchema({
       type: 'LocalBusiness',
       sameAs: [
-        'https://facebook.com/ndtstudio',
+        'https://www.facebook.com/nguyendinhthinhstudio',
         'https://instagram.com/ndtstudio',
         'https://maps.app.goo.gl/aQKTojhw51Bo8LMW6'
       ]

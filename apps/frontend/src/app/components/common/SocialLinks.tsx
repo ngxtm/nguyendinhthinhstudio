@@ -26,7 +26,7 @@ const SocialLinks: FC<SocialLinksProps> = ({
       bgColor: 'bg-[#057611]'
     },
     {
-      href: 'https://www.facebook.com/nguyendinhthinh.foto',
+      href: 'https://www.facebook.com/nguyendinhthinhstudio',
       icon: <FaFacebookF />,
       label: 'Facebook',
       bgColor: 'bg-[#3a558e]'

@@ -38,7 +38,7 @@ export default function Footer() {
                   </svg>
                 </div>
                 <a
-                  href="https://facebook.com/nguyendinhthinhstudio"
+                  href="https://www.facebook.com/nguyendinhthinhstudio"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="md:text-md text-sm leading-relaxed text-gray-300 transition-colors hover:text-white lg:text-lg"
@@ -97,7 +97,7 @@ export default function Footer() {
           {/* Social Icons */}
           <div className="flex space-x-4">
             <a
-              href="https://facebook.com/nguyendinhthinhstudio"
+              href="https://www.facebook.com/nguyendinhthinhstudio"
               target="_blank"
               rel="noopener noreferrer"
               className="text-gray-400 transition-colors hover:text-white"

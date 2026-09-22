@@ -116,7 +116,7 @@ export default function RootLayout({
       type: 'Organization',
       sameAs: [
         // Thêm các social media links sau
-        'https://facebook.com/nguyendinhthinh.foto',
+        'https://www.facebook.com/nguyendinhthinhstudio',
         'https://instagram.com/nguyendinhthinh.foto',
         'https://www.tiktok.com/@nguyendinhthinhstudio'
       ]
