@@ -21,7 +21,7 @@ export default function Contact() {
       sameAs: [
         'https://www.facebook.com/nguyendinhthinhstudio',
         'https://instagram.com/ndtstudio',
-        'https://maps.app.goo.gl/aQKTojhw51Bo8LMW6'
+        'https://maps.app.goo.gl/RoGc5qKWbE9gmMzX7'
       ]
     }),
     '@id': businessProfile.id,
@@ -33,8 +33,8 @@ export default function Contact() {
     priceRange: '₫₫₫',
     geo: {
       '@type': 'GeoCoordinates',
-      latitude: 12.251875888001273,
-      longitude: 109.18676147543009
+      latitude: 12.245696487956922,
+      longitude: 109.1734630109475
     }
   }
 
@@ -86,7 +86,7 @@ export default function Contact() {
             <div className="w-full lg:w-2/3">
               <div className="h-64 w-full overflow-hidden rounded-lg shadow-lg md:h-80 lg:h-96">
                 <iframe
-                  src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3898.946853268119!2d109.18676147543009!3d12.251875888001273!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x317067006f0cee6b%3A0xf5972a38ccf94667!2zTmd1eeG7hW4gxJDDrG5oIFRo4buLbmggU3R1ZGlv!5e0!3m2!1svi!2s!4v1754279632948!5m2!1svi!2s"
+                  src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3899.0381455583592!2d109.1734630109475!3d12.245696487956922!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x317067006f0cee6b%3A0xf5972a38ccf94667!2sNDTStudio!5e0!3m2!1svi!2stw!4v1790130833434!5m2!1svi!2stw"
                   width="100%"
                   height="100%"
                   style={{ border: 0 }}
@@ -142,7 +142,7 @@ export default function Contact() {
 
                   <div className="flex flex-col gap-3 md:flex-row">
                     <a
-                      href="https://maps.app.goo.gl/aQKTojhw51Bo8LMW6"
+                      href="https://maps.app.goo.gl/RoGc5qKWbE9gmMzX7"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex w-full items-center justify-center rounded border border-gray-200 dark:border-gray-700 px-4 py-2 text-sm text-gray-600 dark:text-gray-300 transition-all hover:border-gray-300 dark:hover:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-950 md:w-fit"

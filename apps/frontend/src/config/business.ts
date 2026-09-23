@@ -2,7 +2,7 @@ import { absoluteUrl } from '@/lib/seo'
 
 const address = {
   '@type': 'PostalAddress',
-  streetAddress: '111/1 Thống Nhất',
+  streetAddress: '01 Đ. Số 7, Khu đô thị Hà Quang 2',
   addressLocality: 'Nha Trang',
   addressRegion: 'Khánh Hòa',
   postalCode: '650000',
@@ -23,7 +23,7 @@ export const businessProfile = {
   telephone: '+84983885473',
   telephoneDisplay: '0983 885 473',
   address,
-  addressDisplay: '111/1 Thống Nhất, Phường Nha Trang, Tỉnh Khánh Hoà',
+  addressDisplay: '01 Đ. Số 7, Khu đô thị Hà Quang 2, Nha Trang, Khánh Hòa, Việt Nam',
   openingHours,
   openingHoursDisplay: '07:00 - 17:00 (Thứ 2 - Chủ nhật)',
   social: {

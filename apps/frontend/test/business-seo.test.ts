@@ -22,7 +22,7 @@ test('business schema output uses the confirmed shared identity and contact fact
   assert.equal(schema.telephone, '+84983885473')
   assert.deepEqual(schema.address, {
     '@type': 'PostalAddress',
-    streetAddress: '111/1 Thống Nhất',
+    streetAddress: '01 Đ. Số 7, Khu đô thị Hà Quang 2',
     addressLocality: 'Nha Trang',
     addressRegion: 'Khánh Hòa',
     postalCode: '650000',
@@ -83,7 +83,7 @@ test('unconfirmed social accounts remain page-owned until the identity gate is r
   for (const url of [
     'https://www.facebook.com/nguyendinhthinhstudio',
     'https://instagram.com/ndtstudio',
-    'https://maps.app.goo.gl/aQKTojhw51Bo8LMW6'
+    'https://maps.app.goo.gl/RoGc5qKWbE9gmMzX7'
   ]) {
     assert.match(contactSource, new RegExp(url.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
   }
