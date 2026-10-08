@@ -15,7 +15,7 @@ export const metadata = createPublicMetadata({
   title: 'Studio chụp ảnh tại Nha Trang | NDT Studio',
   description: 'Chụp ảnh cưới, gia đình, beauty và couple, kỷ yếu tại Nha Trang. Xem thư viện, bảng giá và liên hệ đặt lịch cùng NDT Studio.',
   path: '/',
-  image: 'https://ndtstudio.com.vn/share_home_v2.jpg'
+  image: 'https://ndtstudio.com.vn/share_home_v3.jpg'
 })
 
 export default async function Home() {
