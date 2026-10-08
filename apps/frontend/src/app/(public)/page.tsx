@@ -13,8 +13,9 @@ import { getPublicCategorySlugs } from '@/lib/server/public-categories'
 
 export const metadata = createPublicMetadata({
   title: 'Studio chụp ảnh tại Nha Trang | NDT Studio',
-  description: 'Chụp ảnh cưới, gia đình, beauty và couple tại Nha Trang. Xem thư viện, bảng giá và liên hệ đặt lịch cùng NDT Studio.',
-  path: '/'
+  description: 'Chụp ảnh cưới, gia đình, beauty và couple, kỷ yếu tại Nha Trang. Xem thư viện, bảng giá và liên hệ đặt lịch cùng NDT Studio.',
+  path: '/',
+  image: 'https://ndtstudio.com.vn/share_home_v2.jpg'
 })
 
 export default async function Home() {
@@ -36,7 +37,7 @@ export default async function Home() {
         <DividerWithText
           text="HOT & TRENDING"
           textClassName="text-[#cccccc] text-sm"
-          className="mt-6 px-6 sm:mt-8 md:mt-10 md:px-16"
+          className="mt-6 sm:mt-8 md:mt-10 px-6 md:px-16"
         />
       </AnimatedContent>
       <div className="space-y-6 sm:space-y-8 md:space-y-5">
@@ -77,7 +78,7 @@ export default async function Home() {
         <DividerWithText
           text="FEATURED"
           textClassName="text-[#cccccc] text-sm"
-          className="mt-6 px-6 sm:mt-8 md:mt-10 md:px-16"
+          className="mt-6 sm:mt-8 md:mt-10 px-6 md:px-16"
         />
       </AnimatedContent>
       <AnimatedContent distance={200} direction="vertical" duration={1.5}>
