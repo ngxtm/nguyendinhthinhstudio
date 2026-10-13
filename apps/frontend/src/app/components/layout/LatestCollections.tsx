@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import type { Album } from '@/lib/api/albums'
+import type { HomepageCollectionAlbum } from '@/lib/api/homepage-collection'
 import { getResponsiveImageProps } from '@/lib/responsive-image'
 import DividerWithText from '../common/DividerWithText'
 import LatestCollectionCarousel from './LatestCollectionCarousel'
@@ -12,14 +12,15 @@ function ChevronRight({ className }: { className?: string }) {
   )
 }
 
-export default function LatestCollections({ albums }: { albums: Album[] }) {
+export default function LatestCollections({ albums }: { albums: HomepageCollectionAlbum[] }) {
   const collections = albums
     .map(album => {
-      const cover = album.coverImage ?? album.images?.[0]
+      const cover = album.coverImage
       return { album, cover }
     })
-    .filter((collection): collection is { album: Album; cover: NonNullable<Album['coverImage']> } =>
-      Boolean(collection.cover && getResponsiveImageProps(collection.cover, '').src)
+    .filter(
+      (collection): collection is { album: HomepageCollectionAlbum; cover: HomepageCollectionAlbum['coverImage'] } =>
+        Boolean(collection.cover && getResponsiveImageProps(collection.cover, '').src)
     )
     .slice(0, 3)
 

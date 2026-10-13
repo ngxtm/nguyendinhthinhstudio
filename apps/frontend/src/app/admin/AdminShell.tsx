@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutDashboard,
+  House,
   Image as ImageIcon,
   Tag,
   FolderOpen,
@@ -25,6 +26,7 @@ type NavEntry = NavItem | NavGroup
 
 const NAV_ENTRIES: NavEntry[] = [
   { href: '/admin', label: 'Bảng điều khiển', icon: <LayoutDashboard size={18} /> },
+  { href: '/admin/homepage', label: 'Trang chủ', icon: <House size={18} /> },
   {
     group: 'Quản lý thư viện',
     icon: <LibraryBig size={18} />,

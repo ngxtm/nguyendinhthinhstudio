@@ -1,5 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { HOMEPAGE_COLLECTION_KEY } from './homepage-collection.service';
 
 @Injectable()
 export class SiteSettingsService {
@@ -29,6 +30,11 @@ export class SiteSettingsService {
    * Upsert a setting. The value is JSON-encoded before persistence.
    */
   async upsert(key: string, value: unknown): Promise<unknown> {
+    if (key === HOMEPAGE_COLLECTION_KEY) {
+      throw new BadRequestException(
+        'Hãy lưu bộ ảnh trang chủ qua mục Trang chủ trong admin.',
+      );
+    }
     const encoded = JSON.stringify(value);
     await this.prisma.siteSettings.upsert({
       where: { key },

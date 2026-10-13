@@ -7,7 +7,7 @@ import AnimatedContent from '../components/common/AnimatedContent'
 import SocialSection from '../components/common/SocialSection'
 import OneLayoutSection from '../components/layout/OneLayout'
 import LatestCollections from '../components/layout/LatestCollections'
-import { listAlbums } from '@/lib/api/albums'
+import { getHomepageCollection } from '@/lib/api/homepage-collection'
 import { collectionImages } from '@/config/images'
 import { createPublicMetadata } from '@/lib/seo'
 import { categoryHref } from '@/lib/public-navigation'
@@ -17,7 +17,8 @@ export const revalidate = 60
 
 export const metadata = createPublicMetadata({
   title: 'Studio chụp ảnh tại Nha Trang | NDT Studio',
-  description: 'Chụp ảnh cưới, gia đình, beauty và couple, kỷ yếu tại Nha Trang. Xem thư viện, bảng giá và liên hệ đặt lịch cùng NDT Studio.',
+  description:
+    'Chụp ảnh cưới, gia đình, beauty và couple, kỷ yếu tại Nha Trang. Xem thư viện, bảng giá và liên hệ đặt lịch cùng NDT Studio.',
   path: '/',
   image: 'https://ndtstudio.com.vn/share_home_v3.jpg'
 })
@@ -25,16 +26,16 @@ export const metadata = createPublicMetadata({
 export default async function Home() {
   const [publicCategorySlugs, latestAlbums] = await Promise.all([
     getPublicCategorySlugs(),
-    listAlbums({ status: 'published', sortBy: 'newest', limit: 3 }).catch(error => {
+    getHomepageCollection().catch(error => {
       console.error('Failed to load latest collections:', error)
-      return { data: [] }
+      return { albums: [] }
     })
   ])
 
   return (
     <div className="space-y-6 sm:space-y-8 md:space-y-10 lg:space-y-12">
       <AppHero />
-      <LatestCollections albums={latestAlbums.data} />
+      <LatestCollections albums={latestAlbums.albums} />
       <div className="mt-6 sm:mt-8 md:mt-10">
         <OneLayoutSection
           imgSrc={collectionImages[0].src}
@@ -48,7 +49,7 @@ export default async function Home() {
         <DividerWithText
           text="HOT & TRENDING"
           textClassName="text-[#cccccc] text-sm"
-          className="mt-6 sm:mt-8 md:mt-10 px-6 md:px-16"
+          className="mt-6 px-6 sm:mt-8 md:mt-10 md:px-16"
         />
       </AnimatedContent>
       <div className="space-y-6 sm:space-y-8 md:space-y-5">

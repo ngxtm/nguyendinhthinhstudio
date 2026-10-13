@@ -186,13 +186,21 @@ function AlbumsHeader() {
         <h1 className="text-3xl font-bold text-gray-900">Bộ ảnh</h1>
         <p className="text-gray-600">Quản lý danh sách bộ ảnh và trạng thái hiển thị</p>
       </div>
-      <Link
-        href="/admin/albums/new"
-        className="flex items-center gap-2 self-start rounded-lg bg-blue-600 px-5 py-2.5 font-medium text-white transition-colors hover:bg-blue-700"
-      >
-        <Plus size={18} />
-        Tạo bộ ảnh mới
-      </Link>
+      <div className="flex flex-wrap gap-2">
+        <Link
+          href="/admin/homepage"
+          className="inline-flex min-h-11 items-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+        >
+          Chọn cho trang chủ
+        </Link>
+        <Link
+          href="/admin/albums/new"
+          className="flex items-center gap-2 self-start rounded-lg bg-blue-600 px-5 py-2.5 font-medium text-white transition-colors hover:bg-blue-700"
+        >
+          <Plus size={18} />
+          Tạo bộ ảnh mới
+        </Link>
+      </div>
     </div>
   )
 }
