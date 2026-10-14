@@ -348,7 +348,7 @@ export default function AlbumDetailClient({ album, relatedAlbums, initialImagePa
                       1024: 4, // lg
                       768: 2, // md
                       640: 2, // sm
-                      480: 1 // xs
+                      480: 2 // xs
                     }}
                     className="-ml-2 flex w-auto md:-ml-3"
                     style={{ maxWidth: 'none' }}
@@ -363,7 +363,7 @@ export default function AlbumDetailClient({ album, relatedAlbums, initialImagePa
                       }
                       const responsiveImageProps = getResponsiveImageProps(
                         imageDimensions[image.id] ? { ...image, ...imageDimensions[image.id] } : image,
-                        '(max-width: 479px) 100vw, (max-width: 767px) 50vw, 25vw'
+                        '(max-width: 767px) 50vw, 25vw'
                       )
                       const isInitialImage = initialImageIds.has(image.id)
                       const isImageLoaded = imageLoadStates[image.id] === 'loaded'

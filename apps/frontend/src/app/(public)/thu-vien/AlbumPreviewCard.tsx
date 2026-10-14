@@ -7,7 +7,7 @@ import type { Album, Image as AlbumImage } from '@/lib/api/albums'
 import { apiClient } from '@/lib/api/client'
 import { getResponsiveImageProps } from '@/lib/responsive-image'
 
-const SIZES = '(max-width: 639px) 100vw, (max-width: 767px) 50vw, (max-width: 1279px) 33vw, 25vw'
+const SIZES = '(max-width: 767px) 50vw, (max-width: 1279px) 33vw, 25vw'
 
 export default function AlbumPreviewCard({ album, animationDelay }: { album: Album; animationDelay: number }) {
   const [frame, setFrame] = useState<{ current?: AlbumImage; previous?: AlbumImage }>({})

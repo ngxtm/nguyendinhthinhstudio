@@ -124,10 +124,10 @@ export default function TagGalleryClient({ slug, initialTag, initialAlbums, init
               1280: 3,
               1024: 3,
               768: 2,
-              640: 1,
+              640: 2,
             }}
-            className="flex -ml-8 w-auto"
-            columnClassName="pl-8 bg-clip-padding"
+            className="flex -ml-2 w-auto md:-ml-8"
+            columnClassName="pl-2 bg-clip-padding md:pl-8"
           >
             {albums.map(album => (
               <AlbumCard key={album.id} album={album} />
@@ -144,7 +144,7 @@ export default function TagGalleryClient({ slug, initialTag, initialAlbums, init
 
 function AlbumCard({ album }: { album: Album }) {
   return (
-    <Link href={`/thu-vien/${album.slug}`} className="group block mb-8">
+    <Link href={`/thu-vien/${album.slug}`} className="group block mb-2 md:mb-8">
       <div className="relative overflow-hidden rounded-lg bg-neutral-100 dark:bg-neutral-900">
         {album.coverImage ? (
           <img

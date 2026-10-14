@@ -122,7 +122,7 @@ export default function GalleryClient({
         ) : (
           <>
             <Masonry
-              breakpointCols={{ default: 4, 1280: 3, 1024: 3, 768: 2, 640: 1 }}
+              breakpointCols={{ default: 4, 1280: 3, 1024: 3, 768: 2, 640: 2 }}
               className="-ml-2 flex w-auto md:-ml-3"
               columnClassName="bg-clip-padding pl-2 md:pl-3"
             >
