@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { HOMEPAGE_COLLECTION_KEY } from './homepage-collection.service';
+import { PRICING_SETTINGS_PREFIX } from '../pricing/pricing.constants';
 
 @Injectable()
 export class SiteSettingsService {
@@ -30,6 +31,11 @@ export class SiteSettingsService {
    * Upsert a setting. The value is JSON-encoded before persistence.
    */
   async upsert(key: string, value: unknown): Promise<unknown> {
+    if (key.startsWith(PRICING_SETTINGS_PREFIX)) {
+      throw new BadRequestException(
+        'Hãy lưu và xuất bản giá qua mục Bảng giá trong admin.',
+      );
+    }
     if (key === HOMEPAGE_COLLECTION_KEY) {
       throw new BadRequestException(
         'Hãy lưu bộ ảnh trang chủ qua mục Trang chủ trong admin.',

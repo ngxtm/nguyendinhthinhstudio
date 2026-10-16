@@ -4,7 +4,10 @@ import { Module } from '@nestjs/common';
 import * as ReconcileEntrypoint from './scripts/reconcile-image-uploads';
 import * as ConflictEntrypoint from './scripts/resolve-image-upload-promotion-conflict';
 
-export const IMAGE_UPLOAD_ENTRYPOINTS = [ReconcileEntrypoint, ConflictEntrypoint];
+export const IMAGE_UPLOAD_ENTRYPOINTS = [
+  ReconcileEntrypoint,
+  ConflictEntrypoint,
+];
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
@@ -18,6 +21,7 @@ import { AlbumsModule } from './albums/albums.module';
 import { ImagesModule } from './images/images.module';
 import { SiteSettingsModule } from './site-settings/site-settings.module';
 import { StaffModule } from './staff/staff.module';
+import { PricingModule } from './pricing/pricing.module';
 import { validateEnv } from './config/env.validation';
 import { AuditInterceptor } from './audit/audit.interceptor';
 import { ApiThrottlerGuard } from './throttling/api-throttler.guard';
@@ -28,10 +32,12 @@ import { ApiThrottlerGuard } from './throttling/api-throttler.guard';
       isGlobal: true,
       validate: validateEnv,
     }),
-    ThrottlerModule.forRoot([{
-      ttl: 60000, // 1 minute
-      limit: 120, // public API + health monitors sit behind Cloudflare/Traefik
-    }]),
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60000, // 1 minute
+        limit: 120, // public API + health monitors sit behind Cloudflare/Traefik
+      },
+    ]),
     PrismaModule,
     AuthModule,
     TagsModule,
@@ -40,6 +46,7 @@ import { ApiThrottlerGuard } from './throttling/api-throttler.guard';
     ImagesModule,
     SiteSettingsModule,
     StaffModule,
+    PricingModule,
   ],
   controllers: [AppController],
   providers: [

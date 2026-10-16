@@ -52,7 +52,7 @@ test('homepage exposes source-backed local metadata and a meaningful local H1', 
 test('service metadata is unique, local, and uses one complete brand title', () => {
   const titles = serviceRoutes.map(route => {
     const layout = readSource(route.layout)
-    const page = readSource(route.page)
+    const page = readSource(route.page.replace('/page.tsx', '/PriceClient.tsx'))
 
     assert.match(layout, /createPublicMetadata/)
     assert.match(layout, new RegExp(`title:\\s*['"]${route.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}['"]`))

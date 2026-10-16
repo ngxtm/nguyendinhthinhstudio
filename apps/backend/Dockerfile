@@ -60,6 +60,7 @@ RUN addgroup --system --gid 1001 nodejs && \
 COPY --from=builder --chown=nestjs:nodejs /app/apps/backend/runtime-dist ./dist
 COPY --from=builder --chown=nestjs:nodejs /app/apps/backend/package.json ./apps/backend/package.json
 COPY --from=builder --chown=nestjs:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=nestjs:nodejs /app/packages/types ./packages/types
 COPY --from=builder --chown=nestjs:nodejs /app/apps/backend/prisma ./prisma
 
 # Fail the build if any runtime entrypoint or workspace export is absent.

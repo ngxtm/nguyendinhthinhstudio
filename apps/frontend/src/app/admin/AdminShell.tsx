@@ -13,7 +13,8 @@ import {
   Users,
   Menu,
   X,
-  ChevronDown
+  ChevronDown,
+  Banknote
 } from 'lucide-react'
 import { Toaster } from 'sonner'
 import { getBrowserSupabase } from '@/lib/auth/supabase'
@@ -27,6 +28,7 @@ type NavEntry = NavItem | NavGroup
 const NAV_ENTRIES: NavEntry[] = [
   { href: '/admin', label: 'Bảng điều khiển', icon: <LayoutDashboard size={18} /> },
   { href: '/admin/homepage', label: 'Trang chủ', icon: <House size={18} /> },
+  { href: '/admin/pricing', label: 'Bảng giá', icon: <Banknote size={18} /> },
   {
     group: 'Quản lý thư viện',
     icon: <LibraryBig size={18} />,

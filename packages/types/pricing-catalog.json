@@ -1,0 +1,262 @@
+[
+    {
+        "id": "ca-nhan",
+        "label": "Cá nhân",
+        "packages": [
+            {
+                "id": "premium-i",
+                "name": "PREMIUM I",
+                "tier": "Premium",
+                "priceVnd": 3500000,
+                "unit": "gói"
+            },
+            {
+                "id": "premium-ii",
+                "name": "PREMIUM II",
+                "tier": "Premium",
+                "priceVnd": 6500000,
+                "unit": "gói"
+            },
+            {
+                "id": "premium-iii",
+                "name": "PREMIUM III",
+                "tier": "Premium",
+                "priceVnd": 9500000,
+                "unit": "gói"
+            },
+            {
+                "id": "standard-i",
+                "name": "STANDARD I",
+                "tier": "Standard",
+                "priceVnd": 1500000,
+                "unit": "gói"
+            },
+            {
+                "id": "standard-ii",
+                "name": "STANDARD II",
+                "tier": "Standard",
+                "priceVnd": 2500000,
+                "unit": "gói"
+            },
+            {
+                "id": "standard-iii",
+                "name": "STANDARD III",
+                "tier": "Standard",
+                "priceVnd": 3500000,
+                "unit": "gói"
+            },
+            {
+                "id": "vip-ii",
+                "name": "VIP II",
+                "tier": "VIP",
+                "priceVnd": 15000000,
+                "unit": "gói"
+            },
+            {
+                "id": "vip-iii",
+                "name": "VIP III",
+                "tier": "VIP",
+                "priceVnd": 25000000,
+                "unit": "gói"
+            }
+        ]
+    },
+    {
+        "id": "couple",
+        "label": "Cặp đôi",
+        "packages": [
+            {
+                "id": "premium-i",
+                "name": "PREMIUM I",
+                "tier": "Premium",
+                "priceVnd": 4200000,
+                "unit": "gói"
+            },
+            {
+                "id": "premium-ii",
+                "name": "PREMIUM II",
+                "tier": "Premium",
+                "priceVnd": 7500000,
+                "unit": "gói"
+            },
+            {
+                "id": "standard-i",
+                "name": "STANDARD I",
+                "tier": "Standard",
+                "priceVnd": 1900000,
+                "unit": "gói"
+            },
+            {
+                "id": "standard-ii",
+                "name": "STANDARD II",
+                "tier": "Standard",
+                "priceVnd": 3500000,
+                "unit": "gói"
+            }
+        ]
+    },
+    {
+        "id": "gia-dinh",
+        "label": "Gia đình",
+        "packages": [
+            {
+                "id": "family-i",
+                "name": "FAMILY I",
+                "tier": "Premium",
+                "priceVnd": 1500000,
+                "unit": "người"
+            },
+            {
+                "id": "family-ii",
+                "name": "FAMILY II",
+                "tier": "Premium",
+                "priceVnd": 1200000,
+                "unit": "người"
+            }
+        ]
+    },
+    {
+        "id": "wedding",
+        "label": "Wedding",
+        "packages": [
+            {
+                "id": "premium-mini",
+                "name": "PREMIUM MINI",
+                "tier": "Premium",
+                "priceVnd": 7500000,
+                "unit": "gói"
+            },
+            {
+                "id": "premium-basic",
+                "name": "PREMIUM BASIC",
+                "tier": "Premium",
+                "priceVnd": 8900000,
+                "unit": "gói"
+            },
+            {
+                "id": "premium-signature",
+                "name": "PREMIUM SIGNATURE",
+                "tier": "Premium",
+                "priceVnd": 12000000,
+                "unit": "gói"
+            },
+            {
+                "id": "outdoor-indoor",
+                "name": "OUTDOOR-INDOOR",
+                "tier": "Premium",
+                "priceVnd": 13900000,
+                "unit": "gói"
+            },
+            {
+                "id": "standard-mini",
+                "name": "STANDARD MINI",
+                "tier": "Standard",
+                "priceVnd": 3500000,
+                "unit": "gói"
+            },
+            {
+                "id": "standard-basic",
+                "name": "STANDARD BASIC",
+                "tier": "Standard",
+                "priceVnd": 4500000,
+                "unit": "gói"
+            },
+            {
+                "id": "standard-signature",
+                "name": "STANDARD SIGNATURE",
+                "tier": "Standard",
+                "priceVnd": 6800000,
+                "unit": "gói"
+            }
+        ]
+    },
+    {
+        "id": "video",
+        "label": "Video",
+        "packages": [
+            {
+                "id": "video-bts",
+                "name": "VIDEO BTS",
+                "tier": "Video",
+                "priceVnd": 2500000,
+                "unit": "video"
+            },
+            {
+                "id": "video-extra",
+                "name": "VIDEO EXTRA",
+                "tier": "Video",
+                "priceVnd": 5500000,
+                "unit": "video / người / layout"
+            },
+            {
+                "id": "video-pro-i",
+                "name": "VIDEO PRO I",
+                "tier": "Video Pro",
+                "priceVnd": 10000000,
+                "unit": "gói"
+            },
+            {
+                "id": "video-pro-ii",
+                "name": "VIDEO PRO II",
+                "tier": "Video Pro",
+                "priceVnd": 17000000,
+                "unit": "gói"
+            },
+            {
+                "id": "video-pro-iii",
+                "name": "VIDEO PRO III",
+                "tier": "Video Pro",
+                "priceVnd": 24000000,
+                "unit": "gói"
+            }
+        ]
+    },
+    {
+        "id": "team",
+        "label": "Team & Ekip",
+        "packages": [
+            {
+                "id": "team-premium-x5",
+                "name": "TEAM PREMIUM x5",
+                "tier": "Premium",
+                "priceVnd": 4500000,
+                "unit": "người"
+            },
+            {
+                "id": "team-premium-x10",
+                "name": "TEAM PREMIUM x10",
+                "tier": "Premium",
+                "priceVnd": 4000000,
+                "unit": "người"
+            },
+            {
+                "id": "team-premium-max",
+                "name": "TEAM PREMIUM max",
+                "tier": "Premium",
+                "priceVnd": 3500000,
+                "unit": "người"
+            },
+            {
+                "id": "team-standard-x5",
+                "name": "TEAM STANDARD x5",
+                "tier": "Standard",
+                "priceVnd": 2500000,
+                "unit": "người"
+            },
+            {
+                "id": "team-standard-x10",
+                "name": "TEAM STANDARD x10",
+                "tier": "Standard",
+                "priceVnd": 2000000,
+                "unit": "người"
+            },
+            {
+                "id": "team-standard-max",
+                "name": "TEAM STANDARD max",
+                "tier": "Standard",
+                "priceVnd": 1500000,
+                "unit": "người"
+            }
+        ]
+    }
+]
