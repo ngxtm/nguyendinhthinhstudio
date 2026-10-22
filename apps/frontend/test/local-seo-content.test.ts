@@ -43,7 +43,7 @@ test('homepage exposes source-backed local metadata and a meaningful local H1', 
   const home = readSource('../src/app/(public)/page.tsx')
 
   assert.match(home, /title:\s*['"]Studio chụp ảnh tại Nha Trang \| NDT Studio['"]/)
-  assert.match(home, /description:\s*['"]Chụp ảnh cưới, gia đình, beauty và couple tại Nha Trang\./)
+  assert.match(home, /description:\s*['"]Chụp ảnh cưới, gia đình, beauty và couple(?:, kỷ yếu)? tại Nha Trang\./)
   assert.match(home, /title="CHỤP ẢNH TẠI NHA TRANG"/)
   assert.match(home, /buttonLink="\/thu-vien"/)
   assert.match(home, /buttonLink="\/lien-he#ho-tro-nhanh"/)

@@ -10,6 +10,7 @@
         "format": "prettier --write \"**/*.{ts,tsx,md}\"",
         "check-types": "turbo run check-types",
         "verify:image-upload-final-ingress": "node scripts/verify-image-upload-final-ingress-gates.mjs",
+        "verify:search-indexing": "node scripts/verify-search-indexing.mjs",
         "albums:import:scan": "node scripts/import-ndt-albums.mjs scan",
         "albums:import:enrich": "node scripts/import-ndt-albums.mjs enrich",
         "albums:import:repair": "node scripts/import-ndt-albums.mjs repair",

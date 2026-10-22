@@ -50,6 +50,7 @@ test('GET /og returns a real 1200 by 630 PNG', async () => {
   const response = await getOgImage()
   assert.equal(response.status, 200)
   assert.match(response.headers.get('content-type') ?? '', /^image\/png\b/)
+  assert.equal(response.headers.get('x-robots-tag'), 'noindex')
 
   const bytes = new Uint8Array(await response.arrayBuffer())
   assert.deepEqual(getPngDimensions(bytes), { width: 1200, height: 630 })

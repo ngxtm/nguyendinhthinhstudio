@@ -35,7 +35,8 @@ export function GET() {
     ),
     {
       height: 630,
-      width: 1200
+      width: 1200,
+      headers: { 'X-Robots-Tag': 'noindex' }
     }
   )
 }

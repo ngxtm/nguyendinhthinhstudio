@@ -1,6 +1,8 @@
 export const CANONICAL_ORIGIN = 'https://ndtstudio.com.vn'
 
 export const LEGACY_REDIRECTS = [
+  ['/&', '/'],
+  ['/%26', '/'],
   ['/thu-vien/collection', '/thu-vien/danh-muc/collection'],
   ['/thu-vien/nu', '/thu-vien/danh-muc/nu'],
   ['/thu-vien/nu/beauty', '/thu-vien/danh-muc/beauty'],

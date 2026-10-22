@@ -170,7 +170,7 @@ services:
       - IMGPROXY_MAX_ANIMATION_FRAMES=1
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.imgproxy.rule=Host(`img.ndtstudio.site`)"
+      - "traefik.http.routers.imgproxy.rule=Host(`img.ndtstudio.com.vn`) || Host(`img.ndtstudio.site`)"
       - "traefik.http.routers.imgproxy.entrypoints=websecure"
       - "traefik.http.routers.imgproxy.tls.certresolver=letsencrypt"
       - "traefik.http.services.imgproxy.loadbalancer.server.port=8080"
