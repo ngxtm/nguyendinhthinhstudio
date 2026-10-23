@@ -40,6 +40,8 @@ export function reportedSearchCases() {
     const redirects = [
         ['/&', '/'],
         ['/%26', '/'],
+        ['/og', '/share_home_v3.jpg'],
+        ['/share_home_v2.jpg', '/share_home_v3.jpg'],
         ['/dieu-khoan-dich-vu', '/gioi-thieu/chinh-sach'],
         ['/thu-vien/wedding', '/thu-vien/danh-muc/wedding'],
         ['/showroom', '/lien-he'],
@@ -55,7 +57,7 @@ export function reportedSearchCases() {
         ...pages,
         ...redirects,
         { url: 'http://ndtstudio.com.vn/', kind: 'redirect', status: 301, destination: `${SITE}/` },
-        { url: `${SITE}/og`, kind: 'image', status: 200, noindex: true },
+        { url: `${SITE}/share_home_v3.jpg`, kind: 'image', status: 200 },
         { url: 'https://api.ndtstudio.com.vn/', kind: 'api', status: 404, noindex: true },
         ...reportedImages.map(([signature, size, key]) => ({
             url: `https://img.ndtstudio.com.vn/${signature}/rs:fit:${size}:${size}/q:80/f:webp/${Buffer.from(`s3://ndt-studio-images-prod/albums/${key}`).toString('base64url')}`,

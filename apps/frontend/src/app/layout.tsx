@@ -4,7 +4,7 @@ import localFont from 'next/font/local'
 import Script from 'next/script'
 import './globals.css'
 import { businessProfile, createBusinessEntitySchema } from '@/config/business'
-import { absoluteUrl, SITE_URL } from '@/lib/seo'
+import { DEFAULT_SOCIAL_IMAGE, SITE_URL } from '@/lib/seo'
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -78,9 +78,7 @@ export const metadata: Metadata = {
       'Studio chụp ảnh chuyên nghiệp tại Nha Trang. Chuyên chụp ảnh cưới, ảnh gia đình, beauty, couple với phong cách nghệ thuật độc đáo.',
     images: [
       {
-        url: absoluteUrl('/og'),
-        width: 1200,
-        height: 630,
+        url: DEFAULT_SOCIAL_IMAGE,
         alt: 'NDT Studio'
       }
     ]
@@ -90,7 +88,7 @@ export const metadata: Metadata = {
     title: 'NDT Studio - Nhiếp ảnh chuyên nghiệp',
     description: 'Studio chụp ảnh chuyên nghiệp tại Việt Nam. Chuyên chụp ảnh cưới, ảnh gia đình, beauty, couple.',
     creator: '@ndtstudio',
-    images: [absoluteUrl('/og')]
+    images: [DEFAULT_SOCIAL_IMAGE]
   },
   robots: {
     index: true,

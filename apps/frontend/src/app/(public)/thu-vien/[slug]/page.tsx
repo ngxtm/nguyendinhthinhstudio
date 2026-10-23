@@ -13,7 +13,7 @@ import {
   normalizeAlbumTags,
   normalizeAlbumCategories,
 } from '@/lib/api';
-import { absoluteUrl, SITE_URL } from '@/lib/seo';
+import { absoluteUrl, DEFAULT_SOCIAL_IMAGE, SITE_URL } from '@/lib/seo';
 import { getCachedPublicAlbum, getPublicAlbumPage } from '@/lib/server/public-album-page';
 import AlbumDetailClient from './AlbumDetailClient';
 
@@ -57,7 +57,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
     // Get cover image for Open Graph
     const coverImageUrl = album.coverImage?.largeUrl;
-    const socialImage = coverImageUrl || absoluteUrl('/og');
+    const socialImage = coverImageUrl || DEFAULT_SOCIAL_IMAGE;
 
     return {
       title: { absolute: title },

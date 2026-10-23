@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { existsSync, readFileSync } from 'node:fs'
 
-import { GET as getOgImage } from '../src/app/og/route'
 import { absoluteUrl, createPublicMetadata } from '../src/lib/seo'
 
 function getOpenGraphImage(metadata: ReturnType<typeof createPublicMetadata>) {
@@ -14,21 +14,15 @@ function getOpenGraphImage(metadata: ReturnType<typeof createPublicMetadata>) {
   return image.url
 }
 
-function getPngDimensions(bytes: Uint8Array) {
-  assert.deepEqual(Array.from(bytes.slice(0, 8)), [137, 80, 78, 71, 13, 10, 26, 10])
-  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
-  return { width: view.getUint32(16), height: view.getUint32(20) }
-}
-
-test('shared public metadata includes the branded fallback for OG and Twitter', () => {
+test('shared public metadata uses the current homepage image for OG and Twitter', () => {
   const metadata = createPublicMetadata({
     title: 'NDT Studio - Nhiếp ảnh chuyên nghiệp',
     description: 'Studio nhiếp ảnh tại Nha Trang.',
     path: '/'
   })
 
-  assert.equal(getOpenGraphImage(metadata), absoluteUrl('/og'))
-  assert.deepEqual(metadata.twitter?.images, [absoluteUrl('/og')])
+  assert.equal(getOpenGraphImage(metadata), absoluteUrl('/share_home_v3.jpg'))
+  assert.deepEqual(metadata.twitter?.images, [absoluteUrl('/share_home_v3.jpg')])
   assert.equal(metadata.openGraph?.title, 'NDT Studio - Nhiếp ảnh chuyên nghiệp')
   assert.equal(metadata.twitter?.title, 'NDT Studio - Nhiếp ảnh chuyên nghiệp')
 })
@@ -46,12 +40,22 @@ test('shared public metadata preserves an explicitly supplied image', () => {
   assert.deepEqual(metadata.twitter?.images, [cover])
 })
 
-test('GET /og returns a real 1200 by 630 PNG', async () => {
-  const response = await getOgImage()
-  assert.equal(response.status, 200)
-  assert.match(response.headers.get('content-type') ?? '', /^image\/png\b/)
-  assert.equal(response.headers.get('x-robots-tag'), 'noindex')
+test('the current fallback is a local image and superseded preview assets are removed', () => {
+  const bytes = readFileSync(new URL('../public/share_home_v3.jpg', import.meta.url))
+  assert.deepEqual(Array.from(bytes.subarray(0, 8)), [137, 80, 78, 71, 13, 10, 26, 10])
+  assert.equal(existsSync(new URL('../public/share_home_v2.jpg', import.meta.url)), false)
+  assert.equal(existsSync(new URL('../src/app/og/route.tsx', import.meta.url)), false)
+})
 
-  const bytes = new Uint8Array(await response.arrayBuffer())
-  assert.deepEqual(getPngDimensions(bytes), { width: 1200, height: 630 })
+test('old preview URLs redirect directly to the current homepage image', async () => {
+  const { createSeoRedirects } = await import('../seo-routes.mjs')
+  const redirects = createSeoRedirects()
+  for (const source of ['/og', '/share_home_v2.jpg']) {
+    assert.ok(
+      redirects.some(
+        rule =>
+          rule.source === source && rule.destination === '/share_home_v3.jpg' && rule.statusCode === 301 && !('has' in rule)
+      )
+    )
+  }
 })

@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import Script from 'next/script'
 import { notFound, permanentRedirect } from 'next/navigation'
 import { ApiError } from '@/lib/api'
-import { absoluteUrl } from '@/lib/seo'
+import { absoluteUrl, DEFAULT_SOCIAL_IMAGE } from '@/lib/seo'
 import {
   addGalleryPageToTitle,
   parseGalleryPageSearchParams,
@@ -27,7 +27,9 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   }
 
   try {
-    const { category } = await getCategoryLandingData(slug)
+    const { category, albums } = await getCategoryLandingData(slug, page)
+    const previewAlbum = albums.data.find(album => album.coverImage?.largeUrl)
+    const socialImage = previewAlbum?.coverImage?.largeUrl || DEFAULT_SOCIAL_IMAGE
     const isIndexable = category.albumCount > 0
     const title = addGalleryPageToTitle(`${category.name} | Thư viện ảnh NDT Studio`, page)
     const description = category.description || `Khám phá các album ${category.name} đã xuất bản của NDT Studio.`
@@ -47,13 +49,13 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
         title,
         description,
         url: canonical,
-        images: [{ url: absoluteUrl('/og'), alt: 'NDT Studio' }]
+        images: [{ url: socialImage, alt: previewAlbum?.title || 'NDT Studio' }]
       },
       twitter: {
         card: 'summary_large_image',
         title,
         description,
-        images: [absoluteUrl('/og')]
+        images: [socialImage]
       }
     }
   } catch (error) {
