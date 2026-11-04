@@ -1,5 +1,6 @@
 'use client'
 import Script from 'next/script'
+import Link from 'next/link'
 import { businessProfile } from '@/config/business'
 import { absoluteUrl, SITE_URL } from '@/lib/seo'
 import DividerWithText from '../../components/common/DividerWithText'
@@ -133,25 +134,32 @@ export default function PricingClient({ publicCategorySlugs }: Readonly<PricingC
                 { label: 'Cá Nhân', href: '/bang-gia/ca-nhan' },
                 { label: 'Couple', href: '/bang-gia/couple' },
                 { label: 'Wedding', href: '/bang-gia/wedding' },
-                { label: 'Video', href: '/bang-gia/video' }
+                { label: 'Video', href: '/bang-gia/video' },
+                { label: 'Thuê Studio', href: '/bang-gia/thue-studio' }
               ]}
               linkClassName="text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-neutral-100 font-medium transition-colors"
               separatorClassName="text-neutral-300"
             />
           </div>
           <div className="flex justify-center gap-4 text-sm text-neutral-600 dark:text-neutral-300">
-            <a href="/thu-vien" className="underline-offset-4 transition-colors hover:text-neutral-900 dark:hover:text-neutral-100 hover:underline">
+            <a
+              href="/thu-vien"
+              className="underline-offset-4 transition-colors hover:text-neutral-900 hover:underline dark:hover:text-neutral-100"
+            >
               Xem thư viện
             </a>
             <a
               href="/lien-he#ho-tro-nhanh"
-              className="underline-offset-4 transition-colors hover:text-neutral-900 dark:hover:text-neutral-100 hover:underline"
+              className="underline-offset-4 transition-colors hover:text-neutral-900 hover:underline dark:hover:text-neutral-100"
             >
               Liên hệ đặt lịch
             </a>
           </div>
 
-          <DividerWithText text="NGUYỄN ĐÌNH THỊNH STUDIO" textClassName="text-[#888888] dark:text-neutral-400 text-sm" />
+          <DividerWithText
+            text="NGUYỄN ĐÌNH THỊNH STUDIO"
+            textClassName="text-[#888888] dark:text-neutral-400 text-sm"
+          />
 
           {/* Art - Beauty - Fashion */}
           <div className="mx-auto mt-16 max-w-4xl">
@@ -213,6 +221,20 @@ export default function PricingClient({ publicCategorySlugs }: Readonly<PricingC
 
           {/* Detail Price */}
           <div className="mx-auto my-16 max-w-6xl md:mt-40">
+            <section className="mb-16 flex flex-col justify-between gap-6 rounded-2xl border border-neutral-300 p-6 md:flex-row md:items-center md:p-8 dark:border-neutral-700">
+              <div>
+                <h2 className="text-2xl font-bold text-[#585858] dark:text-neutral-300">Bảng giá thuê studio</h2>
+                <p className="mt-3 max-w-xl text-sm leading-6 text-neutral-600 dark:text-neutral-400">
+                  Phông vô cực, phông giấy và các tiện ích đi kèm. Xem giá thuê cho 2 giờ đầu và mỗi giờ tiếp theo.
+                </p>
+              </div>
+              <Link
+                href="/bang-gia/thue-studio"
+                className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg bg-neutral-800 px-5 text-sm font-semibold text-white hover:bg-black focus-visible:outline-2 focus-visible:outline-offset-4 dark:bg-neutral-200 dark:text-neutral-900"
+              >
+                Xem bảng giá thuê studio
+              </Link>
+            </section>
             <TablePricePerCategory publicCategorySlugs={publicCategorySlugs} />
           </div>
           <DividerWithText textClassName="text-[#888888] dark:text-neutral-400 text-sm" className="mb-16" />

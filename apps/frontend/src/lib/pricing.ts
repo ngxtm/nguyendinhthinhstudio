@@ -1,7 +1,19 @@
 import catalog from '@ndt/types/pricing-catalog.json'
-import type { PricingCategoryId, PricingPrices } from '@ndt/types'
+import type { PricingCatalogCategory, PricingCatalogPackage, PricingPrices, PricingRate } from '@ndt/types'
 
-export const pricingCategories = catalog as (Omit<(typeof catalog)[number], 'id'> & { id: PricingCategoryId })[]
+export const pricingCategories = catalog as PricingCatalogCategory[]
+
+export function packagePriceFields(item: PricingCatalogPackage): PricingRate[] {
+  return [
+    {
+      id: item.id,
+      label: item.unit === '2 giờ đầu' ? '2 giờ đầu' : 'Giá gói',
+      priceVnd: item.priceVnd,
+      unit: item.unit
+    },
+    ...(item.additionalRates ?? [])
+  ]
+}
 const numberFormatter = new Intl.NumberFormat('vi-VN')
 const moneyFormatter = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' })
 

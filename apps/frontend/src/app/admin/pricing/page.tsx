@@ -5,7 +5,7 @@ import { ExternalLink, Eye, EyeOff, Loader2, Save, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 import type { AdminPricing, PricingCategoryId, PricingPrices } from '@ndt/types'
 import { getAdminPricing, publishPricing, savePricingDraft } from '@/lib/api/pricing'
-import { formatPriceInput, formatPriceVnd, parsePriceInput, pricingCategories } from '@/lib/pricing'
+import { formatPriceInput, formatPriceVnd, packagePriceFields, parsePriceInput, pricingCategories } from '@/lib/pricing'
 import { useAbortableEffect } from '../hooks/useAbortableEffect'
 import { getAdminErrorMessage } from '../error-message'
 
@@ -25,6 +25,7 @@ export default function PricingPage() {
   const [conflict, setConflict] = useState(false)
   const [retry, setRetry] = useState(0)
   const category = pricingCategories.find(item => item.id === categoryId)!
+  const priceFields = category.packages.flatMap(packagePriceFields)
 
   useAbortableEffect(
     signal => {
@@ -50,19 +51,21 @@ export default function PricingPage() {
     [categoryId, retry]
   )
 
-  const invalid = category.packages.filter(item => parsePriceInput(inputs[item.id] ?? '') === null)
+  const invalid = priceFields.filter(item => parsePriceInput(inputs[item.id] ?? '') === null)
   const unsaved = configuration
     ? category.packages.filter(
         item =>
-          parsePriceInput(inputs[item.id] ?? '') !== configuration.draft[item.id] ||
-          hiddenPackageIds.includes(item.id) !== (configuration.draftHiddenPackageIds ?? []).includes(item.id)
+          packagePriceFields(item).some(
+            field => parsePriceInput(inputs[field.id] ?? '') !== configuration.draft[field.id]
+          ) || hiddenPackageIds.includes(item.id) !== (configuration.draftHiddenPackageIds ?? []).includes(item.id)
       )
     : []
   const unpublished = configuration
     ? category.packages.filter(
         item =>
-          parsePriceInput(inputs[item.id] ?? '') !== configuration.published[item.id] ||
-          hiddenPackageIds.includes(item.id) !== (configuration.publishedHiddenPackageIds ?? []).includes(item.id)
+          packagePriceFields(item).some(
+            field => parsePriceInput(inputs[field.id] ?? '') !== configuration.published[field.id]
+          ) || hiddenPackageIds.includes(item.id) !== (configuration.publishedHiddenPackageIds ?? []).includes(item.id)
       )
     : []
   const dirty = unsaved.length > 0
@@ -112,7 +115,7 @@ export default function PricingPage() {
       return
     setPending(action)
     setSaveError('')
-    const prices = Object.fromEntries(category.packages.map(item => [item.id, parsePriceInput(inputs[item.id])!]))
+    const prices = Object.fromEntries(priceFields.map(item => [item.id, parsePriceInput(inputs[item.id])!]))
     try {
       const input = { revision: configuration.revision, prices, hiddenPackageIds }
       const result = await (action === 'draft'
@@ -215,11 +218,13 @@ export default function PricingPage() {
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {category.packages.map(item => {
-                    const value = parsePriceInput(inputs[item.id] ?? '')
+                    const fields = packagePriceFields(item)
                     const hidden = hiddenPackageIds.includes(item.id)
                     const publishedHidden = (configuration.publishedHiddenPackageIds ?? []).includes(item.id)
-                    const changed = value !== configuration.published[item.id] || hidden !== publishedHidden
-                    const hasError = value === null
+                    const changed =
+                      fields.some(
+                        field => parsePriceInput(inputs[field.id] ?? '') !== configuration.published[field.id]
+                      ) || hidden !== publishedHidden
                     return (
                       <tr key={item.id} className={hidden ? 'bg-gray-50/70' : undefined}>
                         <th scope="row" className="px-5 py-4 font-normal">
@@ -239,31 +244,58 @@ export default function PricingPage() {
                               <EyeOff size={14} aria-hidden="true" /> Đã ẩn
                             </span>
                           ) : (
-                            formatPriceVnd(configuration.published[item.id])
+                            <div className="space-y-3">
+                              {fields.map(field => (
+                                <div key={field.id}>
+                                  {fields.length > 1 ? (
+                                    <p className="mb-1 text-xs text-gray-500">{field.label}</p>
+                                  ) : null}
+                                  {formatPriceVnd(configuration.published[field.id])}
+                                </div>
+                              ))}
+                            </div>
                           )}
                         </td>
                         <td className="px-5 py-4">
-                          <input
-                            aria-label={`Giá ${item.name}`}
-                            aria-invalid={hasError}
-                            aria-describedby={hasError ? `error-${item.id}` : undefined}
-                            inputMode="numeric"
-                            autoComplete="off"
-                            maxLength={15}
-                            disabled={busy}
-                            value={inputs[item.id] ?? ''}
-                            onChange={event => setInputs(previous => ({ ...previous, [item.id]: event.target.value }))}
-                            onBlur={() => {
-                              if (value !== null)
-                                setInputs(previous => ({ ...previous, [item.id]: formatPriceInput(value) }))
-                            }}
-                            className={`min-h-11 w-40 rounded-lg border bg-white px-3 tabular-nums outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60 ${hasError ? 'border-red-500' : 'border-gray-300'}`}
-                          />
-                          {hasError ? (
-                            <p id={`error-${item.id}`} className="mt-1 max-w-44 text-xs text-red-600">
-                              Nhập từ 1 đến 999.999.999 đồng, không có số lẻ.
-                            </p>
-                          ) : null}
+                          <div className="space-y-3">
+                            {fields.map(field => {
+                              const value = parsePriceInput(inputs[field.id] ?? '')
+                              const hasError = value === null
+                              return (
+                                <div key={field.id}>
+                                  {fields.length > 1 ? (
+                                    <label htmlFor={`price-${field.id}`} className="mb-1 block text-xs text-gray-500">
+                                      {field.label}
+                                    </label>
+                                  ) : null}
+                                  <input
+                                    id={`price-${field.id}`}
+                                    aria-label={`Giá ${item.name}${field.id !== item.id ? ` · ${field.label}` : ''}`}
+                                    aria-invalid={hasError}
+                                    aria-describedby={hasError ? `error-${field.id}` : undefined}
+                                    inputMode="numeric"
+                                    autoComplete="off"
+                                    maxLength={15}
+                                    disabled={busy}
+                                    value={inputs[field.id] ?? ''}
+                                    onChange={event =>
+                                      setInputs(previous => ({ ...previous, [field.id]: event.target.value }))
+                                    }
+                                    onBlur={() => {
+                                      if (value !== null)
+                                        setInputs(previous => ({ ...previous, [field.id]: formatPriceInput(value) }))
+                                    }}
+                                    className={`min-h-11 w-40 rounded-lg border bg-white px-3 tabular-nums outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60 ${hasError ? 'border-red-500' : 'border-gray-300'}`}
+                                  />
+                                  {hasError ? (
+                                    <p id={`error-${field.id}`} className="mt-1 max-w-44 text-xs text-red-600">
+                                      Nhập từ 1 đến 999.999.999 đồng, không có số lẻ.
+                                    </p>
+                                  ) : null}
+                                </div>
+                              )
+                            })}
+                          </div>
                         </td>
                         <td className="px-5 py-4">
                           <p className={`mb-2 text-xs font-medium ${hidden ? 'text-gray-500' : 'text-emerald-700'}`}>

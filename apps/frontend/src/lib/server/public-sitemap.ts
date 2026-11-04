@@ -18,6 +18,7 @@ const staticPaths = [
   '/bang-gia/team',
   '/bang-gia/video',
   '/bang-gia/wedding',
+  '/bang-gia/thue-studio',
   '/lien-he'
 ]
 

@@ -50,11 +50,12 @@ async function fixture() {
         import Individual from './src/app/(public)/bang-gia/ca-nhan/PriceClient';
         import Wedding from './src/app/(public)/bang-gia/wedding/PriceClient';
         import Video from './src/app/(public)/bang-gia/video/PriceClient';
+        import Studio from './src/app/(public)/bang-gia/thue-studio/PriceClient';
         import {getPublishedPricing} from '@/lib/api/pricing';
         const root = createRoot(document.getElementById('root'));
         if (location.pathname.startsWith('/bang-gia/')) {
           const category = location.pathname.split('/')[2];
-          const Component = { 'ca-nhan': Individual, wedding: Wedding, video: Video }[category];
+          const Component = { 'ca-nhan': Individual, wedding: Wedding, video: Video, 'thue-studio': Studio }[category];
           getPublishedPricing(category).then(data => root.render(<Component prices={data.prices} hiddenPackageIds={data.hiddenPackageIds}/>));
         } else root.render(<main className="mx-auto max-w-7xl p-4 sm:p-8"><Page/><Toaster position="top-right" richColors closeButton duration={3000}/></main>);
       `,
@@ -157,6 +158,75 @@ if (process.argv.includes('--serve')) {
       process.exitCode = 1
     })
 } else {
+  test(
+    'studio rental: hourly draft and publication, package visibility, amenities and mobile',
+    { timeout: 90000 },
+    async () => {
+      const app = await fixture()
+      const browser = await chromium.launch({ headless: true })
+      try {
+        const page = await browser.newPage({ viewport: { width: 1440, height: 1100 } })
+        const publicPage = await browser.newPage({ viewport: { width: 1440, height: 1100 } })
+        await page.goto(app.url)
+        await page.getByRole('button', { name: 'Thuê studio', exact: true }).click()
+        await expect(page.getByRole('textbox', { name: 'Giá Phông vô cực', exact: true })).toHaveValue('750.000')
+        const hourly = page.getByRole('textbox', { name: 'Giá Phông vô cực · Mỗi giờ tiếp theo', exact: true })
+        await expect(hourly).toHaveValue('350.000')
+        await expect(
+          page.getByRole('textbox', { name: 'Giá Phông giấy · Mỗi giờ tiếp theo', exact: true })
+        ).toHaveValue('150.000')
+        await publicPage.goto(`${app.url}/bang-gia/thue-studio`)
+        const infinity = publicPage
+          .getByRole('article')
+          .filter({ has: publicPage.getByRole('heading', { name: 'Phông vô cực', exact: true }) })
+        const paper = publicPage
+          .getByRole('article')
+          .filter({ has: publicPage.getByRole('heading', { name: 'Phông giấy', exact: true }) })
+        await expect(infinity).toContainText('750.000')
+        await expect(infinity).toContainText('350.000')
+        await expect(paper).toContainText('350.000')
+        await expect(paper).toContainText('150.000')
+        await expect(publicPage.getByRole('heading', { name: '02 máy lạnh 5 HP', exact: true })).toBeVisible()
+        await expect(publicPage.getByText('Thuê thêm máy ảnh:', { exact: false })).toContainText('400.000')
+        await hourly.fill('375000')
+        await page.getByRole('button', { name: 'Lưu nháp', exact: true }).click()
+        await expect(page.getByRole('button', { name: 'Lưu nháp', exact: true })).toBeDisabled()
+        await publicPage.reload()
+        await expect(infinity).toContainText('350.000')
+        await expect(infinity).not.toContainText('375.000')
+        await page.reload()
+        await page.getByRole('button', { name: 'Thuê studio', exact: true }).click()
+        await expect(hourly).toHaveValue('375.000')
+        await page.getByRole('button', { name: 'Xuất bản giá', exact: true }).click()
+        await expect(page.getByRole('button', { name: 'Xuất bản giá', exact: true })).toBeDisabled()
+        await publicPage.reload()
+        await expect(infinity).toContainText('375.000')
+        await expect(infinity).toContainText('750.000')
+        await page.getByRole('button', { name: 'Ngừng bán Phông giấy', exact: true }).click()
+        await page.getByRole('button', { name: 'Xuất bản giá', exact: true }).click()
+        await expect(page.getByRole('button', { name: 'Xuất bản giá', exact: true })).toBeDisabled()
+        await publicPage.reload()
+        await expect(paper).toHaveCount(0)
+        await expect(infinity).toBeVisible()
+        await expect(publicPage.getByRole('link', { name: 'Liên hệ thuê studio', exact: true })).toHaveAttribute(
+          'href',
+          '/lien-he#ho-tro-nhanh'
+        )
+        await publicPage.setViewportSize({ width: 390, height: 844 })
+        assert.equal(await publicPage.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true)
+        await page.getByRole('button', { name: 'Ngừng bán Phông vô cực', exact: true }).click()
+        await page.getByRole('button', { name: 'Xuất bản giá', exact: true }).click()
+        await expect(page.getByRole('button', { name: 'Xuất bản giá', exact: true })).toBeDisabled()
+        await publicPage.reload()
+        await expect(publicPage.getByRole('article')).toHaveCount(0)
+        await expect(publicPage.getByRole('heading', { name: 'Các gói dịch vụ đang tạm ngừng mở bán' })).toBeVisible()
+      } finally {
+        await browser.close()
+        await new Promise(resolve => app.server.close(resolve))
+      }
+    }
+  )
+
   test(
     'availability UI: stop, undo, draft, publish, reflow, restore, empty tiers and video',
     { timeout: 90000 },

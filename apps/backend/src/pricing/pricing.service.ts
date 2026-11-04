@@ -10,6 +10,7 @@ import catalog from '@ndt/types/pricing-catalog.json';
 import type {
   AdminPricing,
   PricingCategoryId,
+  PricingCatalogCategory,
   PricingPrices,
   PublicPricing,
   UpdatePricing,
@@ -24,11 +25,14 @@ export class PricingService {
   private category(id: string) {
     const category = catalog.find((item) => item.id === id);
     if (!category) throw new NotFoundException('Không tìm thấy nhóm bảng giá.');
-    return category;
+    return category as PricingCatalogCategory;
   }
 
   private validatePrices(category: string, prices: unknown): PricingPrices {
-    const packages = this.category(category).packages;
+    const packages = this.category(category).packages.flatMap((item) => [
+      item,
+      ...(item.additionalRates ?? []),
+    ]);
     if (
       !prices ||
       typeof prices !== 'object' ||
@@ -76,7 +80,9 @@ export class PricingService {
     const category = this.category(categoryId);
     if (value === undefined) {
       const defaults = Object.fromEntries(
-        category.packages.map((item) => [item.id, item.priceVnd]),
+        category.packages
+          .flatMap((item) => [item, ...(item.additionalRates ?? [])])
+          .map((item) => [item.id, item.priceVnd]),
       );
       return {
         category: categoryId as PricingCategoryId,

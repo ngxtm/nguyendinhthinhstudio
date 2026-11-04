@@ -258,5 +258,41 @@
                 "unit": "người"
             }
         ]
+    },
+    {
+        "id": "thue-studio",
+        "label": "Thuê studio",
+        "packages": [
+            {
+                "id": "phong-vo-cuc",
+                "name": "Phông vô cực",
+                "tier": "Thuê studio",
+                "priceVnd": 750000,
+                "unit": "2 giờ đầu",
+                "additionalRates": [
+                    {
+                        "id": "phong-vo-cuc-hourly",
+                        "label": "Mỗi giờ tiếp theo",
+                        "priceVnd": 350000,
+                        "unit": "giờ"
+                    }
+                ]
+            },
+            {
+                "id": "phong-giay",
+                "name": "Phông giấy",
+                "tier": "Thuê studio",
+                "priceVnd": 350000,
+                "unit": "2 giờ đầu",
+                "additionalRates": [
+                    {
+                        "id": "phong-giay-hourly",
+                        "label": "Mỗi giờ tiếp theo",
+                        "priceVnd": 150000,
+                        "unit": "giờ"
+                    }
+                ]
+            }
+        ]
     }
 ]

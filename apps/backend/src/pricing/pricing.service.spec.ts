@@ -57,6 +57,64 @@ describe('pricing drafts and publication', () => {
     expect(rows.size).toBe(0);
   });
 
+  it('supports studio initial and hourly rates with package-level availability', async () => {
+    const initial = await service.getConfiguration('thue-studio');
+    expect(initial.draft).toEqual({
+      'phong-vo-cuc': 750000,
+      'phong-vo-cuc-hourly': 350000,
+      'phong-giay': 350000,
+      'phong-giay-hourly': 150000,
+    });
+    const prices = { ...initial.draft, 'phong-vo-cuc-hourly': 375000 };
+    const draft = await service.save(
+      'thue-studio',
+      { revision: initial.revision, prices, hiddenPackageIds: ['phong-giay'] },
+      false,
+    );
+    expect(
+      (await service.getPublished('thue-studio')).prices['phong-vo-cuc-hourly'],
+    ).toBe(350000);
+    expect(
+      (await service.getPublished('thue-studio')).hiddenPackageIds,
+    ).toEqual([]);
+    await service.save(
+      'thue-studio',
+      {
+        revision: draft.revision,
+        prices,
+        hiddenPackageIds: draft.draftHiddenPackageIds,
+      },
+      true,
+    );
+    expect(
+      (await service.getPublished('thue-studio')).prices['phong-vo-cuc-hourly'],
+    ).toBe(375000);
+    expect(
+      (await service.getPublished('thue-studio')).hiddenPackageIds,
+    ).toEqual(['phong-giay']);
+    const state = await service.getConfiguration('thue-studio');
+    await expect(
+      service.save(
+        'thue-studio',
+        {
+          revision: state.revision,
+          prices,
+          hiddenPackageIds: ['phong-vo-cuc-hourly'],
+        },
+        true,
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    const incomplete = { ...prices };
+    delete incomplete['phong-vo-cuc-hourly'];
+    await expect(
+      service.save(
+        'thue-studio',
+        { revision: state.revision, prices: incomplete },
+        true,
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
   it('keeps drafts private across reloads and publishes exactly the submitted prices atomically', async () => {
     const initial = await service.getConfiguration('ca-nhan');
     const prices = { ...initial.draft, 'premium-i': 3_900_000 };

@@ -49,7 +49,8 @@ export function buildPublicNavigation(categories: PublicCategory[]): PublicNavig
         { href: '/bang-gia/wedding', label: 'Bảng Giá Wedding' },
         { href: '/bang-gia/team', label: 'Bảng Giá Team' },
         { href: '/bang-gia/gia-dinh', label: 'Bảng Giá Gia Đình' },
-        { href: '/bang-gia/video', label: 'Bảng Giá Video' }
+        { href: '/bang-gia/video', label: 'Bảng Giá Video' },
+        { href: '/bang-gia/thue-studio', label: 'Bảng Giá Thuê Studio' }
       ]
     },
     { href: '/lien-he', label: 'Liên Hệ' }
