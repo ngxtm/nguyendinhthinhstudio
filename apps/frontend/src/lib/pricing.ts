@@ -37,10 +37,23 @@ export function publishedPrice(prices: PricingPrices, name: string): number {
 
 export function applyPublishedPrices<T extends { subCard: { title: string; price: number }[] }>(
   packages: T[],
-  prices: PricingPrices
+  prices: PricingPrices,
+  hiddenPackageIds: string[] = []
 ): T[] {
-  return packages.map(group => ({
-    ...group,
-    subCard: group.subCard.map(card => ({ ...card, price: publishedPrice(prices, card.title) / 1000 }))
-  }))
+  const hidden = new Set(hiddenPackageIds)
+  return packages
+    .map(group => ({
+      ...group,
+      subCard: group.subCard
+        .filter(card => !hidden.has(pricingPackageId(card.title)))
+        .map(card => ({ ...card, price: publishedPrice(prices, card.title) / 1000 }))
+    }))
+    .filter(group => group.subCard.length > 0)
+}
+
+export function pricingCardGridClass(count: number): string {
+  if (count === 1) return 'mx-auto grid w-full max-w-xl grid-cols-1 gap-4'
+  if (count === 2) return 'mx-auto grid w-full max-w-5xl grid-cols-1 gap-4 md:grid-cols-2'
+  if (count === 3) return 'grid grid-cols-1 gap-4 md:grid-cols-3'
+  return 'grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4'
 }

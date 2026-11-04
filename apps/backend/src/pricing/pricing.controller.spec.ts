@@ -79,22 +79,27 @@ describe('pricing HTTP access and request validation', () => {
     role?: string,
     body?: unknown,
   ) {
-    return fetch(`${await app.getUrl()}/pricing/${path}`, {
+    const response = await fetch(`${await app.getUrl()}/pricing/${path}`, {
       method,
       headers: {
-        Connection: 'close',
         ...(role ? { Authorization: `Bearer ${role}` } : {}),
         ...(body ? { 'Content-Type': 'application/json' } : {}),
       },
       ...(body ? { body: JSON.stringify(body) } : {}),
     });
+    // Drain the response before issuing the next request.
+    return {
+      status: response.status,
+      headers: response.headers,
+      body: await response.json(),
+    };
   }
 
   it('permits public reads and disables intermediary caching', async () => {
     const response = await http('GET', 'ca-nhan');
     expect(response.status).toBe(200);
     expect(response.headers.get('cache-control')).toBe('no-store');
-    expect(await response.json()).not.toHaveProperty('draft');
+    expect(response.body).not.toHaveProperty('draft');
   });
 
   it.each([
@@ -132,10 +137,30 @@ describe('pricing HTTP access and request validation', () => {
     { revision: 'initial', prices: [] },
     { revision: 'initial', prices: null },
     { revision: 'initial', prices: {}, published: {} },
+    { revision: 'initial', prices: {}, hiddenPackageIds: null },
+    { revision: 'initial', prices: {}, hiddenPackageIds: 'premium-i' },
+    { revision: 'initial', prices: {}, hiddenPackageIds: [1] },
+    {
+      revision: 'initial',
+      prices: {},
+      hiddenPackageIds: ['premium-i', 'premium-i'],
+    },
   ])('rejects malformed request bodies %j', async (body) => {
     expect(
       (await http('PUT', 'admin/ca-nhan/draft', 'admin', body)).status,
     ).toBe(400);
     expect(pricing.save).not.toHaveBeenCalled();
+  });
+
+  it('passes package availability to the publication service', async () => {
+    const body = {
+      revision: 'initial',
+      prices: { 'premium-i': 3900000 },
+      hiddenPackageIds: ['premium-i'],
+    };
+    expect(
+      (await http('POST', 'admin/ca-nhan/publish', 'admin', body)).status,
+    ).toBe(200);
+    expect(pricing.save).toHaveBeenLastCalledWith('ca-nhan', body, true);
   });
 });

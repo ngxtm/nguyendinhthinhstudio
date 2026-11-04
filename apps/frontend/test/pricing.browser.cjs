@@ -48,10 +48,14 @@ async function fixture() {
         import {Toaster} from 'sonner';
         import Page from './src/app/admin/pricing/page';
         import Individual from './src/app/(public)/bang-gia/ca-nhan/PriceClient';
+        import Wedding from './src/app/(public)/bang-gia/wedding/PriceClient';
+        import Video from './src/app/(public)/bang-gia/video/PriceClient';
         import {getPublishedPricing} from '@/lib/api/pricing';
         const root = createRoot(document.getElementById('root'));
         if (location.pathname.startsWith('/bang-gia/')) {
-          getPublishedPricing('ca-nhan').then(data => root.render(<Individual prices={data.prices}/>));
+          const category = location.pathname.split('/')[2];
+          const Component = { 'ca-nhan': Individual, wedding: Wedding, video: Video }[category];
+          getPublishedPricing(category).then(data => root.render(<Component prices={data.prices} hiddenPackageIds={data.hiddenPackageIds}/>));
         } else root.render(<main className="mx-auto max-w-7xl p-4 sm:p-8"><Page/><Toaster position="top-right" richColors closeButton duration={3000}/></main>);
       `,
       resolveDir: root,
@@ -153,6 +157,113 @@ if (process.argv.includes('--serve')) {
       process.exitCode = 1
     })
 } else {
+  test(
+    'availability UI: stop, undo, draft, publish, reflow, restore, empty tiers and video',
+    { timeout: 90000 },
+    async () => {
+      const app = await fixture()
+      const browser = await chromium.launch({ headless: true })
+      try {
+        const page = await browser.newPage({ viewport: { width: 1440, height: 1100 } })
+        const publicPage = await browser.newPage({ viewport: { width: 1440, height: 1100 } })
+        await page.goto(app.url)
+        await page.getByRole('button', { name: 'Wedding', exact: true }).click()
+        const stopMini = page.getByRole('button', { name: 'Ngừng bán STANDARD MINI', exact: true })
+        await stopMini.click()
+        await expect(page.getByRole('button', { name: 'Xuất bản giá', exact: true })).toBeEnabled()
+        await page.getByRole('button', { name: 'Hủy thay đổi', exact: true }).click()
+        await expect(stopMini).toBeVisible()
+        await expect(page.getByRole('button', { name: 'Xuất bản giá', exact: true })).toBeDisabled()
+        await stopMini.click()
+        await page.getByRole('button', { name: 'Ngừng bán STANDARD BASIC', exact: true }).click()
+        app.failNextWrite()
+        await page.getByRole('button', { name: 'Lưu nháp', exact: true }).click()
+        await expect(page.getByRole('alert')).toContainText('Chưa thể lưu')
+        await expect(page.getByRole('button', { name: 'Mở bán lại STANDARD MINI', exact: true })).toBeVisible()
+        await page.getByRole('button', { name: 'Lưu nháp', exact: true }).click()
+        await expect(page.getByRole('button', { name: 'Lưu nháp', exact: true })).toBeDisabled()
+        await publicPage.goto(`${app.url}/bang-gia/wedding`)
+        await expect(publicPage.getByRole('heading', { name: 'STANDARD MINI', exact: true })).toBeVisible()
+        await page.reload()
+        await page.getByRole('button', { name: 'Wedding', exact: true }).click()
+        await expect(page.getByRole('button', { name: 'Mở bán lại STANDARD MINI', exact: true })).toBeVisible()
+        await expect(page.getByRole('textbox', { name: 'Giá STANDARD MINI', exact: true })).toHaveValue('3.500.000')
+        await page.getByRole('button', { name: 'Xuất bản giá', exact: true }).click()
+        await expect(page.getByRole('button', { name: 'Xuất bản giá', exact: true })).toBeDisabled()
+        await publicPage.reload()
+        await expect(publicPage.getByRole('heading', { name: 'STANDARD MINI', exact: true })).toHaveCount(0)
+        await expect(publicPage.getByRole('heading', { name: 'STANDARD BASIC', exact: true })).toHaveCount(0)
+        const signature = publicPage.getByRole('heading', { name: 'STANDARD SIGNATURE', exact: true })
+        await expect(signature).toBeVisible()
+        const grid = signature.locator('xpath=../../../..')
+        assert.equal(await grid.evaluate(el => getComputedStyle(el).gridTemplateColumns.split(' ').length), 1)
+        await page.getByRole('button', { name: 'Mở bán lại STANDARD MINI', exact: true }).click()
+        await page.getByRole('button', { name: 'Xuất bản giá', exact: true }).click()
+        await expect(page.getByRole('button', { name: 'Xuất bản giá', exact: true })).toBeDisabled()
+        await publicPage.reload()
+        await expect(publicPage.getByRole('heading', { name: 'STANDARD MINI', exact: true })).toBeVisible()
+        assert.equal(await grid.evaluate(el => getComputedStyle(el).gridTemplateColumns.split(' ').length), 2)
+        await page.setViewportSize({ width: 390, height: 844 })
+        assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
+        const state = await app.service.getConfiguration('wedding')
+        await app.service.save(
+          'wedding',
+          {
+            revision: state.revision,
+            prices: state.draft,
+            hiddenPackageIds: ['standard-mini', 'standard-basic', 'standard-signature']
+          },
+          true
+        )
+        await publicPage.reload()
+        await expect(publicPage.getByRole('heading', { name: 'STANDARD', exact: true })).toHaveCount(0)
+        await expect(publicPage.getByRole('heading', { name: 'PREMIUM', exact: true })).toBeVisible()
+        const next = await app.service.getConfiguration('wedding')
+        await app.service.save(
+          'wedding',
+          { revision: next.revision, prices: next.draft, hiddenPackageIds: Object.keys(next.draft) },
+          true
+        )
+        await publicPage.reload()
+        await expect(publicPage.getByRole('heading', { name: 'Các gói dịch vụ đang tạm ngừng mở bán' })).toBeVisible()
+        await expect(publicPage.getByRole('link', { name: 'Liên hệ tư vấn' })).toHaveAttribute(
+          'href',
+          '/lien-he#ho-tro-nhanh'
+        )
+        const video = await app.service.getConfiguration('video')
+        const videoIds = Object.keys(video.draft)
+        const keep = videoIds.find(id => id.startsWith('video-pro-'))
+        await app.service.save(
+          'video',
+          {
+            revision: video.revision,
+            prices: video.draft,
+            hiddenPackageIds: videoIds.filter(id => id !== keep)
+          },
+          true
+        )
+        await publicPage.goto(`${app.url}/bang-gia/video`)
+        await expect(publicPage.getByRole('heading', { name: 'VIDEO PRO I', exact: true })).toBeVisible()
+        await expect(publicPage.getByRole('heading', { name: 'VIDEO PRO II', exact: true })).toHaveCount(0)
+        const videoNext = await app.service.getConfiguration('video')
+        await app.service.save(
+          'video',
+          {
+            revision: videoNext.revision,
+            prices: videoNext.draft,
+            hiddenPackageIds: videoIds
+          },
+          true
+        )
+        await publicPage.reload()
+        await expect(publicPage.getByRole('heading', { name: 'Các gói dịch vụ đang tạm ngừng mở bán' })).toBeVisible()
+      } finally {
+        await browser.close()
+        await new Promise(resolve => app.server.close(resolve))
+      }
+    }
+  )
+
   test(
     'pricing UI: validation, private drafts, publication, failures, conflict and mobile',
     { timeout: 90000 },

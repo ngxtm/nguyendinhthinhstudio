@@ -2,6 +2,8 @@ import DividerWithText from '@/app/components/common/DividerWithText'
 import { FaRegCheckCircle } from 'react-icons/fa'
 import { IoMdCloseCircleOutline } from 'react-icons/io'
 import Link from 'next/link'
+import { pricingCardGridClass } from '@/lib/pricing'
+import EmptyPricing from '../../components/EmptyPricing'
 
 const priceFormatter = new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 3 })
 
@@ -37,6 +39,7 @@ interface PricingModelProps {
 }
 
 export default function PricingModel({ pricingPackages }: Readonly<PricingModelProps>) {
+  if (pricingPackages.length === 0) return <EmptyPricing />
   return (
     <>
       {pricingPackages?.map(item => (
@@ -86,7 +89,7 @@ export default function PricingModel({ pricingPackages }: Readonly<PricingModelP
               </div>
             </div>
           )}
-          <div className="flex flex-col gap-4 text-center md:flex-row">
+          <div className={`${pricingCardGridClass(item.subCard.length)} text-center`}>
             {item.subCard.map(card => (
               <div
                 key={card.title}

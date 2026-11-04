@@ -8,7 +8,13 @@ import PricingModel from '../ca-nhan/components/PricingModel'
 import type { PricingPrices } from '@ndt/types'
 import { applyPublishedPrices } from '@/lib/pricing'
 
-export default function TeamPrice({ prices }: { prices: PricingPrices }) {
+export default function TeamPrice({
+  prices,
+  hiddenPackageIds = []
+}: {
+  prices: PricingPrices
+  hiddenPackageIds?: string[]
+}) {
   const [openAccordions, setOpenAccordions] = useState<Set<string>>(new Set())
 
   const toggleAccordion = (id: string) => {
@@ -55,7 +61,7 @@ export default function TeamPrice({ prices }: { prices: PricingPrices }) {
           />
         </div>
       </div>
-      <PricingModel pricingPackages={applyPublishedPrices(pricingPackages, prices)} />
+      <PricingModel pricingPackages={applyPublishedPrices(pricingPackages, prices, hiddenPackageIds)} />
       <AdditionalServiceAndTerms service={additionalServiceAndTerms} />
     </div>
   )

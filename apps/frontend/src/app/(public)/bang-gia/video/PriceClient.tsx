@@ -6,73 +6,78 @@ import { additionalServiceAndTerms, videoProData, videoSinglePackages } from './
 import DividerWithText from '@/app/components/common/DividerWithText'
 import AdditionalServiceAndTerms from '../ca-nhan/components/AdditionalServiceAndTerms'
 import type { PricingPrices } from '@ndt/types'
-import { formatPriceVnd, publishedPrice } from '@/lib/pricing'
+import { formatPriceVnd, publishedPrice, pricingPackageId, pricingCardGridClass } from '@/lib/pricing'
+import EmptyPricing from '../components/EmptyPricing'
 
-function SingleVideoSection({ prices }: { prices: PricingPrices }) {
+function SingleVideoSection({ prices, hiddenPackageIds }: { prices: PricingPrices; hiddenPackageIds: string[] }) {
   return (
     <>
-      {videoSinglePackages.map(block => (
-        <div key={block.id} className="space-y-6">
-          <DividerWithText
-            text="NGUYỄN ĐÌNH THỊNH STUDIO"
-            textClassName="text-[#888888] dark:text-neutral-400 text-sm md:text-base"
-            className="px-1.5"
-          />
-          <div className="text-center">
-            <h2 className="text-2xl font-bold md:text-3xl">{block.sectionTitle}</h2>
-            <p className="text-[#888888] md:text-[15px] dark:text-neutral-400">{block.sectionDescription}</p>
-          </div>
+      {videoSinglePackages
+        .filter(block => !hiddenPackageIds.includes(pricingPackageId(block.cardTitle)))
+        .map(block => (
+          <div key={block.id} className="space-y-6">
+            <DividerWithText
+              text="NGUYỄN ĐÌNH THỊNH STUDIO"
+              textClassName="text-[#888888] dark:text-neutral-400 text-sm md:text-base"
+              className="px-1.5"
+            />
+            <div className="text-center">
+              <h2 className="text-2xl font-bold md:text-3xl">{block.sectionTitle}</h2>
+              <p className="text-[#888888] md:text-[15px] dark:text-neutral-400">{block.sectionDescription}</p>
+            </div>
 
-          <div className="relative">
-            <div className="bg-opacity-30 pointer-events-none absolute -inset-y-2 left-1/2 z-10 min-w-[100vw] -translate-x-1/2 bg-[#d8d8d8] dark:bg-neutral-800" />
-            <div className="relative z-20 overflow-hidden rounded-3xl border-2 border-black">
-              <div className="bg-[#d8d8d8] px-6 py-3 text-center text-neutral-800 dark:bg-neutral-800 dark:text-neutral-100">
-                <p className="text-xl font-bold md:text-2xl">{block.cardTitle}</p>
-                <p className="text-xs md:text-sm">{block.subTitle}</p>
-              </div>
-              <div className="space-y-6 px-6 py-8 text-center">
-                <p className="text-3xl font-extrabold tabular-nums sm:text-5xl">
-                  {formatPriceVnd(publishedPrice(prices, block.cardTitle))}
-                </p>
-                <p className="-mt-5 text-xs font-semibold text-[#888888] md:text-sm dark:text-neutral-400">
-                  {block.unit}
-                </p>
+            <div className="relative">
+              <div className="bg-opacity-30 pointer-events-none absolute -inset-y-2 left-1/2 z-10 min-w-[100vw] -translate-x-1/2 bg-[#d8d8d8] dark:bg-neutral-800" />
+              <div className="relative z-20 overflow-hidden rounded-3xl border-2 border-black">
+                <div className="bg-[#d8d8d8] px-6 py-3 text-center text-neutral-800 dark:bg-neutral-800 dark:text-neutral-100">
+                  <p className="text-xl font-bold md:text-2xl">{block.cardTitle}</p>
+                  <p className="text-xs md:text-sm">{block.subTitle}</p>
+                </div>
+                <div className="space-y-6 px-6 py-8 text-center">
+                  <p className="text-3xl font-extrabold tabular-nums sm:text-5xl">
+                    {formatPriceVnd(publishedPrice(prices, block.cardTitle))}
+                  </p>
+                  <p className="-mt-5 text-xs font-semibold text-[#888888] md:text-sm dark:text-neutral-400">
+                    {block.unit}
+                  </p>
 
-                <div className="mx-auto max-w-3xl space-y-3">
-                  {block.features.map(item => (
-                    <p
-                      key={item}
-                      className="flex items-center justify-center gap-2 text-sm font-bold text-[#585858] md:text-[15px] dark:text-neutral-300"
+                  <div className="mx-auto max-w-3xl space-y-3">
+                    {block.features.map(item => (
+                      <p
+                        key={item}
+                        className="flex items-center justify-center gap-2 text-sm font-bold text-[#585858] md:text-[15px] dark:text-neutral-300"
+                      >
+                        <FaRegCheckCircle className="h-[18px] w-[18px]" />
+                        {item}
+                      </p>
+                    ))}
+                  </div>
+
+                  <div className="pt-2">
+                    <Link
+                      href="/lien-he#ho-tro-nhanh"
+                      className="inline-block rounded-full bg-[#7b7b7b] px-6 py-2 font-semibold text-white transition-colors hover:bg-black"
                     >
-                      <FaRegCheckCircle className="h-[18px] w-[18px]" />
-                      {item}
-                    </p>
-                  ))}
-                </div>
+                      Hỗ Trợ Nhanh
+                    </Link>
+                  </div>
 
-                <div className="pt-2">
-                  <Link
-                    href="/lien-he#ho-tro-nhanh"
-                    className="inline-block rounded-full bg-[#7b7b7b] px-6 py-2 font-semibold text-white transition-colors hover:bg-black"
-                  >
-                    Hỗ Trợ Nhanh
-                  </Link>
+                  <p className="text-xs font-semibold text-[#888888] dark:text-neutral-400">
+                    Xem mục các dịch vụ phụ để thêm tùy chọn
+                  </p>
                 </div>
-
-                <p className="text-xs font-semibold text-[#888888] dark:text-neutral-400">
-                  Xem mục các dịch vụ phụ để thêm tùy chọn
-                </p>
               </div>
             </div>
           </div>
-        </div>
-      ))}
+        ))}
     </>
   )
 }
 
-function VideoProSection({ prices }: { prices: PricingPrices }) {
-  const { headerTitle, headerDescription, cards, footerNote } = videoProData
+function VideoProSection({ prices, hiddenPackageIds }: { prices: PricingPrices; hiddenPackageIds: string[] }) {
+  const { headerTitle, headerDescription, footerNote } = videoProData
+  const cards = videoProData.cards.filter(card => !hiddenPackageIds.includes(pricingPackageId(card.title)))
+  if (cards.length === 0) return null
   return (
     <div className="space-y-6">
       <DividerWithText
@@ -85,7 +90,7 @@ function VideoProSection({ prices }: { prices: PricingPrices }) {
         <p className="text-[#888888] md:text-[15px] dark:text-neutral-400">{headerDescription}</p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className={pricingCardGridClass(cards.length)}>
         {cards.map(card => (
           <div key={card.id} className="flex flex-col overflow-hidden rounded-xl border-2 border-[#888888]">
             {/* Header gray bar */}
@@ -121,7 +126,16 @@ function VideoProSection({ prices }: { prices: PricingPrices }) {
   )
 }
 
-export default function VideoPrice({ prices }: { prices: PricingPrices }) {
+export default function VideoPrice({
+  prices,
+  hiddenPackageIds = []
+}: {
+  prices: PricingPrices
+  hiddenPackageIds?: string[]
+}) {
+  const allHidden =
+    videoSinglePackages.every(block => hiddenPackageIds.includes(pricingPackageId(block.cardTitle))) &&
+    videoProData.cards.every(card => hiddenPackageIds.includes(pricingPackageId(card.title)))
   return (
     <div className="space-y-10 px-2.5 md:px-16">
       <div className="space-y-12 md:space-y-4">
@@ -131,8 +145,14 @@ export default function VideoPrice({ prices }: { prices: PricingPrices }) {
         </p>
       </div>
 
-      <SingleVideoSection prices={prices} />
-      <VideoProSection prices={prices} />
+      {allHidden ? (
+        <EmptyPricing />
+      ) : (
+        <>
+          <SingleVideoSection prices={prices} hiddenPackageIds={hiddenPackageIds} />
+          <VideoProSection prices={prices} hiddenPackageIds={hiddenPackageIds} />
+        </>
+      )}
       <AdditionalServiceAndTerms service={additionalServiceAndTerms} />
     </div>
   )

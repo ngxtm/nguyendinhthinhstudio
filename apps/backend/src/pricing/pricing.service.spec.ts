@@ -117,6 +117,126 @@ describe('pricing drafts and publication', () => {
     );
   });
 
+  it('saves availability privately, publishes it with prices, and restores a package at its saved price', async () => {
+    const initial = await service.getConfiguration('wedding');
+    const hiddenPackageIds = ['standard-mini', 'standard-basic'];
+    const saved = await service.save(
+      'wedding',
+      {
+        revision: initial.revision,
+        prices: initial.draft,
+        hiddenPackageIds,
+      },
+      false,
+    );
+    expect(
+      (await service.getConfiguration('wedding')).draftHiddenPackageIds,
+    ).toEqual(hiddenPackageIds);
+    expect((await service.getPublished('wedding')).hiddenPackageIds).toEqual(
+      [],
+    );
+    const published = await service.save(
+      'wedding',
+      {
+        revision: saved.revision,
+        prices: saved.draft,
+        hiddenPackageIds,
+      },
+      true,
+    );
+    expect((await service.getPublished('wedding')).hiddenPackageIds).toEqual(
+      hiddenPackageIds,
+    );
+    expect(published.published['standard-mini']).toBe(3_500_000);
+    expect((await service.getPublished('ca-nhan')).hiddenPackageIds).toEqual(
+      [],
+    );
+    const restored = await service.save(
+      'wedding',
+      {
+        revision: published.revision,
+        prices: published.draft,
+        hiddenPackageIds: [],
+      },
+      true,
+    );
+    expect(restored.publishedHiddenPackageIds).toEqual([]);
+    expect(restored.published['standard-mini']).toBe(3_500_000);
+  });
+
+  it('reads legacy records as all on sale and preserves availability for price-only clients', async () => {
+    const initial = await service.getConfiguration('team');
+    const legacy = {
+      ...initial,
+      draftHiddenPackageIds: undefined,
+      publishedHiddenPackageIds: undefined,
+    };
+    rows.set('pricing.team', {
+      key: 'pricing.team',
+      value: JSON.stringify(legacy),
+    });
+    expect(
+      (await service.getConfiguration('team')).draftHiddenPackageIds,
+    ).toEqual([]);
+    expect((await service.getPublished('team')).hiddenPackageIds).toEqual([]);
+    const hidden = await service.save(
+      'team',
+      {
+        revision: initial.revision,
+        prices: initial.draft,
+        hiddenPackageIds: ['team-standard-x5'],
+      },
+      false,
+    );
+    const updated = await service.save(
+      'team',
+      {
+        revision: hidden.revision,
+        prices: { ...hidden.draft, 'team-standard-x5': 2_000_000 },
+      },
+      true,
+    );
+    expect(updated.publishedHiddenPackageIds).toEqual(['team-standard-x5']);
+    expect(updated.published['team-standard-x5']).toBe(2_000_000);
+  });
+
+  it.each([
+    null,
+    {},
+    'standard-mini',
+    [false],
+    ['unknown'],
+    ['standard-mini', 'standard-mini'],
+  ])(
+    'rejects invalid availability %j without changing saved prices',
+    async (hiddenPackageIds) => {
+      const initial = await service.getConfiguration('wedding');
+      await expect(
+        service.save(
+          'wedding',
+          {
+            revision: initial.revision,
+            prices: initial.draft,
+            hiddenPackageIds,
+          } as never,
+          true,
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(rows.size).toBe(0);
+    },
+  );
+
+  it('rejects corrupt stored availability instead of silently reopening packages', async () => {
+    const initial = await service.getConfiguration('wedding');
+    rows.set('pricing.wedding', {
+      key: 'pricing.wedding',
+      value: JSON.stringify({ ...initial, publishedHiddenPackageIds: null }),
+    });
+    await expect(service.getPublished('wedding')).rejects.toMatchObject({
+      status: 500,
+    });
+  });
+
   it.each([0, -1, 3.5, 1_000_000_000, NaN, Infinity, '3900000', null])(
     'rejects invalid monetary values %p',
     async (value) => {

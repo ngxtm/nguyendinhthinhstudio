@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { ExternalLink, Loader2, Save, Upload } from 'lucide-react'
+import { ExternalLink, Eye, EyeOff, Loader2, Save, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 import type { AdminPricing, PricingCategoryId, PricingPrices } from '@ndt/types'
 import { getAdminPricing, publishPricing, savePricingDraft } from '@/lib/api/pricing'
@@ -17,6 +17,7 @@ export default function PricingPage() {
   const [categoryId, setCategoryId] = useState<PricingCategoryId>('ca-nhan')
   const [configuration, setConfiguration] = useState<AdminPricing | null>(null)
   const [inputs, setInputs] = useState<Record<string, string>>({})
+  const [hiddenPackageIds, setHiddenPackageIds] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [pending, setPending] = useState<'draft' | 'publish' | null>(null)
   const [loadError, setLoadError] = useState('')
@@ -37,6 +38,7 @@ export default function PricingPage() {
           if (signal.aborted) return
           setConfiguration(data)
           setInputs(priceInputs(data.draft))
+          setHiddenPackageIds(data.draftHiddenPackageIds ?? [])
         })
         .catch(cause => {
           if (!signal.aborted) setLoadError(getAdminErrorMessage(cause, 'Không thể tải bảng giá. Hãy thử lại.'))
@@ -50,10 +52,18 @@ export default function PricingPage() {
 
   const invalid = category.packages.filter(item => parsePriceInput(inputs[item.id] ?? '') === null)
   const unsaved = configuration
-    ? category.packages.filter(item => parsePriceInput(inputs[item.id] ?? '') !== configuration.draft[item.id])
+    ? category.packages.filter(
+        item =>
+          parsePriceInput(inputs[item.id] ?? '') !== configuration.draft[item.id] ||
+          hiddenPackageIds.includes(item.id) !== (configuration.draftHiddenPackageIds ?? []).includes(item.id)
+      )
     : []
   const unpublished = configuration
-    ? category.packages.filter(item => parsePriceInput(inputs[item.id] ?? '') !== configuration.published[item.id])
+    ? category.packages.filter(
+        item =>
+          parsePriceInput(inputs[item.id] ?? '') !== configuration.published[item.id] ||
+          hiddenPackageIds.includes(item.id) !== (configuration.publishedHiddenPackageIds ?? []).includes(item.id)
+      )
     : []
   const dirty = unsaved.length > 0
   const busy = pending !== null
@@ -104,16 +114,17 @@ export default function PricingPage() {
     setSaveError('')
     const prices = Object.fromEntries(category.packages.map(item => [item.id, parsePriceInput(inputs[item.id])!]))
     try {
-      const input = { revision: configuration.revision, prices }
+      const input = { revision: configuration.revision, prices, hiddenPackageIds }
       const result = await (action === 'draft'
         ? savePricingDraft(categoryId, input)
         : publishPricing(categoryId, input))
       setConfiguration(result)
       setInputs(priceInputs(result.draft))
+      setHiddenPackageIds(result.draftHiddenPackageIds ?? [])
       toast.success(
         action === 'draft'
-          ? 'Đã lưu nháp. Giá trên website chưa thay đổi.'
-          : 'Đã xuất bản giá. Website sẽ hiển thị giá mới khi tải trang.'
+          ? 'Đã lưu nháp. Bảng giá trên website chưa thay đổi.'
+          : 'Đã xuất bản bảng giá và trạng thái bán. Website sẽ cập nhật khi tải lại trang.'
       )
     } catch (cause) {
       setSaveError(getAdminErrorMessage(cause, 'Không thể lưu bảng giá. Các thay đổi vẫn được giữ để thử lại.'))
@@ -129,7 +140,7 @@ export default function PricingPage() {
         <div>
           <h1 className="text-3xl font-bold">Quản lý bảng giá</h1>
           <p className="mt-2 text-sm text-gray-600">
-            Chỉnh giá các gói dịch vụ. Lưu nháp để chuẩn bị, xuất bản để cập nhật lên website.
+            Chỉnh giá, ngừng bán hoặc mở bán lại từng gói. Xuất bản để cập nhật lên website.
           </p>
         </div>
         <a
@@ -185,7 +196,7 @@ export default function PricingPage() {
               <span className="rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-600">VNĐ</span>
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[560px] text-left text-sm">
+              <table className="w-full min-w-[720px] text-left text-sm">
                 <thead className="bg-gray-50 text-xs text-gray-500">
                   <tr>
                     <th scope="col" className="px-5 py-3">
@@ -197,15 +208,20 @@ export default function PricingPage() {
                     <th scope="col" className="px-5 py-3">
                       Giá chỉnh sửa (VNĐ)
                     </th>
+                    <th scope="col" className="px-5 py-3">
+                      Trạng thái bán
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {category.packages.map(item => {
                     const value = parsePriceInput(inputs[item.id] ?? '')
-                    const changed = value !== configuration.published[item.id]
+                    const hidden = hiddenPackageIds.includes(item.id)
+                    const publishedHidden = (configuration.publishedHiddenPackageIds ?? []).includes(item.id)
+                    const changed = value !== configuration.published[item.id] || hidden !== publishedHidden
                     const hasError = value === null
                     return (
-                      <tr key={item.id}>
+                      <tr key={item.id} className={hidden ? 'bg-gray-50/70' : undefined}>
                         <th scope="row" className="px-5 py-4 font-normal">
                           <span className="font-semibold text-gray-900">{item.name}</span>
                           <p className="mt-1 text-xs text-gray-500">
@@ -218,7 +234,13 @@ export default function PricingPage() {
                           ) : null}
                         </th>
                         <td className="px-4 py-4 whitespace-nowrap text-gray-600 tabular-nums">
-                          {formatPriceVnd(configuration.published[item.id])}
+                          {publishedHidden ? (
+                            <span className="inline-flex items-center gap-1.5 text-gray-500">
+                              <EyeOff size={14} aria-hidden="true" /> Đã ẩn
+                            </span>
+                          ) : (
+                            formatPriceVnd(configuration.published[item.id])
+                          )}
                         </td>
                         <td className="px-5 py-4">
                           <input
@@ -243,6 +265,27 @@ export default function PricingPage() {
                             </p>
                           ) : null}
                         </td>
+                        <td className="px-5 py-4">
+                          <p className={`mb-2 text-xs font-medium ${hidden ? 'text-gray-500' : 'text-emerald-700'}`}>
+                            {hidden ? 'Ngừng bán' : 'Đang bán'}
+                          </p>
+                          <button
+                            type="button"
+                            aria-label={`${hidden ? 'Mở bán lại' : 'Ngừng bán'} ${item.name}`}
+                            disabled={busy}
+                            onClick={() =>
+                              setHiddenPackageIds(previous =>
+                                previous.includes(item.id)
+                                  ? previous.filter(id => id !== item.id)
+                                  : [...previous, item.id]
+                              )
+                            }
+                            className={`inline-flex min-h-11 items-center gap-2 rounded-lg border px-3 text-sm font-medium whitespace-nowrap outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:opacity-50 ${hidden ? 'border-blue-200 bg-white text-blue-700 hover:bg-blue-50' : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-100'}`}
+                          >
+                            {hidden ? <Eye size={16} aria-hidden="true" /> : <EyeOff size={16} aria-hidden="true" />}
+                            {hidden ? 'Mở bán lại' : 'Ngừng bán'}
+                          </button>
+                        </td>
                       </tr>
                     )
                   })}
@@ -251,7 +294,7 @@ export default function PricingPage() {
             </div>
             <p className="border-t border-gray-100 p-5 text-xs leading-5 text-gray-500">
               Nhập số tiền đầy đủ bằng VNĐ. Giá theo người giữ nguyên đơn vị /người. Các dịch vụ kèm thêm và điều khoản
-              giữ nội dung hiện tại.
+              giữ nội dung hiện tại. Gói ngừng bán sẽ được ẩn sau khi xuất bản; giá được giữ để mở bán lại.
             </p>
           </section>
 
@@ -280,8 +323,8 @@ export default function PricingPage() {
               </p>
               <p className="mt-1 text-xs text-gray-500">
                 {unpublished.length
-                  ? `${unpublished.length} gói có giá khác website trong nhóm ${category.label}.`
-                  : 'Giá đang trùng với website.'}
+                  ? `${unpublished.length} gói có giá hoặc trạng thái bán khác website trong nhóm ${category.label}.`
+                  : 'Giá và trạng thái bán đang trùng với website.'}
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -290,6 +333,7 @@ export default function PricingPage() {
                 disabled={!dirty || busy}
                 onClick={() => {
                   setInputs(priceInputs(configuration.draft))
+                  setHiddenPackageIds(configuration.draftHiddenPackageIds ?? [])
                   if (!conflict) setSaveError('')
                 }}
                 className="min-h-11 rounded-lg border border-gray-300 px-4 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-40"

@@ -58,6 +58,20 @@ export class PricingService {
     );
   }
 
+  private validateHiddenPackageIds(category: string, value: unknown): string[] {
+    const packageIds = new Set(
+      this.category(category).packages.map((item) => item.id),
+    );
+    if (
+      !Array.isArray(value) ||
+      value.some((id) => typeof id !== 'string' || !packageIds.has(id)) ||
+      new Set(value).size !== value.length
+    ) {
+      throw new BadRequestException('Danh sách gói ngừng bán không hợp lệ.');
+    }
+    return [...value] as string[];
+  }
+
   private read(categoryId: string, value?: string): AdminPricing {
     const category = this.category(categoryId);
     if (value === undefined) {
@@ -69,6 +83,8 @@ export class PricingService {
         revision: 'initial',
         draft: { ...defaults },
         published: { ...defaults },
+        draftHiddenPackageIds: [],
+        publishedHiddenPackageIds: [],
         draftSavedAt: null,
         publishedAt: null,
       };
@@ -92,6 +108,18 @@ export class PricingService {
         revision: parsed.revision,
         draft: this.validatePrices(categoryId, parsed.draft),
         published: this.validatePrices(categoryId, parsed.published),
+        draftHiddenPackageIds: this.validateHiddenPackageIds(
+          categoryId,
+          parsed.draftHiddenPackageIds === undefined
+            ? []
+            : parsed.draftHiddenPackageIds,
+        ),
+        publishedHiddenPackageIds: this.validateHiddenPackageIds(
+          categoryId,
+          parsed.publishedHiddenPackageIds === undefined
+            ? []
+            : parsed.publishedHiddenPackageIds,
+        ),
         draftSavedAt: parsed.draftSavedAt,
         publishedAt: parsed.publishedAt,
       };
@@ -115,6 +143,7 @@ export class PricingService {
     return {
       category: state.category,
       prices: state.published,
+      hiddenPackageIds: state.publishedHiddenPackageIds,
       publishedAt: state.publishedAt,
     };
   }
@@ -129,13 +158,27 @@ export class PricingService {
     const row = await this.prisma.siteSettings.findUnique({ where: { key } });
     const current = this.read(category, row?.value);
     if (input.revision !== current.revision) this.conflict();
+    // Older clients only edit prices; preserve the saved availability when omitted.
+    const hiddenPackageIds = this.validateHiddenPackageIds(
+      category,
+      input.hiddenPackageIds === undefined
+        ? current.draftHiddenPackageIds
+        : input.hiddenPackageIds,
+    );
     const now = new Date().toISOString();
     const next: AdminPricing = {
       ...current,
       revision: randomUUID(),
       draft: prices,
+      draftHiddenPackageIds: hiddenPackageIds,
       draftSavedAt: now,
-      ...(publish ? { published: { ...prices }, publishedAt: now } : {}),
+      ...(publish
+        ? {
+            published: { ...prices },
+            publishedHiddenPackageIds: [...hiddenPackageIds],
+            publishedAt: now,
+          }
+        : {}),
     };
     const value = JSON.stringify(next);
     if (row) {

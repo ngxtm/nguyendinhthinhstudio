@@ -3,19 +3,23 @@
 Admin mở **Bảng giá** tại `/admin/pricing` để chỉnh giá của 32 gói thuộc 6 nhóm: Cá nhân, Cặp đôi, Gia đình, Wedding, Video và Team & Ekip.
 
 - Nhập số tiền đầy đủ bằng VNĐ, ví dụ `3500000` hoặc `3.500.000`. Giá phải là số nguyên từ 1 đến 999.999.999 đồng. Đơn vị theo người của các gói Gia đình và Team được giữ nguyên.
-- **Lưu nháp** lưu các giá của nhóm đang chọn để tiếp tục chỉnh sửa sau. Khách truy cập vẫn thấy giá đã xuất bản.
-- **Xuất bản giá** lưu và công khai toàn bộ giá đang chỉnh sửa trong nhóm đang chọn. Không bắt buộc lưu nháp trước. Các nhóm khác không bị ảnh hưởng.
+- Bấm **Ngừng bán** bên cạnh từng gói để chuẩn bị ẩn gói đó. Không nhập chữ vào ô giá. Bấm **Mở bán lại** để khôi phục gói với giá đã giữ lại; vẫn có thể sửa giá trước khi mở bán.
+- **Lưu nháp** lưu giá và trạng thái bán của nhóm đang chọn để tiếp tục chỉnh sửa sau. Khách truy cập vẫn thấy bản đã xuất bản.
+- **Xuất bản giá** lưu và công khai toàn bộ giá và trạng thái bán đang chỉnh sửa trong nhóm đang chọn. Không bắt buộc lưu nháp trước. Các nhóm khác không bị ảnh hưởng.
 - **Hủy thay đổi** trở về bản nháp được lưu gần nhất; không xóa bản nháp đã lưu.
 - Khi có phiên khác lưu trước, admin phải tải lại bảng giá. Thay đổi đang nhập được giữ khi lưu thất bại.
 - Nút **Xem bảng giá** mở trang công khai, chỉ hiển thị giá đã xuất bản.
+- Trên trang công khai, gói ngừng bán được ẩn hoàn toàn, gồm giá, nội dung và nút đặt lịch. Nhóm Premium/Standard không còn gói nào cũng được ẩn. Một gói còn lại được căn giữa với chiều rộng giới hạn; hai gói chia hai cột; trên điện thoại xếp một cột. Khi tất cả các gói ngừng bán, trang hiển thị thông báo tạm ngừng mở bán và nút **Liên hệ tư vấn**.
 
-Phạm vi quản lý hiện tại là giá chính của từng gói. Nội dung gói, dịch vụ kèm thêm, phụ thu và điều khoản vẫn lấy từ các tệp dữ liệu hiện có.
+Phạm vi quản lý hiện tại là giá chính và trạng thái bán của từng gói. Nội dung gói, dịch vụ kèm thêm, phụ thu và điều khoản vẫn lấy từ các tệp dữ liệu hiện có.
 
 ## Lưu trữ và triển khai
 
-Mỗi nhóm dùng một bản ghi trong bảng `SiteSettings`, với key `pricing.<category>`. Bản ghi chứa bản nháp, bản công khai, thời điểm lưu/xuất bản và revision. Ghi có điều kiện trên giá trị bản ghi ngăn các phiên ghi đè nhau. Endpoint cấu hình tổng quát không được phép ghi vào các key này.
+Mỗi nhóm dùng một bản ghi trong bảng `SiteSettings`, với key `pricing.<category>`. Bản ghi chứa giá nháp/công khai, danh sách ID gói ẩn `draftHiddenPackageIds`/`publishedHiddenPackageIds`, thời điểm lưu/xuất bản và revision. Ghi có điều kiện trên giá trị bản ghi ngăn các phiên ghi đè nhau. Endpoint cấu hình tổng quát không được phép ghi vào các key này.
 
 Không cần migration hoặc seed. Trước lần lưu đầu tiên, giá được lấy từ `packages/types/pricing-catalog.json`; bộ kiểm thử đối chiếu giá khởi tạo này với tất cả gói hiện có. Khi thêm, đổi tên hoặc xóa gói, cần cập nhật catalog và chuyển đổi các bản ghi đã lưu tương ứng.
+
+Bản ghi cũ chưa có danh sách gói ẩn được hiểu là tất cả gói đang bán. Client cũ chỉ gửi giá sẽ giữ danh sách ẩn của bản nháp gần nhất. Danh sách ẩn có dữ liệu sai bị từ chối, không tự mở bán lại gói.
 
 Triển khai backend trước frontend. Ảnh Docker backend phải chứa workspace `packages/types` để đọc catalog lúc chạy. Chưa có thao tác triển khai nào trong thay đổi này.
 
@@ -28,7 +32,7 @@ Triển khai backend trước frontend. Ảnh Docker backend phải chứa works
 | `PUT /pricing/admin/:category/draft`    | Admin     | Lưu nháp                                  |
 | `POST /pricing/admin/:category/publish` | Admin     | Lưu và xuất bản                           |
 
-Hai endpoint ghi nhận `{ revision, prices }`, với `prices` là map đầy đủ các ID gói của nhóm sang số tiền VNĐ. Revision không còn khớp trả về HTTP 409. Các endpoint dùng `Cache-Control: no-store`; các trang Next.js lấy giá công khai ở server với `cache: 'no-store'`. Giá mới xuất hiện khi tải lại trang công khai. Nếu không thể tải giá, trang báo lỗi để thử lại, thay vì hiển thị lại giá khởi tạo cũ.
+Hai endpoint ghi nhận `{ revision, prices, hiddenPackageIds? }`, với `prices` là map đầy đủ các ID gói của nhóm sang số tiền VNĐ, kể cả gói ngừng bán. `hiddenPackageIds` là danh sách ID duy nhất thuộc nhóm; `[]` mở bán tất cả, bỏ qua trường này giữ trạng thái nháp hiện có. API công khai trả `hiddenPackageIds` từ bản đã xuất bản cùng `prices`. Revision không còn khớp trả về HTTP 409. Các endpoint dùng `Cache-Control: no-store`; các trang Next.js lấy giá công khai ở server với `cache: 'no-store'`. Giá và trạng thái bán mới xuất hiện khi tải lại trang công khai. Nếu không thể tải giá, trang báo lỗi để thử lại, thay vì hiển thị lại giá khởi tạo cũ.
 
 ## Kiểm tra
 

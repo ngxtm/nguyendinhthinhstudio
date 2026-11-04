@@ -61,3 +61,21 @@ test('applying published prices preserves services, per-person units and origina
   assert.equal(publishedPrice({ 'video-pro-i': 12345678 }, 'VIDEO PRO I'), 12345678)
   assert.throws(() => applyPublishedPrices(family, {}), /Không thể tải giá/)
 })
+
+test('stopped packages disappear, empty tiers disappear, and remaining cards keep their content and order', () => {
+  const prices = Object.fromEntries(
+    pricingCategories.find(item => item.id === 'wedding')!.packages.map(item => [item.id, item.priceVnd])
+  )
+  const filtered = applyPublishedPrices(wedding, prices, ['standard-mini', 'standard-basic'])
+  assert.equal(filtered[0].subCard.length, 4)
+  assert.deepEqual(
+    filtered[1].subCard.map(card => card.title),
+    ['STANDARD SIGNATURE']
+  )
+  assert.deepEqual(filtered[1].subCard[0].services, wedding[1].subCard[2].services)
+  assert.equal(wedding[1].subCard.length, 3)
+  const noStandard = applyPublishedPrices(wedding, prices, ['standard-mini', 'standard-basic', 'standard-signature'])
+  assert.equal(noStandard.length, 1)
+  assert.equal(noStandard[0].type, 'PREMIUM')
+  assert.deepEqual(applyPublishedPrices(wedding, prices, Object.keys(prices)), [])
+})
