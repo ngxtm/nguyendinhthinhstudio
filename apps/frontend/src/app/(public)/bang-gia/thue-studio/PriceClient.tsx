@@ -15,13 +15,13 @@ export default function StudioRentalPrice({
   const packages = studioRentalPackages(prices, hiddenPackageIds)
 
   return (
-    <div className="mx-auto max-w-6xl space-y-12 px-4 py-8 md:space-y-16 md:px-10 md:py-14">
+    <div className="space-y-12 md:space-y-16 mx-auto px-4 md:px-10 py-8 md:py-14 max-w-6xl">
       <header className="space-y-5 text-center">
-        <p className="text-xs font-semibold tracking-[0.2em] text-neutral-500 dark:text-neutral-400">
+        <p className="font-semibold text-neutral-500 dark:text-neutral-400 text-xs tracking-[0.2em]">
           NGUYỄN ĐÌNH THỊNH STUDIO
         </p>
-        <h1 className="text-3xl font-bold tracking-tight md:text-5xl">BẢNG GIÁ THUÊ STUDIO</h1>
-        <p className="mx-auto max-w-xl text-sm leading-6 text-neutral-600 md:text-base dark:text-neutral-400">
+        <h1 className="font-bold text-3xl md:text-5xl tracking-tight">BẢNG GIÁ THUÊ STUDIO</h1>
+        <p className="mx-auto max-w-xl text-neutral-600 dark:text-neutral-400 text-sm md:text-base leading-6">
           Chọn phông phù hợp với buổi chụp của bạn. Giá thuê cho 2 giờ đầu và mỗi giờ tiếp theo được niêm yết riêng bên
           dưới.
         </p>
@@ -32,29 +32,29 @@ export default function StudioRentalPrice({
           {packages.map(item => (
             <article
               key={item.id}
-              className="flex min-w-0 flex-col overflow-hidden rounded-2xl border border-neutral-300 dark:border-neutral-700"
+              className="flex flex-col border border-neutral-300 dark:border-neutral-700 rounded-2xl min-w-0 overflow-hidden"
             >
-              <div className="border-b border-neutral-300 bg-neutral-100 px-6 py-5 dark:border-neutral-700 dark:bg-neutral-900">
-                <h2 className="text-2xl font-bold">{item.name}</h2>
+              <div className="bg-neutral-100 dark:bg-neutral-900 px-6 py-5 border-neutral-300 dark:border-neutral-700 border-b">
+                <h2 className="font-bold text-2xl">{item.name}</h2>
               </div>
-              <div className="flex-1 space-y-7 px-6 py-8 md:px-8">
+              <div className="flex-1 space-y-7 px-6 md:px-8 py-8">
                 <div>
-                  <p className="text-sm text-neutral-500 dark:text-neutral-400">2 giờ đầu</p>
-                  <p className="mt-2 text-4xl font-bold tracking-tight tabular-nums sm:text-5xl">
+                  <p className="text-neutral-500 dark:text-neutral-400 text-sm">2 giờ đầu</p>
+                  <p className="mt-2 font-bold tabular-nums text-4xl sm:text-5xl tracking-tight">
                     {formatPriceVnd(item.initialPrice)}
                   </p>
                 </div>
-                <div className="flex flex-wrap items-baseline justify-between gap-2 border-t border-neutral-200 pt-5 dark:border-neutral-800">
-                  <p className="text-sm text-neutral-600 dark:text-neutral-400">Mỗi giờ tiếp theo</p>
-                  <p className="text-xl font-semibold tabular-nums">
+                <div className="flex flex-wrap justify-between items-baseline gap-2 pt-5 border-neutral-200 dark:border-neutral-800 border-t">
+                  <p className="text-neutral-600 dark:text-neutral-400 text-sm">Mỗi giờ tiếp theo</p>
+                  <p className="font-semibold tabular-nums text-xl">
                     {formatPriceVnd(item.hourlyPrice)}
-                    <span className="ml-1 text-sm font-normal text-neutral-500">/giờ</span>
+                    <span className="ml-1 font-normal text-neutral-500 text-sm">/giờ</span>
                   </p>
                 </div>
               </div>
               <Link
                 href="/lien-he#ho-tro-nhanh"
-                className="flex min-h-12 items-center justify-center gap-2 bg-neutral-800 px-6 py-4 text-sm font-semibold text-white transition-colors hover:bg-black focus-visible:outline-2 focus-visible:outline-offset-[-4px] dark:bg-neutral-200 dark:text-neutral-900 dark:hover:bg-white"
+                className="flex justify-center items-center gap-2 bg-neutral-800 hover:bg-black dark:bg-neutral-200 dark:hover:bg-white px-6 py-4 focus-visible:outline-2 focus-visible:outline-offset-[-4px] min-h-12 font-semibold text-white dark:text-neutral-900 text-sm transition-colors"
               >
                 Liên hệ thuê studio <ArrowUpRight size={17} aria-hidden="true" />
               </Link>
@@ -67,47 +67,47 @@ export default function StudioRentalPrice({
 
       <section
         aria-labelledby="studio-space"
-        className="border-y border-neutral-300 py-8 text-center dark:border-neutral-700"
+        className="py-8 border-neutral-300 border-y dark:border-neutral-700 text-center"
       >
-        <h2 id="studio-space" className="text-2xl font-bold md:text-3xl">
+        <h2 id="studio-space" className="font-bold text-2xl md:text-3xl">
           Không gian rộng nhất Nha Trang
         </h2>
-        <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-neutral-600 md:text-base dark:text-neutral-400">
+        <p className="mx-auto mt-3 max-w-2xl text-neutral-600 dark:text-neutral-400 text-sm md:text-base leading-6">
           Có thể chụp với ống kính 70–200mm mà không lo chật góc, thoải mái chọn góc máy và bố trí buổi chụp.
         </p>
       </section>
 
       <section aria-labelledby="studio-amenities">
-        <h2 id="studio-amenities" className="text-2xl font-bold">
+        <h2 id="studio-amenities" className="font-bold text-2xl">
           Tiện ích đi kèm
         </h2>
-        <ul className="mt-6 grid gap-x-8 gap-y-6 sm:grid-cols-2 lg:grid-cols-3">
+        <ul className="gap-x-8 gap-y-6 grid sm:grid-cols-2 lg:grid-cols-3 mt-6">
           {studioAmenities.map(item => (
             <li key={item.title} className="flex items-start gap-3">
-              <Check size={19} className="mt-0.5 shrink-0 text-neutral-500" aria-hidden="true" />
+              <Check size={19} className="mt-0.5 text-neutral-500 shrink-0" aria-hidden="true" />
               <div>
                 <h3 className="font-semibold">{item.title}</h3>
-                <p className="mt-1 text-sm leading-6 text-neutral-600 dark:text-neutral-400">{item.description}</p>
+                <p className="mt-1 text-neutral-600 dark:text-neutral-400 text-sm leading-6">{item.description}</p>
               </div>
             </li>
           ))}
         </ul>
       </section>
 
-      <section aria-labelledby="studio-extras" className="rounded-2xl bg-neutral-100 p-6 md:p-8 dark:bg-neutral-900">
-        <h2 id="studio-extras" className="text-xl font-bold">
+      <section aria-labelledby="studio-extras" className="bg-neutral-100 dark:bg-neutral-900 p-6 md:p-8 rounded-2xl">
+        <h2 id="studio-extras" className="font-bold text-xl">
           Thuê thêm theo nhu cầu
         </h2>
-        <p className="mt-3 text-sm leading-6 text-neutral-600 dark:text-neutral-400">
-          Thuê thêm máy ảnh:{' '}
+        <p className="mt-3 text-neutral-600 dark:text-neutral-400 text-sm leading-6">
+          Thuê thêm máy lạnh:{' '}
           <span className="font-semibold text-neutral-900 dark:text-neutral-100">+400.000 ₫/giờ</span>.
         </p>
-        <p className="mt-2 text-sm leading-6 text-neutral-600 dark:text-neutral-400">
+        <p className="mt-2 text-neutral-600 dark:text-neutral-400 text-sm leading-6">
           Đèn LED, phụ kiện hoặc trang phục: inbox riêng để được tư vấn và báo giá.
         </p>
         <Link
           href="/lien-he#ho-tro-nhanh"
-          className="mt-4 inline-flex min-h-11 items-center gap-2 text-sm font-semibold underline decoration-neutral-400 underline-offset-4 hover:decoration-current focus-visible:outline-2 focus-visible:outline-offset-4"
+          className="inline-flex items-center gap-2 mt-4 focus-visible:outline-2 focus-visible:outline-offset-4 min-h-11 font-semibold text-sm decoration-neutral-400 hover:decoration-current underline underline-offset-4"
         >
           Liên hệ tư vấn <ArrowUpRight size={16} aria-hidden="true" />
         </Link>
