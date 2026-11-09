@@ -15,6 +15,8 @@ export const LEGACY_REDIRECTS = [
   ['/thu-vien/nu/tet-trung-thu', '/thu-vien/danh-muc/tet-trung-thu'],
   ['/thu-vien/nu/noel-mua-dong', '/thu-vien/danh-muc/noel-mua-dong'],
   ['/thu-vien/nu/cosplay', '/thu-vien/danh-muc/cosplay'],
+  ['/thu-vien/kimono-', '/thu-vien/kimono-kiem-khach'],
+  ['/thu-vien/angels-', '/thu-vien/angels-wish'],
   ['/thu-vien/nu/quyen-ru', '/thu-vien/danh-muc/quyen-ru'],
   ['/thu-vien/quyen-ru-sexy', '/thu-vien/danh-muc/quyen-ru'],
   ['/thu-vien/nam', '/thu-vien/danh-muc/nam'],
@@ -33,10 +35,10 @@ export const LEGACY_REDIRECTS = [
   ['/gioi-thieu/thu-vien', '/thu-vien']
 ]
 
-const wwwHosts = ['www.ndtstudio.com.vn', 'www.ndtstudio.site']
+const alternateWebsiteHosts = ['www.ndtstudio.com.vn', 'ndtstudio.site', 'www.ndtstudio.site']
 
 export function createSeoRedirects() {
-  const wwwRedirects = wwwHosts.flatMap(host => {
+  const hostRedirects = alternateWebsiteHosts.flatMap(host => {
     const has = [{ type: 'host', value: host }]
     return [
       ...LEGACY_REDIRECTS.map(([source, destination]) => ({
@@ -59,5 +61,5 @@ export function createSeoRedirects() {
     statusCode: 301
   }))
 
-  return [...wwwRedirects, ...canonicalLegacy]
+  return [...hostRedirects, ...canonicalLegacy]
 }

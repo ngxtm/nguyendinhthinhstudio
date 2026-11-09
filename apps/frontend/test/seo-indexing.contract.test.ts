@@ -153,6 +153,7 @@ test('crawl controls keep render assets available and noindex infrastructure hea
   const health = readSource('../src/app/health/route.ts')
 
   assert.doesNotMatch(robots, /['"]\/_next\/['"]/)
+  assert.match(robots, /disallow:\s*\[[^\]]*['"]\/cdn-cgi\/['"]/)
   assert.match(health, /X-Robots-Tag/)
   assert.match(health, /noindex, nofollow/)
 })

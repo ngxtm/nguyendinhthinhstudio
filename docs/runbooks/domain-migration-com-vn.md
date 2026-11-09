@@ -7,10 +7,11 @@ This checklist does not authorize deployment or external configuration writes.
 
 - Public metadata, sitemap and robots use `src/lib/seo.ts`.
 - Album, contact and pricing structured data use the same URL helper.
-- `seo-routes.mjs` normalizes both www hosts to the new origin, retaining
-  direct legacy-path redirects before the hostname catch-all.
-- The old apex `ndtstudio.site` is NOT redirected by this patch. Activate that
-  migration at Cloudflare after validating the new deployment.
+- `seo-routes.mjs` normalizes the old apex and both www hosts to the new
+  origin, retaining direct legacy-path redirects before the hostname catch-all.
+- The application redirect requires working DNS, HTTPS and ingress for the
+  old hostname. Configure the public redirect at Cloudflare after restoring
+  old-domain access and validating the new deployment.
 - Do not remove API/image hosts, rewrite database content, or alter auth settings
   as part of this SEO patch.
 

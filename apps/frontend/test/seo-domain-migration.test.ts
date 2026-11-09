@@ -13,10 +13,10 @@ test('public canonical and social URLs identify the new domain without changing 
   assert.equal(absoluteUrl('/bang-gia#premium'), 'https://ndtstudio.com.vn/bang-gia#premium')
 })
 
-test('both www hosts normalize to the new domain, including legacy paths in one hop', async () => {
+test('alternate website hosts normalize to the new domain, including legacy paths in one hop', async () => {
   const { createSeoRedirects } = await import('../seo-routes.mjs')
   const rules = createSeoRedirects()
-  for (const host of ['www.ndtstudio.com.vn', 'www.ndtstudio.site']) {
+  for (const host of ['www.ndtstudio.com.vn', 'ndtstudio.site', 'www.ndtstudio.site']) {
     const hostRules = rules.filter((rule: any) =>
       rule.has?.some((condition: any) => condition.type === 'host' && condition.value === host)
     )
