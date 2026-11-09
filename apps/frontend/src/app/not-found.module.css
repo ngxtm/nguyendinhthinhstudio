@@ -23,69 +23,67 @@
   display: flex;
   flex-direction: column;
   width: 100%;
-  max-width: 112rem;
+  max-width: 88rem;
   min-height: inherit;
   margin-inline: auto;
-  padding: 0 clamp(1.25rem, 3.6vw, 4rem) 1.5rem;
+  padding: 0 clamp(1.25rem, 3.6vw, 3rem) 1.25rem;
 }
 
 .brand {
-  padding-block: clamp(0.9rem, 1.2vw, 1.4rem) clamp(0.55rem, 0.75vw, 0.85rem);
-  border-bottom: 1px solid var(--cream);
+  padding-block: 1rem 0.75rem;
+  border-bottom: 1px solid #f3e3c84d;
   font-family: var(--font-montserrat), Arial, sans-serif;
-  font-size: clamp(1.2rem, 2.1vw, 2.35rem);
-  letter-spacing: -0.025em;
+  font-size: clamp(0.875rem, 1.3vw, 1.125rem);
+  letter-spacing: 0.1em;
   line-height: 1;
 }
 
 .layout {
   display: grid;
-  flex: 1;
-  grid-template-columns: 31.5% 8.5% 60%;
+  flex: 1 0 auto;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
   align-items: center;
-  padding-block: clamp(0.65rem, 1.3vw, 1.4rem) 0;
-}
-
-.copy {
-  z-index: 1;
-  grid-area: 1 / 1 / 2 / 3;
-  padding-inline-start: clamp(0px, 0.55vw, 0.65rem);
+  gap: clamp(1rem, 3vw, 3rem);
+  padding-block-start: 1rem;
 }
 
 .title {
   margin: 0;
-  font-size: clamp(2.05rem, 3.89vw, 4.4rem);
-  font-weight: 700;
-  letter-spacing: -0.04em;
-  line-height: 1.05;
+  font-size: clamp(1.625rem, 3vw, 2.875rem);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.12;
+  text-wrap: balance;
 }
 
 .code {
   display: block;
-  width: clamp(10.5rem, 22.1vw, 24.75rem);
+  width: clamp(5rem, min(15vw, 25svh), 12rem);
   height: auto;
-  margin-block-end: 0.32em;
+  margin-block-end: 0.42em;
 }
 
 .description {
-  max-width: 20em;
-  margin-block: 0.7em 1.38em;
+  max-width: 23em;
+  margin-block: 0.65em 1.25em;
   color: #c2b8ad;
-  font-size: clamp(1.08rem, 1.97vw, 2.16rem);
-  line-height: 1.23;
+  font-size: clamp(1rem, 1.35vw, 1.125rem);
+  line-height: 1.5;
 }
 
 .homeLink {
   display: inline-flex;
   align-items: center;
-  gap: 0.6em;
-  padding: 0.55em 0.8em 0.59em 1.07em;
-  border-radius: 0.37em;
+  gap: 0.75em;
+  min-height: 44px;
+  padding: 0.6rem 1rem;
+  border-radius: 0.5rem;
   background: #fff;
   color: #000;
-  font-size: clamp(1.15rem, 2.24vw, 2.45rem);
-  font-weight: 700;
-  line-height: 1.05;
+  font-family: var(--font-geist-sans), Arial, sans-serif;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  line-height: 1.25;
 }
 
 .homeLink:hover {
@@ -103,9 +101,12 @@
 }
 
 .scene {
+  --scene-ratio: 1.29;
   position: relative;
-  grid-area: 1 / 2 / 2 / 4;
-  aspect-ratio: 1.29;
+  justify-self: center;
+  /* Leave room for the brand and outer spacing on short, wide viewports. */
+  width: min(100%, max(10rem, calc((100svh - 7rem) * var(--scene-ratio))));
+  aspect-ratio: var(--scene-ratio);
   isolation: isolate;
 }
 
@@ -136,7 +137,7 @@
   align-items: center;
   gap: 0.55em;
   font:
-    500 clamp(0.7rem, 1.52vw, 1.65rem) / 1.35 var(--font-geist-sans),
+    500 clamp(0.625rem, 1vw, 0.875rem) / 1.35 var(--font-geist-sans),
     sans-serif;
   letter-spacing: 0.08em;
 }
@@ -294,41 +295,52 @@
   }
 }
 
-@media (max-width: 860px) {
+@media (max-width: 48rem) and (orientation: portrait) {
   .layout {
     grid-template-columns: minmax(0, 1fr);
     align-content: center;
     justify-items: center;
-    gap: clamp(1.75rem, 5vw, 2.75rem);
-    padding-block-start: clamp(1.75rem, 6vw, 3.5rem);
-  }
-
-  .copy,
-  .scene {
-    grid-area: auto;
+    gap: clamp(1.125rem, 4vw, 2rem);
   }
 
   .copy {
-    padding: 0;
     text-align: center;
   }
 
   .title {
-    font-size: clamp(1.65rem, 6.4vw, 3.2rem);
+    font-size: clamp(1.625rem, 5.6vw, 2.5rem);
   }
 
   .code {
-    width: clamp(8.25rem, 33vw, 14rem);
+    width: clamp(6rem, 27vw, 8.5rem);
     margin-inline: auto;
   }
 
   .description {
-    max-width: 28rem;
     margin-inline: auto;
   }
 
   .scene {
-    width: 100%;
-    max-width: 36rem;
+    /* The stacked copy needs its own vertical space on mobile. */
+    width: min(100%, 28rem, max(10rem, calc((100svh - 21rem) * var(--scene-ratio))));
+  }
+}
+
+@media (max-height: 25rem) and (orientation: landscape) {
+  .brand {
+    padding-block: 0.75rem 0.5rem;
+  }
+
+  .layout {
+    padding-block-start: 0.5rem;
+  }
+
+  .title {
+    font-size: clamp(1.25rem, 3.5vw, 1.625rem);
+  }
+
+  .description {
+    margin-block: 0.4em 0.75em;
+    line-height: 1.4;
   }
 }
